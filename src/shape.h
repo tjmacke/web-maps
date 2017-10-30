@@ -30,6 +30,9 @@
 #define	ST_MULTIPATH	31
 #define	ST_LAST		33
 
+#define	SF_FHDR_SIZE	50	// 50 words = 100 bytes
+#define	SF_RIDX_SIZE	4	// 8 words = 8 bytes
+
 typedef	struct	sf_bbox_t	{
 	double	s_xmin;
 	double	s_ymin;
@@ -49,6 +52,11 @@ typedef	struct	sf_fhdr_t	{
 	double	s_mmax;
 } SF_FHDR_T;
 
+typedef	struct	sf_ridx_t	{
+	int	s_offset;	// 16 bit words!
+	int	s_length;	// 16 bit words!
+} SF_RIDX_T;
+
 int
 SHP_get_file_type(const char *);
 
@@ -58,7 +66,13 @@ SHP_read_fhdr(FILE *, SF_FHDR_T *);
 int
 SHP_read_bbox(FILE *, SF_BBOX_T *);
 
+int
+SHP_read_ridx(FILE *, SF_RIDX_T *);
+
 void
 SHP_dump_fhdr(FILE *, SF_FHDR_T *);
+
+void
+SHP_dump_ridx(FILE *, SF_RIDX_T *);
 
 #endif

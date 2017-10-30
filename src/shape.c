@@ -215,6 +215,32 @@ CLEAN_UP : ;
 	return err;
 }
 
+int
+SHP_read_ridx(FILE *fp, SF_RIDX_T *ridx)
+{
+	int	err = 0;
+
+	memset(ridx, 0, sizeof(SF_RIDX_T));
+
+	if(read_be_int(fp, &ridx->s_offset)){
+		LOG_ERROR("read_be_int failed for s_offset");
+		err = 1;
+		goto CLEAN_UP;
+	}
+	if(read_be_int(fp, &ridx->s_length)){
+		LOG_ERROR("read_be_int failed for s_length");
+		err = 1;
+		goto CLEAN_UP;
+	}
+
+CLEAN_UP : ;
+
+	if(err)
+		memset(ridx, 0, sizeof(SF_RIDX_T));
+
+	return err;
+}
+
 void
 SHP_dump_fhdr(FILE *fp, SF_FHDR_T *fhdr)
 {
@@ -229,7 +255,7 @@ SHP_dump_fhdr(FILE *fp, SF_FHDR_T *fhdr)
 	fprintf(fp, "\tl_file  = %d\n", fhdr->sl_file);
 	fprintf(fp, "\tversion = %d\n", fhdr->s_version);
 	fprintf(fp, "\ttype    = %d\n", fhdr->s_type);
-	fprintf(fp, "\bbox     = {\n");
+	fprintf(fp, "\tbbox     = {\n");
 	fprintf(fp, "\t\txmin   = %.15e\n", fhdr->s_bbox.s_xmin);
 	fprintf(fp, "\t\tymin   = %.15e\n", fhdr->s_bbox.s_ymin);
 	fprintf(fp, "\t\txmax   = %.15e\n", fhdr->s_bbox.s_xmax);
@@ -240,6 +266,17 @@ SHP_dump_fhdr(FILE *fp, SF_FHDR_T *fhdr)
 	fprintf(fp, "\tmmin    = %.15e\n", fhdr->s_mmin);
 	fprintf(fp, "\tmmax    = %.15e\n", fhdr->s_mmax);
 	fprintf(fp, "}\n");
+}
+
+void
+SHP_dump_ridx(FILE *fp, SF_RIDX_T *ridx)
+{
+
+	if(ridx == NULL){
+		fprintf(fp, "ridx is NULL\n");
+		return;
+	}
+	fprintf(fp, "%d\t%d\n", ridx->s_offset, ridx->s_length);
 }
 
 static	int

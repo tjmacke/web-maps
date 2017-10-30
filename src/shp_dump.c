@@ -22,6 +22,8 @@ main(int argc, char *argv[])
 	int	ftype = SFT_UNKNOWN;
 	FILE	*fp = NULL;
 	SF_FHDR_T	fhdr;
+	int	i, n_recs;
+	SF_RIDX_T	ridx;
 	int	err = 0;
 
 	a_stat = TJM_get_args(argc, argv, n_flags, flags, 1, 1, &args);
@@ -63,6 +65,22 @@ main(int argc, char *argv[])
 		SHP_dump_fhdr(stdout, &fhdr);
 		break;
 	case SFT_SHX :
+		if(SHP_read_fhdr(fp, &fhdr)){
+			LOG_ERROR("SHP_read_fhdr failed for %s", args->a_files[0]);
+			err = 1;
+			goto CLEAN_UP;
+		}
+		SHP_dump_fhdr(stdout, &fhdr);
+		n_recs = (fhdr.sl_file - SF_FHDR_SIZE) / SF_RIDX_SIZE;
+		for(i = 0; i < n_recs; i++){
+			if(SHP_read_ridx(fp, &ridx)){
+				LOG_ERROR("SHP_rad_ridx failed for record %d", i+1);
+				err = 1;
+				goto CLEAN_UP;
+			}
+			SHP_dump_ridx(stdout, &ridx);
+		}
+
 		break;
 	case SFT_DBF :
 		break;
