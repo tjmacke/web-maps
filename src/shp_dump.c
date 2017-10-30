@@ -21,6 +21,7 @@ main(int argc, char *argv[])
 	int	verbose = 0;
 	int	ftype = SFT_UNKNOWN;
 	FILE	*fp = NULL;
+	SF_FHDR_T	fhdr;
 	int	err = 0;
 
 	a_stat = TJM_get_args(argc, argv, n_flags, flags, 1, 1, &args);
@@ -41,7 +42,7 @@ main(int argc, char *argv[])
 
 	ftype = SHP_get_file_type(args->a_files[0]);
 	if(ftype == SFT_UNKNOWN){
-		LOG_ERROR("SHP_get_file_type failed");
+		LOG_ERROR("SHP_get_file_type failed for %s", args->a_files[0]);
 		err = 1;
 		goto CLEAN_UP;
 	}
@@ -54,6 +55,12 @@ main(int argc, char *argv[])
 
 	switch(ftype){
 	case SFT_SHP :
+		if(SHP_read_fhdr(fp, &fhdr)){
+			LOG_ERROR("SHP_read_fhdr failed for %s", args->a_files[0]);
+			err = 1;
+			goto CLEAN_UP;
+		}
+		SHP_dump_fhdr(stdout, &fhdr);
 		break;
 	case SFT_SHX :
 		break;
