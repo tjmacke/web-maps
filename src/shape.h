@@ -30,6 +30,14 @@
 #define	ST_MULTIPATH	31
 #define	ST_LAST		33
 
+// part types for multipatch
+#define	STP_TRI_STRIP	0
+#define	STP_TRI_FAN	1
+#define	STP_OUTER_RING	2
+#define	STP_INNER_RING	3
+#define	STP_FIRST_RING	4
+#define	STP_RING	5
+
 #define	SF_FHDR_SIZE	50	// 50 words = 100 bytes
 #define	SF_RIDX_SIZE	4	// 8 words = 8 bytes
 
@@ -41,6 +49,7 @@ typedef	struct	sf_bbox_t	{
 } SF_BBOX_T;
 
 typedef	struct	sf_fhdr_t	{
+	char	*s_fname;
 	int	s_magic;
 	int	sl_file;
 	int	s_version;
@@ -57,8 +66,35 @@ typedef	struct	sf_ridx_t	{
 	int	s_length;	// 16 bit words!
 } SF_RIDX_T;
 
+typedef	struct	sf_point_t	{
+	double	s_x;
+	double	s_y;
+} SF_POINT_T;
+
+typedef	struct	sf_shape_t	{
+	int	s_type;
+	SF_BBOX_T	s_bbox;
+	int	sn_parts;
+	int	sn_points;
+	int	*s_parts;
+	int	*s_ptypes;
+	SF_POINT_T	*s_points;
+	double	s_zmin;
+	double	s_zmax;
+	double	*s_zvals;
+	double	s_mmin;
+	double	s_mmax;
+	double	*s_mvals;
+} SF_SHAPE_T;
+
 int
 SHP_get_file_type(const char *);
+
+SF_FHDR_T	*
+SHP_new_fhdr(const char *);
+
+void
+SHP_delete_fhdr(SF_FHDR_T *);
 
 int
 SHP_read_fhdr(FILE *, SF_FHDR_T *);

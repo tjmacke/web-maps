@@ -21,9 +21,7 @@ main(int argc, char *argv[])
 	int	verbose = 0;
 	int	ftype = SFT_UNKNOWN;
 	FILE	*fp = NULL;
-	SF_FHDR_T	fhdr;
-	int	i, n_recs;
-	SF_RIDX_T	ridx;
+	SF_FHDR_T	*fhdr = NULL;
 	int	err = 0;
 
 	a_stat = TJM_get_args(argc, argv, n_flags, flags, 1, 1, &args);
@@ -37,10 +35,6 @@ main(int argc, char *argv[])
 
 	if(verbose > 1)
 		TJM_dump_args(stderr, args);
-
-	/*
-	   2. use the right code to dump the file
-	*/
 
 	ftype = SHP_get_file_type(args->a_files[0]);
 	if(ftype == SFT_UNKNOWN){
@@ -57,30 +51,37 @@ main(int argc, char *argv[])
 
 	switch(ftype){
 	case SFT_SHP :
-		if(SHP_read_fhdr(fp, &fhdr)){
-			LOG_ERROR("SHP_read_fhdr failed for %s", args->a_files[0]);
-			err = 1;
-			goto CLEAN_UP;
-		}
-		SHP_dump_fhdr(stdout, &fhdr);
-		break;
 	case SFT_SHX :
-		if(SHP_read_fhdr(fp, &fhdr)){
-			LOG_ERROR("SHP_read_fhdr failed for %s", args->a_files[0]);
+		fhdr = SHP_new_fhdr(args->a_files[0]);
+		if(fhdr == NULL){
+			LOG_ERROR("SHP_new_fhdr failed for %s", args->a_files[0]);
 			err = 1;
 			goto CLEAN_UP;
-		}
-		SHP_dump_fhdr(stdout, &fhdr);
-		n_recs = (fhdr.sl_file - SF_FHDR_SIZE) / SF_RIDX_SIZE;
-		for(i = 0; i < n_recs; i++){
-			if(SHP_read_ridx(fp, &ridx)){
-				LOG_ERROR("SHP_rad_ridx failed for record %d", i+1);
-				err = 1;
-				goto CLEAN_UP;
-			}
-			SHP_dump_ridx(stdout, &ridx);
 		}
 
+		if(SHP_read_fhdr(fp, fhdr)){
+			LOG_ERROR("SHP_read_fhdr failed for %s", args->a_files[0]);
+			err = 1;
+			goto CLEAN_UP;
+		}
+
+		SHP_dump_fhdr(stdout, fhdr);
+		if(ftype == SFT_SHP){
+			// TODO: fill this out!
+		}else{
+			int	i, n_recs;
+			SF_RIDX_T	ridx;
+
+			n_recs = (fhdr->sl_file - SF_FHDR_SIZE) / SF_RIDX_SIZE;
+			for(i = 0; i < n_recs; i++){
+				if(SHP_read_ridx(fp, &ridx)){
+					LOG_ERROR("SHP_rad_ridx failed for record %d", i+1);
+					err = 1;
+					goto CLEAN_UP;
+				}
+				SHP_dump_ridx(stdout, &ridx);
+			}
+		}
 		break;
 	case SFT_DBF :
 		break;
@@ -96,6 +97,9 @@ CLEAN_UP : ;
 
 	if(fp != NULL)
 		fclose(fp);
+
+	if(fhdr != NULL)
+		SHP_delete_fhdr(fhdr);
 
 	TJM_free_args(args);
 

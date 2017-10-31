@@ -71,14 +71,61 @@ CLEAN_UP : ;
 	return ftype;
 }
 
+SF_FHDR_T	*
+SHP_new_fhdr(const char *fname)
+{
+	SF_FHDR_T	*fhdr = NULL;
+	int	err = 0;
+
+	if(fname == NULL || *fname == '\0'){
+		LOG_ERROR("fname is NULL or empty");
+		err = 1;
+		goto CLEAN_UP;
+	}
+
+	fhdr = (SF_FHDR_T *)calloc((size_t)1, sizeof(SF_FHDR_T));
+	if(fhdr == NULL){
+		LOG_ERROR("can't allocate fhdr");
+		err = 1;
+		goto CLEAN_UP;
+	}
+
+	fhdr->s_fname = strdup(fname);
+	if(fhdr->s_fname == NULL){
+		LOG_ERROR("can't strdup fname");
+		err = 1;
+		goto CLEAN_UP;
+	}
+
+CLEAN_UP : ;
+
+	if(err){
+		SHP_delete_fhdr(fhdr);
+		fhdr = NULL;
+	}
+
+	return fhdr;
+}
+
+void
+SHP_delete_fhdr(SF_FHDR_T *fhdr)
+{
+
+	if(fhdr == NULL)
+		return;
+
+	if(fhdr->s_fname != NULL)
+		free(fhdr->s_fname);
+
+	free(fhdr);
+}
+
 int
 SHP_read_fhdr(FILE *fp, SF_FHDR_T *fhdr)
 {
 	int	ival, i, c;
 	double	dval;
 	int	err = 0;
-
-	memset(fhdr, 0, sizeof(SF_FHDR_T));
 
 	// values 1-7 are big endian
 	// read the magic number
@@ -171,10 +218,6 @@ SHP_read_fhdr(FILE *fp, SF_FHDR_T *fhdr)
 
 CLEAN_UP : ;
 
-	// prevent info leak
-	if(err)
-		memset(fhdr, 0, sizeof(SF_FHDR_T));
-
 	return err;
 }
 
@@ -220,8 +263,6 @@ SHP_read_ridx(FILE *fp, SF_RIDX_T *ridx)
 {
 	int	err = 0;
 
-	memset(ridx, 0, sizeof(SF_RIDX_T));
-
 	if(read_be_int(fp, &ridx->s_offset)){
 		LOG_ERROR("read_be_int failed for s_offset");
 		err = 1;
@@ -234,9 +275,6 @@ SHP_read_ridx(FILE *fp, SF_RIDX_T *ridx)
 	}
 
 CLEAN_UP : ;
-
-	if(err)
-		memset(ridx, 0, sizeof(SF_RIDX_T));
 
 	return err;
 }
@@ -251,6 +289,7 @@ SHP_dump_fhdr(FILE *fp, SF_FHDR_T *fhdr)
 	}
 
 	fprintf(fp, "fhdr = {\n");
+	fprintf(fp, "\tfname   = %s\n", fhdr->s_fname ? fhdr->s_fname : "NULL");
 	fprintf(fp, "\tmagic   = %d\n", fhdr->s_magic);
 	fprintf(fp, "\tl_file  = %d\n", fhdr->sl_file);
 	fprintf(fp, "\tversion = %d\n", fhdr->s_version);
