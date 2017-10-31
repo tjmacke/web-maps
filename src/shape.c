@@ -3,16 +3,8 @@
 #include <stdlib.h>
 
 #include "log.h"
+#include "file_io.h"
 #include "shape.h"
-
-static	int
-read_be_int(FILE *, int *);
-
-static	int
-read_le_int(FILE *, int *);
-
-static	int
-read_le_double(FILE *, double *);
 
 int
 SHP_get_file_type(const char *fname)
@@ -129,8 +121,8 @@ SHP_read_fhdr(FILE *fp, SF_FHDR_T *fhdr)
 
 	// values 1-7 are big endian
 	// read the magic number
-	if(read_be_int(fp, &ival)){
-		LOG_ERROR("read_be_int failed for magic number");
+	if(FIO_read_be_int4(fp, &ival)){
+		LOG_ERROR("FIO_read_be_int4 failed for magic number");
 		err = 1;
 		goto CLEAN_UP;
 	}
@@ -143,8 +135,8 @@ SHP_read_fhdr(FILE *fp, SF_FHDR_T *fhdr)
 
 	// The next 4 ints (20 bytes) must be 0, but are not used
 	for(i = 0; i < 5; i++){
-		if(read_be_int(fp, &ival)){
-			LOG_ERROR("read_be_int failed for unused value %d", i+1);
+		if(FIO_read_be_int4(fp, &ival)){
+			LOG_ERROR("FIO_read_be_int4 failed for unused value %d", i+1);
 			err = 1;
 			goto CLEAN_UP;
 		}
@@ -156,8 +148,8 @@ SHP_read_fhdr(FILE *fp, SF_FHDR_T *fhdr)
 	}
 
 	// get the file length
-	if(read_be_int(fp, &ival)){
-		LOG_ERROR("read_be_int failed for file length");
+	if(FIO_read_be_int4(fp, &ival)){
+		LOG_ERROR("FIO_read_be_int4 failed for file length");
 		err = 1;
 		goto CLEAN_UP;
 	}
@@ -165,8 +157,8 @@ SHP_read_fhdr(FILE *fp, SF_FHDR_T *fhdr)
 
 	// the remaining values are little endian
 	// get the version
-	if(read_le_int(fp, &ival)){
-		LOG_ERROR("read_le_int failed for version");
+	if(FIO_read_le_int4(fp, &ival)){
+		LOG_ERROR("FIO_read_le_int4 failed for version");
 		err = 1;
 		goto CLEAN_UP;
 	}
@@ -178,8 +170,8 @@ SHP_read_fhdr(FILE *fp, SF_FHDR_T *fhdr)
 	fhdr->s_version = ival;
 
 	// get the shape type
-	if(read_le_int(fp, &ival)){
-		LOG_ERROR("read_le_int failed for version");
+	if(FIO_read_le_int4(fp, &ival)){
+		LOG_ERROR("FIO_read_le_int4 failed for version");
 		err = 1;
 		goto CLEAN_UP;
 	}
@@ -192,25 +184,25 @@ SHP_read_fhdr(FILE *fp, SF_FHDR_T *fhdr)
 	}
 
 	// get the z range
-	if(read_le_double(fp, &fhdr->s_zmin)){
-		LOG_ERROR("read_le_double failed for zmin");
+	if(FIO_read_le_double(fp, &fhdr->s_zmin)){
+		LOG_ERROR("FIO_read_le_double failed for zmin");
 		err = 1;
 		goto CLEAN_UP;
 	}
-	if(read_le_double(fp, &fhdr->s_zmax)){
-		LOG_ERROR("read_le_double failed for zmax");
+	if(FIO_read_le_double(fp, &fhdr->s_zmax)){
+		LOG_ERROR("FIO_read_le_double failed for zmax");
 		err = 1;
 		goto CLEAN_UP;
 	}
 
 	// get the m range
-	if(read_le_double(fp, &fhdr->s_mmin)){
-		LOG_ERROR("read_le_double failed for mmin");
+	if(FIO_read_le_double(fp, &fhdr->s_mmin)){
+		LOG_ERROR("FIO_read_le_double failed for mmin");
 		err = 1;
 		goto CLEAN_UP;
 	}
-	if(read_le_double(fp, &fhdr->s_mmax)){
-		LOG_ERROR("read_le_double failed for mmax");
+	if(FIO_read_le_double(fp, &fhdr->s_mmax)){
+		LOG_ERROR("FIO_read_le_double failed for mmax");
 		err = 1;
 		goto CLEAN_UP;
 	}
@@ -228,23 +220,23 @@ SHP_read_bbox(FILE *fp, SF_BBOX_T *bbox)
 
 	memset(bbox, 0, sizeof(SF_BBOX_T));
 
-	if(read_le_double(fp, &bbox->s_xmin)){
-		LOG_ERROR("read_le_double failed for xmin");
+	if(FIO_read_le_double(fp, &bbox->s_xmin)){
+		LOG_ERROR("FIO_read_le_double failed for xmin");
 		err = 1;
 		goto CLEAN_UP;
 	}
-	if(read_le_double(fp, &bbox->s_ymin)){
-		LOG_ERROR("read_le_double failed for ymin");
+	if(FIO_read_le_double(fp, &bbox->s_ymin)){
+		LOG_ERROR("FIO_read_le_double failed for ymin");
 		err = 1;
 		goto CLEAN_UP;
 	}
-	if(read_le_double(fp, &bbox->s_xmax)){
-		LOG_ERROR("read_le_double failed for xmax");
+	if(FIO_read_le_double(fp, &bbox->s_xmax)){
+		LOG_ERROR("FIO_read_le_double failed for xmax");
 		err = 1;
 		goto CLEAN_UP;
 	}
-	if(read_le_double(fp, &bbox->s_ymax)){
-		LOG_ERROR("read_le_double failed for ymax");
+	if(FIO_read_le_double(fp, &bbox->s_ymax)){
+		LOG_ERROR("FIO_read_le_double failed for ymax");
 		err = 1;
 		goto CLEAN_UP;
 	}
@@ -263,13 +255,13 @@ SHP_read_ridx(FILE *fp, SF_RIDX_T *ridx)
 {
 	int	err = 0;
 
-	if(read_be_int(fp, &ridx->s_offset)){
-		LOG_ERROR("read_be_int failed for s_offset");
+	if(FIO_read_be_int4(fp, &ridx->s_offset)){
+		LOG_ERROR("FIO_read_be_int4 failed for s_offset");
 		err = 1;
 		goto CLEAN_UP;
 	}
-	if(read_be_int(fp, &ridx->s_length)){
-		LOG_ERROR("read_be_int failed for s_length");
+	if(FIO_read_be_int4(fp, &ridx->s_length)){
+		LOG_ERROR("FIO_read_be_int4 failed for s_length");
 		err = 1;
 		goto CLEAN_UP;
 	}
@@ -316,80 +308,4 @@ SHP_dump_ridx(FILE *fp, SF_RIDX_T *ridx)
 		return;
 	}
 	fprintf(fp, "%d\t%d\n", ridx->s_offset, ridx->s_length);
-}
-
-static	int
-read_be_int(FILE *fp, int *ival)
-{
-	int	i, c;
-	int	err = 0;
-
-	for(*ival = i = 0; i < 4; i++){
-		if((c = getc(fp)) == EOF){
-			LOG_ERROR("short integer: %d bytes, need 4", i);
-			err = 1;
-			goto CLEAN_UP;
-		}
-		*ival = (*ival << 8) | (c & 0xff);
-	}
-
-CLEAN_UP : ;
-
-	if(err)
-		*ival = 0;
-
-	return err;
-}
-
-static	int
-read_le_int(FILE *fp, int *ival)
-{
-	int	i, c;
-	int	err = 0;
-
-	for(*ival = i = 0; i < 4; i++){
-		if((c = getc(fp)) == EOF){
-			LOG_ERROR("short integer: %d bytes, need 4", i);
-			err = 1;
-			goto CLEAN_UP;
-		}
-		*ival = *ival | ((c & 0xff) << (i * 8));
-	}
-
-CLEAN_UP : ;
-
-	if(err)
-		*ival = 0;
-
-	return err;
-}
-
-static	int
-read_le_double(FILE *fp, double *dval)
-{
-	int	i, c;
-	union {
-		char	v_str[8];
-		double	v_double;
-	} c2d;
-	int	err = 0;
-
-	*dval = 0;
-
-	for(c2d.v_double = 0, i = 0; i < 8; i++){
-		if((c = getc(fp)) == EOF){
-			LOG_ERROR("short double: %d bytes, need 8", i);
-			err = 1;
-			goto CLEAN_UP;
-		}
-		c2d.v_str[i] = (c & 0xff);
-	}
-	*dval = c2d.v_double;
-
-CLEAN_UP : ;
-
-	if(err)
-		*dval = 0;
-
-	return err;
 }

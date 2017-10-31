@@ -5,6 +5,7 @@
 #include "log.h"
 #include "args.h"
 #include "shape.h"
+#include "dbase.h"
 
 static	ARGS_T	*args;
 static	FLAG_T	flags[] = {
@@ -21,7 +22,8 @@ main(int argc, char *argv[])
 	int	verbose = 0;
 	int	ftype = SFT_UNKNOWN;
 	FILE	*fp = NULL;
-	SF_FHDR_T	*fhdr = NULL;
+	SF_FHDR_T	*shdr = NULL;
+	DBF_FHDR_T	*dhdr = NULL;
 	int	err = 0;
 
 	a_stat = TJM_get_args(argc, argv, n_flags, flags, 1, 1, &args);
@@ -52,27 +54,27 @@ main(int argc, char *argv[])
 	switch(ftype){
 	case SFT_SHP :
 	case SFT_SHX :
-		fhdr = SHP_new_fhdr(args->a_files[0]);
-		if(fhdr == NULL){
+		shdr = SHP_new_fhdr(args->a_files[0]);
+		if(shdr == NULL){
 			LOG_ERROR("SHP_new_fhdr failed for %s", args->a_files[0]);
 			err = 1;
 			goto CLEAN_UP;
 		}
 
-		if(SHP_read_fhdr(fp, fhdr)){
+		if(SHP_read_fhdr(fp, shdr)){
 			LOG_ERROR("SHP_read_fhdr failed for %s", args->a_files[0]);
 			err = 1;
 			goto CLEAN_UP;
 		}
 
-		SHP_dump_fhdr(stdout, fhdr);
+		SHP_dump_fhdr(stdout, shdr);
 		if(ftype == SFT_SHP){
 			// TODO: fill this out!
 		}else{
 			int	i, n_recs;
 			SF_RIDX_T	ridx;
 
-			n_recs = (fhdr->sl_file - SF_FHDR_SIZE) / SF_RIDX_SIZE;
+			n_recs = (shdr->sl_file - SF_FHDR_SIZE) / SF_RIDX_SIZE;
 			for(i = 0; i < n_recs; i++){
 				if(SHP_read_ridx(fp, &ridx)){
 					LOG_ERROR("SHP_rad_ridx failed for record %d", i+1);
@@ -84,6 +86,18 @@ main(int argc, char *argv[])
 		}
 		break;
 	case SFT_DBF :
+		dhdr = DBF_new_fhdr();
+		if(dhdr == NULL){
+			LOG_ERROR("DBF_new_fhdr failed for %s", args->a_files[0]);
+			err = 1;
+			goto CLEAN_UP;
+		}
+		if(DBF_read_fhdr(fp, dhdr)){
+			LOG_ERROR("DBF_read_fhdr failed for %s", args->a_files[0]);
+			err = 1;
+			goto CLEAN_UP;
+		}
+		DBF_dump_fhdr(stdout, dhdr);
 		break;
 	case SFT_PRJ :
 		break;
@@ -98,8 +112,11 @@ CLEAN_UP : ;
 	if(fp != NULL)
 		fclose(fp);
 
-	if(fhdr != NULL)
-		SHP_delete_fhdr(fhdr);
+	if(shdr != NULL)
+		SHP_delete_fhdr(shdr);
+
+	if(dhdr != NULL)
+		DBF_delete_fhdr(dhdr);
 
 	TJM_free_args(args);
 
