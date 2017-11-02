@@ -38,19 +38,37 @@ typedef	struct	dbf_field_t {
 } DBF_FIELD_T;
 
 typedef	struct	dbase_t	{
+	char	*d_fname;
 	DBF_FHDR_T	*d_fhdr;
+	int	dn_fields;
+	DBF_FIELD_T	**d_fields;
 } DBASE_T;
 
-DBF_FHDR_T	*
-DBF_new_fhdr(void);
-
-int
-DBF_read_fhdr(FILE *, DBF_FHDR_T *);
+DBASE_T	*
+DBF_new_dbase(const char *);
 
 void
-DBF_dump_fhdr(FILE *, DBF_FHDR_T *);
+DBF_delete_dbase(DBASE_T *);
+
+int
+DBF_read_dbase(FILE *, DBASE_T *);
+
+void
+DBF_dump_dbase(FILE *, DBASE_T *, int);
+
+DBF_FHDR_T	*
+DBF_read_fhdr(FILE *);
 
 void
 DBF_delete_fhdr(DBF_FHDR_T *);
+
+void
+DBF_dump_fhdr(FILE *, DBF_FHDR_T *, const char *);
+
+DBF_FIELD_T	*
+DBF_read_field(FILE *);
+
+void
+DBF_dump_field(FILE *, DBF_FIELD_T *, int, const char *);
 
 #endif

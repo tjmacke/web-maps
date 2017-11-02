@@ -23,7 +23,8 @@ main(int argc, char *argv[])
 	int	ftype = SFT_UNKNOWN;
 	FILE	*fp = NULL;
 	SF_FHDR_T	*shdr = NULL;
-	DBF_FHDR_T	*dhdr = NULL;
+	DBASE_T	*dbase = NULL;
+	int	n_fields;
 	int	err = 0;
 
 	a_stat = TJM_get_args(argc, argv, n_flags, flags, 1, 1, &args);
@@ -86,18 +87,18 @@ main(int argc, char *argv[])
 		}
 		break;
 	case SFT_DBF :
-		dhdr = DBF_new_fhdr();
-		if(dhdr == NULL){
-			LOG_ERROR("DBF_new_fhdr failed for %s", args->a_files[0]);
+		dbase = DBF_new_dbase(args->a_files[0]);
+		if(dbase == NULL){
+			LOG_ERROR("DBF_new_dbase failed for %s", args->a_files[0]);
 			err = 1;
 			goto CLEAN_UP;
 		}
-		if(DBF_read_fhdr(fp, dhdr)){
-			LOG_ERROR("DBF_read_fhdr failed for %s", args->a_files[0]);
+		if(DBF_read_dbase(fp, dbase)){
+			LOG_ERROR("DBF_read_dbase failed for %s", args->a_files[0]);
 			err = 1;
 			goto CLEAN_UP;
 		}
-		DBF_dump_fhdr(stdout, dhdr);
+		DBF_dump_dbase(stdout, dbase, verbose);
 		break;
 	case SFT_PRJ :
 		break;
@@ -115,8 +116,8 @@ CLEAN_UP : ;
 	if(shdr != NULL)
 		SHP_delete_fhdr(shdr);
 
-	if(dhdr != NULL)
-		DBF_delete_fhdr(dhdr);
+	if(dbase != NULL)
+		DBF_delete_dbase(dbase);
 
 	TJM_free_args(args);
 
