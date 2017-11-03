@@ -22,7 +22,7 @@ main(int argc, char *argv[])
 	int	verbose = 0;
 	int	ftype = SFT_UNKNOWN;
 	FILE	*fp = NULL;
-	SF_FHDR_T	*shdr = NULL;
+	SF_FHDR_T	*fhdr = NULL;
 	DBASE_T	*dbase = NULL;
 	int	n_fields;
 	int	err = 0;
@@ -55,27 +55,27 @@ main(int argc, char *argv[])
 	switch(ftype){
 	case SFT_SHP :
 	case SFT_SHX :
-		shdr = SHP_new_fhdr(args->a_files[0]);
-		if(shdr == NULL){
+		fhdr = SHP_new_fhdr(args->a_files[0]);
+		if(fhdr == NULL){
 			LOG_ERROR("SHP_new_fhdr failed for %s", args->a_files[0]);
 			err = 1;
 			goto CLEAN_UP;
 		}
 
-		if(SHP_read_fhdr(fp, shdr)){
+		if(SHP_read_fhdr(fp, fhdr)){
 			LOG_ERROR("SHP_read_fhdr failed for %s", args->a_files[0]);
 			err = 1;
 			goto CLEAN_UP;
 		}
 
-		SHP_dump_fhdr(stdout, shdr);
+		SHP_dump_fhdr(stdout, fhdr);
 		if(ftype == SFT_SHP){
 			// TODO: fill this out!
 		}else{
 			int	i, n_recs;
 			SF_RIDX_T	ridx;
 
-			n_recs = (shdr->sl_file - SF_FHDR_SIZE) / SF_RIDX_SIZE;
+			n_recs = (fhdr->sl_file - SF_FHDR_SIZE) / SF_RIDX_SIZE;
 			for(i = 0; i < n_recs; i++){
 				if(SHP_read_ridx(fp, &ridx)){
 					LOG_ERROR("SHP_rad_ridx failed for record %d", i+1);
@@ -113,8 +113,8 @@ CLEAN_UP : ;
 	if(fp != NULL)
 		fclose(fp);
 
-	if(shdr != NULL)
-		SHP_delete_fhdr(shdr);
+	if(fhdr != NULL)
+		SHP_delete_fhdr(fhdr);
 
 	if(dbase != NULL)
 		DBF_delete_dbase(dbase);

@@ -39,9 +39,11 @@ typedef	struct	dbf_field_t {
 
 typedef	struct	dbase_t	{
 	char	*d_fname;
+	size_t	dl_file;
 	DBF_FHDR_T	*d_fhdr;
 	int	dn_fields;
 	DBF_FIELD_T	**d_fields;
+	int	dn_recs;
 } DBASE_T;
 
 DBASE_T	*
@@ -69,6 +71,6 @@ DBF_FIELD_T	*
 DBF_read_field(FILE *);
 
 void
-DBF_dump_field(FILE *, DBF_FIELD_T *, int, const char *);
+DBF_dump_field(FILE *, DBF_FIELD_T *, int, int, const char *);
 
 #endif

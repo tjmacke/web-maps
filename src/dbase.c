@@ -71,7 +71,10 @@ int
 DBF_read_dbase(FILE *fp, DBASE_T *dbase)
 {
 	int	i, c;
+	int	foff;
 	DBF_FIELD_T	*fldp = NULL;
+	char	*rbuf = NULL;
+	int	n_rbuf;
 	int	err = 0;
 
 	dbase->d_fhdr = DBF_read_fhdr(fp);
@@ -87,13 +90,15 @@ DBF_read_dbase(FILE *fp, DBASE_T *dbase)
 		err = 1;
 		goto CLEAN_UP;
 	}
-	for(i = 0; i < dbase->dn_fields; i++){
+	for(foff= i = 0; i < dbase->dn_fields; i++){
 		fldp = DBF_read_field(fp);
 		if(fldp == NULL){
 			LOG_ERROR("DBF_read_field failed for field %d", i+1);
 			err = 1;
 			goto CLEAN_UP;
 		}
+		fldp->d_addr = foff;
+		foff += fldp->d_length;
 		dbase->d_fields[i] = fldp;
 	}
 	if((c = getc(fp)) == EOF){
@@ -106,7 +111,19 @@ DBF_read_dbase(FILE *fp, DBASE_T *dbase)
 		goto CLEAN_UP;
 	}
 
+	rbuf = (char *)malloc((dbase->d_fhdr->dl_rec+1) * sizeof(char));
+	if(rbuf == NULL){
+		LOG_ERROR("can't allocate rbuf");
+		err = 1;
+		goto CLEAN_UP;
+	}
+	for(i = 0; i < dbase->dn_recs; i++){
+	}
+
 CLEAN_UP : ;
+
+	if(rbuf != NULL)
+		free(rbuf);
 
 	return err;
 }
@@ -127,7 +144,7 @@ DBF_dump_dbase(FILE *fp, DBASE_T *dbase, int verbose)
 	fprintf(fp, "\tn_fields = %d\n", dbase->dn_fields);
 	fprintf(fp, "\tfields = {\n");
 	for(i = 0; i < dbase->dn_fields; i++)
-		DBF_dump_field(fp, dbase->d_fields[i], i+1, "\t\t");
+		DBF_dump_field(fp, dbase->d_fields[i], verbose, i+1, "\t\t");
 	fprintf(fp, "\t}\n");
 	fprintf(fp, "}\n");
 }
@@ -246,7 +263,7 @@ CLEAN_UP : ;
 }
 
 void
-DBF_dump_field(FILE *fp, DBF_FIELD_T *fldp, int fnum, const char *indent)
+DBF_dump_field(FILE *fp, DBF_FIELD_T *fldp, int verbose, int fnum, const char *indent)
 {
 
 	if(fldp == NULL){
@@ -254,11 +271,15 @@ DBF_dump_field(FILE *fp, DBF_FIELD_T *fldp, int fnum, const char *indent)
 		return;
 	}
 
-	fprintf(fp, "%sfield = %d {\n", indent ? indent : "", fnum);
-	fprintf(fp, "%s\tname      = %s\n", indent ? indent : "", fldp->d_name);
-	fprintf(fp, "%s\ttype      = %c\n", indent ? indent : "", fldp->d_type);
-	fprintf(fp, "%s\taddr      = %d\n", indent ? indent : "", fldp->d_addr);
-	fprintf(fp, "%s\tlength    = %d\n", indent ? indent : "", fldp->d_length);
-	fprintf(fp, "%s\tdec_count = %d\n", indent ? indent : "", fldp->d_dec_count);
-	fprintf(fp, "%s}\n", indent ? indent : "");
+	if(verbose){
+		fprintf(fp, "%sfield = %d {\n", indent ? indent : "", fnum);
+		fprintf(fp, "%s\tname      = %s\n", indent ? indent : "", fldp->d_name);
+		fprintf(fp, "%s\ttype      = %c\n", indent ? indent : "", fldp->d_type);
+		fprintf(fp, "%s\taddr      = %d\n", indent ? indent : "", fldp->d_addr);
+		fprintf(fp, "%s\tlength    = %d\n", indent ? indent : "", fldp->d_length);
+		fprintf(fp, "%s\tdec_count = %d\n", indent ? indent : "", fldp->d_dec_count);
+		fprintf(fp, "%s}\n", indent ? indent : "");
+	}else
+		fprintf(fp, "%s%d: %s, %c, %d, %d, %d\n", indent ? indent : "", fnum,
+			fldp->d_name, fldp->d_type, fldp->d_addr, fldp->d_length, fldp->d_dec_count);
 }
