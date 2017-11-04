@@ -23,7 +23,7 @@ main(int argc, char *argv[])
 	int	ftype = SFT_UNKNOWN;
 	FILE	*fp = NULL;
 	SF_FHDR_T	*fhdr = NULL;
-	DBASE_T	*dbase = NULL;
+	DBF_META_T	*dbm = NULL;
 	int	n_fields;
 	int	err = 0;
 
@@ -87,18 +87,23 @@ main(int argc, char *argv[])
 		}
 		break;
 	case SFT_DBF :
-		dbase = DBF_new_dbase(args->a_files[0]);
-		if(dbase == NULL){
-			LOG_ERROR("DBF_new_dbase failed for %s", args->a_files[0]);
+		// TODO: refactor.
+		// 1. init a DBASE_T
+		// 2. read the file header into a struct, 
+		// 3. read the fieldinfo into a struct,
+		// 4. read the current rec into a buf, then dump it.
+		dbm = DBF_new_dbf_meta(args->a_files[0]);
+		if(dbm == NULL){
+			LOG_ERROR("DBF_new_dbf_meta failed for %s", args->a_files[0]);
 			err = 1;
 			goto CLEAN_UP;
 		}
-		if(DBF_read_dbase(fp, dbase)){
-			LOG_ERROR("DBF_read_dbase failed for %s", args->a_files[0]);
+		if(DBF_read_dbf_meta(fp, dbm)){
+			LOG_ERROR("DBF_read_dbf_meta failed for %s", args->a_files[0]);
 			err = 1;
 			goto CLEAN_UP;
 		}
-		DBF_dump_dbase(stdout, dbase, verbose);
+		DBF_dump_dbf_meta(stdout, dbm, verbose);
 		break;
 	case SFT_PRJ :
 		break;
@@ -116,8 +121,8 @@ CLEAN_UP : ;
 	if(fhdr != NULL)
 		SHP_delete_fhdr(fhdr);
 
-	if(dbase != NULL)
-		DBF_delete_dbase(dbase);
+	if(dbm != NULL)
+		DBF_delete_dbf_meta(dbm);
 
 	TJM_free_args(args);
 

@@ -5,10 +5,10 @@
 #include "log.h"
 #include "dbase.h"
 
-DBASE_T	*
-DBF_new_dbase(const char *fname)
+DBF_META_T	*
+DBF_new_dbf_meta(const char *fname)
 {
-	DBASE_T	*dbase = NULL;
+	DBF_META_T	*dbm = NULL;
 	int	err = 0;
 
 	if(fname == NULL || *fname == '\0'){
@@ -17,15 +17,15 @@ DBF_new_dbase(const char *fname)
 		goto CLEAN_UP;
 	}
 
-	dbase = (DBASE_T *)calloc((size_t)1, sizeof(DBASE_T));
-	if(dbase == NULL){
-		LOG_ERROR("can't allocate dbase");
+	dbm = (DBF_META_T *)calloc((size_t)1, sizeof(DBF_META_T));
+	if(dbm == NULL){
+		LOG_ERROR("can't allocate dbm");
 		err = 1;
 		goto CLEAN_UP;
 	}
 
-	dbase->d_fname = strdup(fname);
-	if(dbase->d_fname == NULL){
+	dbm->d_fname = strdup(fname);
+	if(dbm->d_fname == NULL){
 		LOG_ERROR("can't strdup fname");
 		err = 1;
 		goto CLEAN_UP;
@@ -34,63 +34,61 @@ DBF_new_dbase(const char *fname)
 CLEAN_UP : ;
 
 	if(err){
-		DBF_delete_dbase(dbase);
-		dbase = NULL;
+		DBF_delete_dbf_meta(dbm);
+		dbm = NULL;
 	}
 
-	return dbase;
+	return dbm;
 }
 
 void
-DBF_delete_dbase(DBASE_T *dbase)
+DBF_delete_dbf_meta(DBF_META_T *dbm)
 {
 
-	if(dbase == NULL)
+	if(dbm == NULL)
 		return;
 
-	if(dbase->d_fname != NULL)
-		free(dbase->d_fname);
+	if(dbm->d_fname != NULL)
+		free(dbm->d_fname);
 
-	if(dbase->d_fhdr != NULL)
-		DBF_delete_fhdr(dbase->d_fhdr);
+	if(dbm->d_fhdr != NULL)
+		DBF_delete_fhdr(dbm->d_fhdr);
 
-	if(dbase->d_fields != NULL){
+	if(dbm->d_fields != NULL){
 		int	i;
-		for(i = 0; i < dbase->dn_fields; i++){
-			if(dbase->d_fields[i] != NULL){
-				free(dbase->d_fields[i]);
+		for(i = 0; i < dbm->dn_fields; i++){
+			if(dbm->d_fields[i] != NULL){
+				free(dbm->d_fields[i]);
 			}
 		}
-		free(dbase->d_fields);
+		free(dbm->d_fields);
 	}
 
-	free(dbase);
+	free(dbm);
 }
 
 int
-DBF_read_dbase(FILE *fp, DBASE_T *dbase)
+DBF_read_dbf_meta(FILE *fp, DBF_META_T *dbm)
 {
 	int	i, c;
 	int	foff;
 	DBF_FIELD_T	*fldp = NULL;
-	char	*rbuf = NULL;
-	int	n_rbuf;
 	int	err = 0;
 
-	dbase->d_fhdr = DBF_read_fhdr(fp);
-	if(dbase->d_fhdr == NULL){
+	dbm->d_fhdr = DBF_read_fhdr(fp);
+	if(dbm->d_fhdr == NULL){
 		LOG_ERROR("DBF_read_fhdr failed");
 		err = 1;
 		goto CLEAN_UP;
 	}
-	dbase->dn_fields = (dbase->d_fhdr->dl_hdr - DBF_FHDR_SIZE - 1) / DBF_FIELD_SIZE;
-	dbase->d_fields = (DBF_FIELD_T **)calloc((size_t)dbase->dn_fields, sizeof(DBF_FIELD_T *));
-	if(dbase->d_fields == NULL){
+	dbm->dn_fields = (dbm->d_fhdr->dl_hdr - DBF_FHDR_SIZE - 1) / DBF_FIELD_SIZE;
+	dbm->d_fields = (DBF_FIELD_T **)calloc((size_t)dbm->dn_fields, sizeof(DBF_FIELD_T *));
+	if(dbm->d_fields == NULL){
 		LOG_ERROR("can't allocate d_fields");
 		err = 1;
 		goto CLEAN_UP;
 	}
-	for(foff= i = 0; i < dbase->dn_fields; i++){
+	for(foff= i = 0; i < dbm->dn_fields; i++){
 		fldp = DBF_read_field(fp);
 		if(fldp == NULL){
 			LOG_ERROR("DBF_read_field failed for field %d", i+1);
@@ -99,7 +97,7 @@ DBF_read_dbase(FILE *fp, DBASE_T *dbase)
 		}
 		fldp->d_addr = foff;
 		foff += fldp->d_length;
-		dbase->d_fields[i] = fldp;
+		dbm->d_fields[i] = fldp;
 	}
 	if((c = getc(fp)) == EOF){
 		LOG_ERROR("missing header terminator");
@@ -111,40 +109,28 @@ DBF_read_dbase(FILE *fp, DBASE_T *dbase)
 		goto CLEAN_UP;
 	}
 
-	rbuf = (char *)malloc((dbase->d_fhdr->dl_rec+1) * sizeof(char));
-	if(rbuf == NULL){
-		LOG_ERROR("can't allocate rbuf");
-		err = 1;
-		goto CLEAN_UP;
-	}
-	for(i = 0; i < dbase->dn_recs; i++){
-	}
-
 CLEAN_UP : ;
-
-	if(rbuf != NULL)
-		free(rbuf);
 
 	return err;
 }
 
 void
-DBF_dump_dbase(FILE *fp, DBASE_T *dbase, int verbose)
+DBF_dump_dbf_meta(FILE *fp, DBF_META_T *dbm, int verbose)
 {
 	int	i;
 
-	if(dbase == NULL){
-		fprintf(fp, "dbase is NULL\n");
+	if(dbm == NULL){
+		fprintf(fp, "dbm is NULL\n");
 		return;
 	}
 
-	fprintf(fp, "dbase = {\n");
-	fprintf(fp, "\tfname   = %s\n", dbase->d_fname ? dbase->d_fname : "NULL");
-	DBF_dump_fhdr(fp, dbase->d_fhdr, "\t");
-	fprintf(fp, "\tn_fields = %d\n", dbase->dn_fields);
+	fprintf(fp, "dbf_meta = {\n");
+	fprintf(fp, "\tfname   = %s\n", dbm->d_fname ? dbm->d_fname : "NULL");
+	DBF_dump_fhdr(fp, dbm->d_fhdr, "\t");
+	fprintf(fp, "\tn_fields = %d\n", dbm->dn_fields);
 	fprintf(fp, "\tfields = {\n");
-	for(i = 0; i < dbase->dn_fields; i++)
-		DBF_dump_field(fp, dbase->d_fields[i], verbose, i+1, "\t\t");
+	for(i = 0; i < dbm->dn_fields; i++)
+		DBF_dump_field(fp, dbm->d_fields[i], verbose, i+1, "\t\t");
 	fprintf(fp, "\t}\n");
 	fprintf(fp, "}\n");
 }
@@ -282,4 +268,22 @@ DBF_dump_field(FILE *fp, DBF_FIELD_T *fldp, int verbose, int fnum, const char *i
 	}else
 		fprintf(fp, "%s%d: %s, %c, %d, %d, %d\n", indent ? indent : "", fnum,
 			fldp->d_name, fldp->d_type, fldp->d_addr, fldp->d_length, fldp->d_dec_count);
+}
+
+void
+DBF_dump_rec(FILE *fp, DBF_META_T *dbm, int verbose, int trim, int rnum, const char *rbuf)
+{
+
+	if(dbm == NULL){
+		fprintf(fp, "dbm is NULL\n");
+		return;
+	}
+
+	if(rbuf == NULL){
+		fprintf(fp, "rbuf is NULL\n");
+		return;
+	}
+
+	fprintf(fp, "rec = %d {\n", rnum);
+	fprintf(fp, "}\n");
 }

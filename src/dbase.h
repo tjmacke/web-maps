@@ -37,26 +37,25 @@ typedef	struct	dbf_field_t {
 	int	d_dec_count;
 } DBF_FIELD_T;
 
-typedef	struct	dbase_t	{
+typedef	struct	dbf_meta_t	{
 	char	*d_fname;
 	size_t	dl_file;
 	DBF_FHDR_T	*d_fhdr;
 	int	dn_fields;
 	DBF_FIELD_T	**d_fields;
-	int	dn_recs;
-} DBASE_T;
+} DBF_META_T;
 
-DBASE_T	*
-DBF_new_dbase(const char *);
+DBF_META_T	*
+DBF_new_dbf_meta(const char *);
 
 void
-DBF_delete_dbase(DBASE_T *);
+DBF_delete_dbf_meta(DBF_META_T *);
 
 int
-DBF_read_dbase(FILE *, DBASE_T *);
+DBF_read_dbf_meta(FILE *, DBF_META_T *);
 
 void
-DBF_dump_dbase(FILE *, DBASE_T *, int);
+DBF_dump_dbf_meta(FILE *, DBF_META_T *, int);
 
 DBF_FHDR_T	*
 DBF_read_fhdr(FILE *);
@@ -72,5 +71,8 @@ DBF_read_field(FILE *);
 
 void
 DBF_dump_field(FILE *, DBF_FIELD_T *, int, int, const char *);
+
+void
+DBF_dump_rec(FILE *, DBF_META_T *, int, int, int, const char *);
 
 #endif
