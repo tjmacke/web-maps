@@ -103,8 +103,8 @@ DBF_read_dbf_meta(FILE *fp, DBF_META_T *dbm)
 		LOG_ERROR("missing header terminator");
 		err = 1;
 		goto CLEAN_UP;
-	}else if(c != '\x0d'){
-		LOG_ERROR("bad header terminator %c, expect 0x%02x", c, '\x0d');
+	}else if(c != DBF_FHDR_TERM){
+		LOG_ERROR("bad header terminator %c, expect 0x%02x", c, DBF_FHDR_TERM);
 		err = 1;
 		goto CLEAN_UP;
 	}
@@ -285,5 +285,6 @@ DBF_dump_rec(FILE *fp, DBF_META_T *dbm, int verbose, int trim, int rnum, const c
 	}
 
 	fprintf(fp, "rec = %d {\n", rnum);
+	fprintf(fp, "\tdeleted = '%c'\n", *rbuf);
 	fprintf(fp, "}\n");
 }

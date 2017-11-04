@@ -10,7 +10,8 @@
 static	ARGS_T	*args;
 static	FLAG_T	flags[] = {
 	{"-help", 1, AVK_NONE, AVT_BOOL, "0", "Use -help to print this message."},
-	{"-v",    1, AVK_OPT,  AVT_UINT, "0", "Use -v to set the verbosity to 1; use -v=N to set it to N."}
+	{"-v",    1, AVK_OPT,  AVT_UINT, "0", "Use -v to set the verbosity to 1; use -v=N to set it to N."},
+	{"-trim", 1, AVK_NONE, AVT_BOOL, "0", "Use -term to remove trailing spaces when dumping records."}
 };
 static	int	n_flags = sizeof(flags)/sizeof(flags[0]);
 
@@ -20,11 +21,16 @@ main(int argc, char *argv[])
 	int	a_stat = AS_OK;
 	const ARG_VAL_T	*a_val;
 	int	verbose = 0;
+	int	trim = 0;
 	int	ftype = SFT_UNKNOWN;
 	FILE	*fp = NULL;
 	SF_FHDR_T	*fhdr = NULL;
 	DBF_META_T	*dbm = NULL;
-	int	n_fields;
+	int	i, c;
+	char	*rbuf = NULL;
+	size_t	s_rbuf = 0;
+	ssize_t	l_rbuf;
+	
 	int	err = 0;
 
 	a_stat = TJM_get_args(argc, argv, n_flags, flags, 1, 1, &args);
@@ -35,6 +41,9 @@ main(int argc, char *argv[])
 
 	a_val = TJM_get_flag_value(args, "-v", AVT_UINT);
 	verbose = a_val->av_value.v_int;
+
+	a_val = TJM_get_flag_value(args, "-trim", AVT_BOOL);
+	trim = a_val->av_value.v_int;
 
 	if(verbose > 1)
 		TJM_dump_args(stderr, args);
@@ -78,7 +87,7 @@ main(int argc, char *argv[])
 			n_recs = (fhdr->sl_file - SF_FHDR_SIZE) / SF_RIDX_SIZE;
 			for(i = 0; i < n_recs; i++){
 				if(SHP_read_ridx(fp, &ridx)){
-					LOG_ERROR("SHP_rad_ridx failed for record %d", i+1);
+					LOG_ERROR("SHP_read_ridx failed for record %d", i+1);
 					err = 1;
 					goto CLEAN_UP;
 				}
@@ -87,11 +96,6 @@ main(int argc, char *argv[])
 		}
 		break;
 	case SFT_DBF :
-		// TODO: refactor.
-		// 1. init a DBASE_T
-		// 2. read the file header into a struct, 
-		// 3. read the fieldinfo into a struct,
-		// 4. read the current rec into a buf, then dump it.
 		dbm = DBF_new_dbf_meta(args->a_files[0]);
 		if(dbm == NULL){
 			LOG_ERROR("DBF_new_dbf_meta failed for %s", args->a_files[0]);
@@ -104,6 +108,33 @@ main(int argc, char *argv[])
 			goto CLEAN_UP;
 		}
 		DBF_dump_dbf_meta(stdout, dbm, verbose);
+		s_rbuf = dbm->d_fhdr->dl_rec + 1;
+		rbuf = (char *)malloc(s_rbuf * sizeof(char));
+		if(rbuf == NULL){
+			LOG_ERROR("can't allocate rbuf");
+			err = 1;
+			goto CLEAN_UP;
+		}
+		for(i = 0; i < dbm->d_fhdr->dn_recs; i++){
+			l_rbuf = fread(rbuf, sizeof(char), dbm->d_fhdr->dl_rec, fp);
+			if(l_rbuf != dbm->d_fhdr->dl_rec){
+				LOG_ERROR("%s:%7d: bad read: got %ld, need %d", args->a_files[0], i+1, l_rbuf, dbm->d_fhdr->dl_rec);
+				err = 1;
+				goto CLEAN_UP;
+			}
+			rbuf[l_rbuf] = '\0';	// records are ascii
+			DBF_dump_rec(stdout, dbm, verbose, trim, i+1, rbuf);
+		}
+		c = getc(fp);
+		if(c == EOF){
+			LOG_ERROR("%s: missing eof char", args->a_files[0]);
+			err = 1;
+			goto CLEAN_UP;
+		}else if(c != DBF_EOF){
+			LOG_ERROR("%s: bad eof char: 0x%02x, need 0x%02x", args->a_files[0], c & 0xff, DBF_EOF);
+			err = 1;
+			goto CLEAN_UP;
+		}
 		break;
 	case SFT_PRJ :
 		break;
@@ -114,6 +145,9 @@ main(int argc, char *argv[])
 	}
 
 CLEAN_UP : ;
+
+	if(rbuf != NULL)
+		free(rbuf);
 
 	if(fp != NULL)
 		fclose(fp);

@@ -10,6 +10,10 @@
 #define	DBF_FHDR_LREC		10
 #define	DBF_FHDR_ENCRYPTED	15
 #define	DBF_FHDR_LANG_INFO	29
+#define	DBF_FHDR_TERM		'\x0d'
+#define	DBF_REC_GOOD		' '
+#define	DBF_REC_DELETED		'*'
+#define	DBF_EOF			'\x1a'
 
 #define	DBF_FIELD_SIZE		32
 // offsets for fields that we use
