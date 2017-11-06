@@ -26,7 +26,7 @@ main(int argc, char *argv[])
 	FILE	*fp = NULL;
 	SF_FHDR_T	*fhdr = NULL;
 	DBF_META_T	*dbm = NULL;
-	int	i, c;
+	int	i, c, h_pkey_cands;
 	char	*rbuf = NULL;
 	size_t	s_rbuf = 0;
 	ssize_t	l_rbuf;
@@ -96,6 +96,12 @@ main(int argc, char *argv[])
 		}
 		break;
 	case SFT_DBF :
+		// TODO: this is a mess!
+		// 	I want to find possible primary keys, ie any integer field
+		//	whose values are the the same as the record numbers.
+		//	And to determine this, I have to scan all the record data.
+		//	which means that some pkey_cand fields will be marked -1 for
+		//	not yet decided
 		dbm = DBF_new_dbf_meta(args->a_files[0]);
 		if(dbm == NULL){
 			LOG_ERROR("DBF_new_dbf_meta failed for %s", args->a_files[0]);
@@ -135,6 +141,16 @@ main(int argc, char *argv[])
 			err = 1;
 			goto CLEAN_UP;
 		}
+		for(h_pkey_cands = i = 0; i < dbm->dn_fields; i++){
+			if(dbm->d_fields[i]->d_is_pkey_cand){
+				if(!h_pkey_cands){
+					h_pkey_cands = 1;
+					printf("pkey_cands = {\n");
+				}
+				printf("\t%s\n", dbm->d_fields[i]->d_name); 
+			}
+		}
+		printf("%s\n", h_pkey_cands ? "}" : "pkey_cands = None");
 		break;
 	case SFT_PRJ :
 		break;

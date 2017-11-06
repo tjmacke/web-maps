@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <ctype.h>
 #include <string.h>
 #include <stdlib.h>
 
@@ -235,7 +236,7 @@ DBF_read_field(FILE *fp)
 	fldp->d_addr = ((*bp & 0xff) << 24) | ((bp[1] & 0xff) << 16) | ((bp[2] & 0xff) << 8) | (bp[3] & 0xff);
 	fldp->d_length = buf[DBF_FIELD_LENGTH] & 0xff; 
 	fldp->d_dec_count = buf[DBF_FIELD_DEC_COUNT] & 0xff;
-	
+	fldp->d_is_pkey_cand = (fldp->d_type == 'N' && fldp->d_dec_count == 0) ? -1 : 0;
 
 CLEAN_UP : ;
 
@@ -259,15 +260,16 @@ DBF_dump_field(FILE *fp, DBF_FIELD_T *fldp, int verbose, int fnum, const char *i
 
 	if(verbose){
 		fprintf(fp, "%sfield = %d {\n", indent ? indent : "", fnum);
-		fprintf(fp, "%s\tname      = %s\n", indent ? indent : "", fldp->d_name);
-		fprintf(fp, "%s\ttype      = %c\n", indent ? indent : "", fldp->d_type);
-		fprintf(fp, "%s\taddr      = %d\n", indent ? indent : "", fldp->d_addr);
-		fprintf(fp, "%s\tlength    = %d\n", indent ? indent : "", fldp->d_length);
-		fprintf(fp, "%s\tdec_count = %d\n", indent ? indent : "", fldp->d_dec_count);
+		fprintf(fp, "%s\tname         = %s\n", indent ? indent : "", fldp->d_name);
+		fprintf(fp, "%s\ttype         = %c\n", indent ? indent : "", fldp->d_type);
+		fprintf(fp, "%s\taddr         = %d\n", indent ? indent : "", fldp->d_addr);
+		fprintf(fp, "%s\tlength       = %d\n", indent ? indent : "", fldp->d_length);
+		fprintf(fp, "%s\tdec_count    = %d\n", indent ? indent : "", fldp->d_dec_count);
+		fprintf(fp, "%s\tis_pkey_cand = %d\n", indent ? indent : "", fldp->d_is_pkey_cand);
 		fprintf(fp, "%s}\n", indent ? indent : "");
 	}else
-		fprintf(fp, "%s%d: %s, %c, %d, %d, %d\n", indent ? indent : "", fnum,
-			fldp->d_name, fldp->d_type, fldp->d_addr, fldp->d_length, fldp->d_dec_count);
+		fprintf(fp, "%s%d: %s, %c, %d, %d, %d, %d\n", indent ? indent : "", fnum,
+			fldp->d_name, fldp->d_type, fldp->d_addr, fldp->d_length, fldp->d_dec_count, fldp->d_is_pkey_cand);
 }
 
 void
@@ -276,6 +278,7 @@ DBF_dump_rec(FILE *fp, DBF_META_T *dbm, int verbose, int trim, int rnum, const c
 	int	i;
 	DBF_FIELD_T	*fldp;
 	const char	*rbuf1, *rbp, *e_rbp;
+	char	*pkey = NULL;
 
 	if(dbm == NULL){
 		fprintf(fp, "dbm is NULL\n");
@@ -296,13 +299,35 @@ DBF_dump_rec(FILE *fp, DBF_META_T *dbm, int verbose, int trim, int rnum, const c
 		fprintf(fp, "\t\t%s: %c,%d = '", fldp->d_name, fldp->d_type, fldp->d_dec_count);
 		rbp = &rbuf1[fldp->d_addr];
 		if(trim){
+			// remove trailing spaces
 			for(e_rbp = &rbp[fldp->d_length]; e_rbp > rbp; e_rbp--){
-				if(e_rbp[-1] != ' ')
+				if(!isspace(e_rbp[-1]))
 					break;
+			}
+			// remove leading spaces for numbers
+			if(fldp->d_type == 'N'){
+				for( ; rbp < e_rbp; rbp++){
+					if(!isspace(*rbp))
+						break;
+				}
 			}
 			fprintf(fp, "%.*s", (int)(e_rbp - rbp), rbp);
 		}else
 			fprintf(fp, "%.*s", fldp->d_length, rbp);
+		if(fldp->d_is_pkey_cand){
+			if(rbp == e_rbp)
+				fldp->d_is_pkey_cand = 0;
+			else{
+				pkey = strndup(rbp, e_rbp - rbp); 
+				if(pkey == NULL)
+					fldp->d_is_pkey_cand = 0;
+				else{
+					if(atoi(pkey) != rnum)
+						fldp->d_is_pkey_cand = 0;
+					free(pkey);
+				}
+			}
+		}
 		fprintf(fp, "'\n");
 	}
 	fprintf(fp, "\t}\n");

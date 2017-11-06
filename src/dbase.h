@@ -39,6 +39,7 @@ typedef	struct	dbf_field_t {
 	int	d_addr;
 	int	d_length;
 	int	d_dec_count;
+	int	d_is_pkey_cand;
 } DBF_FIELD_T;
 
 typedef	struct	dbf_meta_t	{
