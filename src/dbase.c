@@ -273,6 +273,9 @@ DBF_dump_field(FILE *fp, DBF_FIELD_T *fldp, int verbose, int fnum, const char *i
 void
 DBF_dump_rec(FILE *fp, DBF_META_T *dbm, int verbose, int trim, int rnum, const char *rbuf)
 {
+	int	i;
+	DBF_FIELD_T	*fldp;
+	const char	*rbuf1, *rbp, *e_rbp;
 
 	if(dbm == NULL){
 		fprintf(fp, "dbm is NULL\n");
@@ -286,5 +289,22 @@ DBF_dump_rec(FILE *fp, DBF_META_T *dbm, int verbose, int trim, int rnum, const c
 
 	fprintf(fp, "rec = %d {\n", rnum);
 	fprintf(fp, "\tdeleted = '%c'\n", *rbuf);
+	fprintf(fp, "\tfields = %d {\n", dbm->dn_fields);
+	rbuf1 = &rbuf[1];	// skip the deleted marker
+	for(i = 0; i < dbm->dn_fields; i++){
+		fldp = dbm->d_fields[i];
+		fprintf(fp, "\t\t%s: %c,%d = '", fldp->d_name, fldp->d_type, fldp->d_dec_count);
+		rbp = &rbuf1[fldp->d_addr];
+		if(trim){
+			for(e_rbp = &rbp[fldp->d_length]; e_rbp > rbp; e_rbp--){
+				if(e_rbp[-1] != ' ')
+					break;
+			}
+			fprintf(fp, "%.*s", (int)(e_rbp - rbp), rbp);
+		}else
+			fprintf(fp, "%.*s", fldp->d_length, rbp);
+		fprintf(fp, "'\n");
+	}
+	fprintf(fp, "\t}\n");
 	fprintf(fp, "}\n");
 }
