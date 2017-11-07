@@ -15,16 +15,26 @@ static	FLAG_T	flags[] = {
 };
 static	int	n_flags = sizeof(flags)/sizeof(flags[0]);
 
+static	int
+mk_create_table_cmd(const DBF_META_T *, const char *, const char *);
+
+static	int
+mk_insert_cmd(const DBF_META_T *, const char *, const char *, const char *);
+
 int
 main(int argc, char *argv[])
 {
 	int	a_stat = AS_OK;
 	const ARG_VAL_T	*a_val;
 	int	verbose = 0;
-	const char	*tbl = NULL;;
+	const char	*tname = NULL;;
 	const char	*pk = NULL;
 	FILE	*fp = NULL;
 	DBF_META_T	*dbm = NULL;
+	char	*rbuf = NULL;
+	size_t	s_rbuf = 0;
+	ssize_t	n_rbuf;
+	int	i;
 	int	err = 0;
 
 	a_stat = TJM_get_args(argc, argv, n_flags, flags, 0, 1, &args);
@@ -37,7 +47,7 @@ main(int argc, char *argv[])
 	verbose = a_val->av_value.v_int;
 
 	a_val = TJM_get_flag_value(args, "-t", AVT_STR);
-	tbl = a_val->av_value.v_str;
+	tname = a_val->av_value.v_str;
 
 	a_val = TJM_get_flag_value(args, "-pk", AVT_STR);
 	pk = a_val->av_value.v_str;
@@ -64,10 +74,39 @@ main(int argc, char *argv[])
 		err = 1;
 		goto CLEAN_UP;
 	}
-	// make the create table T command
-	// make the insert into T commands
+
+	if(mk_create_table_cmd(dbm, tname, pk)){
+		LOG_ERROR("mk_create_table_cmd failed");
+		err = 1;
+		goto CLEAN_UP;
+	}
+
+	s_rbuf = dbm->d_fhdr->dl_rec + 1;
+	rbuf = (char *)malloc(s_rbuf * sizeof(char));
+	if(rbuf == NULL){
+		LOG_ERROR("can't allocate rbuf");
+		err = 1;
+		goto CLEAN_UP;
+	}
+	for(i = 0; i < dbm->d_fhdr->dn_recs; i++){
+		n_rbuf = fread(rbuf, sizeof(char), dbm->d_fhdr->dl_rec, fp);
+		if(n_rbuf != dbm->d_fhdr->dl_rec){
+			LOG_ERROR("rec %7d: bad read: expect %d bytes, got %ld", i+1, dbm->d_fhdr->dl_rec, n_rbuf);
+			err = 1;
+			goto CLEAN_UP;
+		}
+		rbuf[n_rbuf] = '\0';	// data is ASCII!
+		if(mk_insert_cmd(dbm, tname, pk, rbuf)){
+			LOG_ERROR("rec %7d: mk_insert_cmd failed", i+1);
+			err = 1;
+			goto CLEAN_UP;
+		}
+	}
 
 CLEAN_UP : ;
+
+	if(rbuf != NULL)
+		free(rbuf);
 
 	if(dbm != NULL)
 		DBF_delete_dbf_meta(dbm);
@@ -78,4 +117,69 @@ CLEAN_UP : ;
 	TJM_free_args(args);
 
 	exit(err);
+}
+
+static	int
+mk_create_table_cmd(const DBF_META_T *dbm, const char *tname, const char *pk)
+{
+	int	add_pk = 0;
+	int	i;
+	DBF_FIELD_T	*fldp;
+	int	err = 0;
+
+	// check if we need to add pk
+	// else check that pk is a field that can be a key
+
+	if(*pk == '+'){
+		add_pk = 1;
+		pk++;
+	}
+
+	printf("CREATE TABLE %s (\n", tname);
+	if(add_pk)
+		printf("\t%s integer NOT NULL,\n", pk);
+	for(i = 0; i < dbm->dn_fields; i++){
+		fldp = dbm->d_fields[i];
+		printf("\t%s", fldp->d_name);
+		if(fldp->d_type == 'C')
+			printf(" text");
+		else if(fldp->d_type == 'N')
+			printf(" %s", fldp->d_dec_count == 0 ? "integer" : "double");
+		else{
+			LOG_ERROR("unknown field type %c", fldp->d_type);
+			err = 1;
+			goto CLEAN_UP;
+		}
+		printf(" NOT NULL,\n");
+	}
+	printf("\tPRIMARY KEY(%s ASC)\n", pk );
+	printf(") ;\n");
+
+CLEAN_UP : ;
+
+	return err;
+}
+
+static	int
+mk_insert_cmd(const DBF_META_T *dbm, const char *tname, const char * pk, const char *rbuf)
+{
+	int	add_pk = 0;
+	int	i;
+	DBF_FIELD_T	*fldp;
+	int	err = 0;
+
+	if(*pk == '+'){
+		add_pk = 1;
+		pk++;
+	}
+
+	printf("INSERT INTO %s (\n", tname);
+		for(i = 0; i < dbm->dn_fields; i++){
+			fldp = dbm->d_fields[i];
+			printf("\t%s%s\n", fldp->d_name, i < dbm->dn_fields - 1 ? "," : "");
+		}
+	printf(") VALUES (\n");
+	printf(") ;\n");
+
+	return err;
 }
