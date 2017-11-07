@@ -166,6 +166,8 @@ mk_insert_cmd(const DBF_META_T *dbm, const char *tname, const char * pk, const c
 	int	add_pk = 0;
 	int	i;
 	DBF_FIELD_T	*fldp;
+	char	*fval = NULL;
+	char	*fvp;
 	int	err = 0;
 
 	if(*pk == '+'){
@@ -179,7 +181,35 @@ mk_insert_cmd(const DBF_META_T *dbm, const char *tname, const char * pk, const c
 			printf("\t%s%s\n", fldp->d_name, i < dbm->dn_fields - 1 ? "," : "");
 		}
 	printf(") VALUES (\n");
+	for(i = 0; i < dbm->dn_fields; i++){
+		fldp = dbm->d_fields[i];
+		fval = DBF_get_field_value(fldp, rbuf, 1);
+		if(fval == NULL){
+			LOG_ERROR("DBF_get_field_value failed for field %s", fldp->d_name);
+			err = 1;
+			goto CLEAN_UP;
+		}
+		if(fldp->d_type != 'C')
+			printf("\t%s", fval);
+		else{
+			printf("\t'");
+			for(fvp = fval; *fvp; fvp++){
+				if(*fvp == '\'')
+					putchar('\'');
+				putchar(*fvp);
+			}
+			printf("'");
+		}
+		if(i < dbm->dn_fields - 1)
+			printf(",");
+		printf("\n");
+	}
 	printf(") ;\n");
+
+CLEAN_UP : ;
+
+	if(fval != NULL)
+		free(fval);
 
 	return err;
 }
