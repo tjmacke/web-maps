@@ -80,4 +80,7 @@ DBF_dump_field(FILE *, DBF_FIELD_T *, int, int, const char *);
 void
 DBF_dump_rec(FILE *, DBF_META_T *, int, int, int, const char *);
 
+char	*
+DBF_get_field_value(const DBF_FIELD_T *, const char *, int);
+
 #endif

@@ -278,6 +278,7 @@ DBF_dump_rec(FILE *fp, DBF_META_T *dbm, int verbose, int trim, int rnum, const c
 	int	i;
 	DBF_FIELD_T	*fldp;
 	const char	*rbuf1, *rbp, *e_rbp;
+	char	*fval = NULL;
 	char	*pkey = NULL;
 
 	if(dbm == NULL){
@@ -297,39 +298,63 @@ DBF_dump_rec(FILE *fp, DBF_META_T *dbm, int verbose, int trim, int rnum, const c
 	for(i = 0; i < dbm->dn_fields; i++){
 		fldp = dbm->d_fields[i];
 		fprintf(fp, "\t\t%s: %c,%d = '", fldp->d_name, fldp->d_type, fldp->d_dec_count);
-		rbp = &rbuf1[fldp->d_addr];
-		if(trim){
-			// remove trailing spaces
-			for(e_rbp = &rbp[fldp->d_length]; e_rbp > rbp; e_rbp--){
-				if(!isspace(e_rbp[-1]))
-					break;
-			}
-			// remove leading spaces for numbers
-			if(fldp->d_type == 'N'){
-				for( ; rbp < e_rbp; rbp++){
-					if(!isspace(*rbp))
-						break;
-				}
-			}
-			fprintf(fp, "%.*s", (int)(e_rbp - rbp), rbp);
-		}else
-			fprintf(fp, "%.*s", fldp->d_length, rbp);
-		if(fldp->d_is_pkey_cand){
-			if(rbp == e_rbp)
-				fldp->d_is_pkey_cand = 0;
-			else{
-				pkey = strndup(rbp, e_rbp - rbp); 
-				if(pkey == NULL)
-					fldp->d_is_pkey_cand = 0;
-				else{
-					if(atoi(pkey) != rnum)
-						fldp->d_is_pkey_cand = 0;
-					free(pkey);
-				}
-			}
+		fval = DBF_get_field_value(fldp, rbuf, trim);
+		if(fval == NULL){
+			LOG_ERROR("DBF_get_field_value failed for rec %d, field %s", rnum, fldp->d_name);
+			return;
 		}
-		fprintf(fp, "'\n");
+		fprintf(fp, "%s'\n", fval);
+		if(fldp->d_is_pkey_cand != 0){
+			if(*fval == '\0')
+				fldp->d_is_pkey_cand = 0;
+			else if(atoi(fval) != rnum)
+				fldp->d_is_pkey_cand = 0;
+		}
+		free(fval);
+		fval = NULL;
 	}
 	fprintf(fp, "\t}\n");
 	fprintf(fp, "}\n");
+}
+
+char	*
+DBF_get_field_value(const DBF_FIELD_T *fldp, const char *rbuf, int trim)
+{
+	const char	*rbp, *e_rbp;;
+	char	*fval = NULL;
+	int	err = 0;
+
+	rbp = &rbuf[fldp->d_addr + 1];	// skip over the deleted byte.
+	e_rbp = &rbp[fldp->d_length];
+	if(trim){
+		// remove trailing spaces
+		for( ; e_rbp > rbp; e_rbp--){
+			if(!isspace(e_rbp[-1]))
+				break;
+		}
+		// remove leading spaces for numbers
+		if(fldp->d_type == 'N'){
+			for( ; rbp < e_rbp; rbp++){
+				if(!isspace(*rbp))
+					break;
+			}
+		}
+	}
+	fval = strndup(rbp, e_rbp - rbp);
+	if(fval == NULL){
+		LOG_ERROR("strndup failed for %s", fldp->d_name);
+		err = 1;
+		goto CLEAN_UP;
+	}
+
+CLEAN_UP : ;
+
+	if(err){
+		if(fval != NULL){
+			free(fval);
+			fval = NULL;
+		}
+	}
+
+	return fval;
 }

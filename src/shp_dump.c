@@ -96,12 +96,8 @@ main(int argc, char *argv[])
 		}
 		break;
 	case SFT_DBF :
-		// TODO: this is a mess!
-		// 	I want to find possible primary keys, ie any integer field
-		//	whose values are the the same as the record numbers.
-		//	And to determine this, I have to scan all the record data.
-		//	which means that some pkey_cand fields will be marked -1 for
-		//	not yet decided
+		// pkey candidates require reading all the recs as the last rec may invalidate a candidate
+		// So, DBF_read_meta() sets d_is_pkey_cand to 0 if it's not an int and -1 (not known)  if it is.
 		dbm = DBF_new_dbf_meta(args->a_files[0]);
 		if(dbm == NULL){
 			LOG_ERROR("DBF_new_dbf_meta failed for %s", args->a_files[0]);
@@ -120,6 +116,11 @@ main(int argc, char *argv[])
 			LOG_ERROR("can't allocate rbuf");
 			err = 1;
 			goto CLEAN_UP;
+		}
+		// set all the d_is_pkey_cand w/value = -1 to 1, so we actually settle the issue now
+		for(i = 0; i < dbm->dn_fields; i++){
+			if(dbm->d_fields[i]->d_is_pkey_cand == -1)
+				dbm->d_fields[i]->d_is_pkey_cand = 1;
 		}
 		for(i = 0; i < dbm->d_fhdr->dn_recs; i++){
 			l_rbuf = fread(rbuf, sizeof(char), dbm->d_fhdr->dl_rec, fp);
