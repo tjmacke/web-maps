@@ -309,3 +309,85 @@ SHP_dump_ridx(FILE *fp, SF_RIDX_T *ridx)
 	}
 	fprintf(fp, "%d\t%d\n", ridx->s_offset, ridx->s_length);
 }
+
+SF_SHAPE_T	*
+SHP_read_shape(FILE *fp)
+{
+	SF_SHAPE_T	*shp = NULL;
+	int	ival;
+	double	dval;
+	int	err = 0;
+
+	shp = (SF_SHAPE_T *)calloc((size_t)1, sizeof(SF_SHAPE_T));
+	if(shp == NULL){
+		LOG_ERROR("can't allocate shp");
+		err = 1;
+		goto CLEAN_UP;
+	}
+
+	if(FIO_read_be_int4(fp, &ival)){
+		LOG_ERROR("can't read record number");
+		err = 1;
+		goto CLEAN_UP;
+	}
+	shp->s_rnum = ival;
+	if(FIO_read_be_int4(fp, &ival)){
+		LOG_ERROR("can't read record length");
+		err = 1;
+		goto CLEAN_UP;
+	}
+	shp->s_length = ival;
+	if(FIO_read_le_int4(fp, &ival)){
+		LOG_ERROR("can't read record length");
+		err = 1;
+		goto CLEAN_UP;
+	}
+	shp->s_type = ival;
+
+	// TODO: decice what to do base on shape type1
+
+CLEAN_UP : ;
+
+	if(err){
+		SHP_delete_shape(shp);
+		shp = NULL;
+	}
+
+	return shp;
+}
+
+void
+SHP_delete_shape(SF_SHAPE_T *shp)
+{
+
+	if(shp == NULL)
+		return;
+
+	if(shp->s_parts != NULL)
+		free(shp->s_parts);
+	if(shp->s_ptypes != NULL)
+		free(shp->s_ptypes);
+	if(shp->s_points != NULL)
+		free(shp->s_points);
+	if(shp->s_zvals != NULL)
+		free(shp->s_zvals);
+	if(shp->s_mvals != NULL)
+		free(shp->s_mvals);
+	free(shp);
+}
+
+void
+SHP_dump_shape(FILE *fp, SF_SHAPE_T *shp, int verbose)
+{
+
+	if(shp == NULL){
+		fprintf(fp, "shp is NULL\n");
+		return;
+	}
+
+	fprintf(fp, "shape = {\n");
+	fprintf(fp, "\trnum = %d\n", shp->s_rnum);
+	fprintf(fp, "\tlength = %d\n", shp->s_length);
+	fprintf(fp, "\ttype   = %d\n", shp->s_type);
+	fprintf(fp, "}\n");
+}

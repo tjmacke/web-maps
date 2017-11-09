@@ -72,6 +72,8 @@ typedef	struct	sf_point_t	{
 } SF_POINT_T;
 
 typedef	struct	sf_shape_t	{
+	int	s_rnum;
+	int	s_length;	// 16 bit words!
 	int	s_type;
 	SF_BBOX_T	s_bbox;
 	int	sn_parts;
@@ -110,5 +112,14 @@ SHP_dump_fhdr(FILE *, SF_FHDR_T *);
 
 void
 SHP_dump_ridx(FILE *, SF_RIDX_T *);
+
+SF_SHAPE_T	*
+SHP_read_shape(FILE *);
+
+void
+SHP_delete_shape(SF_SHAPE_T *);
+
+void
+SHP_dump_shape(FILE *, SF_SHAPE_T *, int);
 
 #endif
