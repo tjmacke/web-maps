@@ -27,7 +27,7 @@
 #define	ST_POLYLINE_M	23
 #define	ST_POLYGON_M	25
 #define	ST_MULTIPOINT_M	28
-#define	ST_MULTIPATH	31
+#define	ST_MULTIPATCH	31
 #define	ST_LAST		33
 
 // part types for multipatch
@@ -37,6 +37,12 @@
 #define	STP_INNER_RING	3
 #define	STP_FIRST_RING	4
 #define	STP_RING	5
+
+// macros that chk related type
+#define	ST_IS_POINT_TYPE(t)	(((t) == ST_POINT) || ((t) == ST_POINT_Z) || ((t) == ST_POINT_M))
+#define	ST_IS_MPOINT_TYPE(t)	(((t) == ST_MULTIPOINT) || ((t) == ST_MULTIPOINT_Z) || ((t) == ST_MULTIPOINT_M))
+#define	ST_IS_PLINE_TYPE(t)	(((t) == ST_POLYLINE) || ((t) == ST_POLYLINE_Z) || ((t) == ST_POLYLINE_M))
+#define	ST_IS_PGON_TYPE(t)	(((t) == ST_POLYGON) || ((t) == ST_POLYGON_Z) || ((t) == ST_POLYGON_M))
 
 #define	SF_FHDR_SIZE	50	// 50 words = 100 bytes
 #define	SF_RIDX_SIZE	4	// 8 words = 8 bytes
@@ -74,7 +80,7 @@ typedef	struct	sf_point_t	{
 typedef	struct	sf_shape_t	{
 	int	s_rnum;
 	int	s_length;	// 16 bit words!
-	int	s_type;
+	int	s_type;	
 	SF_BBOX_T	s_bbox;
 	int	sn_parts;
 	int	sn_points;
@@ -103,6 +109,9 @@ SHP_read_fhdr(FILE *, SF_FHDR_T *);
 
 int
 SHP_read_bbox(FILE *, SF_BBOX_T *);
+
+void
+SHP_dump_bbox(FILE *, const SF_BBOX_T *, const char *);
 
 int
 SHP_read_ridx(FILE *, SF_RIDX_T *);

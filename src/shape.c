@@ -250,6 +250,18 @@ CLEAN_UP : ;
 	return err;
 }
 
+void
+SHP_dump_bbox(FILE *fp, const SF_BBOX_T *bbox, const char *indent)
+{
+
+	fprintf(fp, "%sbbox     = {\n", indent != NULL ? indent : "");
+	fprintf(fp, "%s\txmin   = %.15e\n", indent != NULL ? indent : "", bbox->s_xmin);
+	fprintf(fp, "%s\tymin   = %.15e\n", indent != NULL ? indent : "", bbox->s_ymin);
+	fprintf(fp, "%s\txmax   = %.15e\n", indent != NULL ? indent : "", bbox->s_xmax);
+	fprintf(fp, "%s\tymax   = %.15e\n", indent != NULL ? indent : "", bbox->s_ymax);
+	fprintf(fp, "%s}\n", indent != NULL ? indent : "");
+}
+
 int
 SHP_read_ridx(FILE *fp, SF_RIDX_T *ridx)
 {
@@ -286,12 +298,15 @@ SHP_dump_fhdr(FILE *fp, SF_FHDR_T *fhdr)
 	fprintf(fp, "\tl_file  = %d\n", fhdr->sl_file);
 	fprintf(fp, "\tversion = %d\n", fhdr->s_version);
 	fprintf(fp, "\ttype    = %d\n", fhdr->s_type);
+	SHP_dump_bbox(fp, &fhdr->s_bbox, "\t");
+/*
 	fprintf(fp, "\tbbox     = {\n");
 	fprintf(fp, "\t\txmin   = %.15e\n", fhdr->s_bbox.s_xmin);
 	fprintf(fp, "\t\tymin   = %.15e\n", fhdr->s_bbox.s_ymin);
 	fprintf(fp, "\t\txmax   = %.15e\n", fhdr->s_bbox.s_xmax);
 	fprintf(fp, "\t\tymax   = %.15e\n", fhdr->s_bbox.s_ymax);
 	fprintf(fp, "\t}\n");
+*/
 	fprintf(fp, "\tzmin    = %.15e\n", fhdr->s_zmin);
 	fprintf(fp, "\tzmax    = %.15e\n", fhdr->s_zmax);
 	fprintf(fp, "\tmmin    = %.15e\n", fhdr->s_mmin);
@@ -314,6 +329,7 @@ SF_SHAPE_T	*
 SHP_read_shape(FILE *fp)
 {
 	SF_SHAPE_T	*shp = NULL;
+	int	n_read;
 	int	ival;
 	double	dval;
 	int	err = 0;
@@ -325,26 +341,49 @@ SHP_read_shape(FILE *fp)
 		goto CLEAN_UP;
 	}
 
+	n_read = 0;
 	if(FIO_read_be_int4(fp, &ival)){
 		LOG_ERROR("can't read record number");
 		err = 1;
 		goto CLEAN_UP;
 	}
 	shp->s_rnum = ival;
+	n_read += 4;
+
 	if(FIO_read_be_int4(fp, &ival)){
 		LOG_ERROR("can't read record length");
 		err = 1;
 		goto CLEAN_UP;
 	}
 	shp->s_length = ival;
+	n_read += 4;
+
 	if(FIO_read_le_int4(fp, &ival)){
 		LOG_ERROR("can't read record length");
 		err = 1;
 		goto CLEAN_UP;
 	}
 	shp->s_type = ival;
+	n_read += 4;
 
-	// TODO: decice what to do base on shape type1
+	if(shp->s_type != ST_NULL && !ST_IS_POINT_TYPE(shp->s_type)){
+		if(SHP_read_bbox(fp, &shp->s_bbox)){
+			LOG_ERROR("SHP_read_bbox failed");
+			err = 1;
+			goto CLEAN_UP;
+		}
+		n_read += 16;
+	}
+	if(ST_IS_PLINE_TYPE(shp->s_type) || ST_IS_PGON_TYPE(shp->s_type) || shp->s_type == ST_MULTIPATCH){
+		if(FIO_read_le_int4(fp, &ival)){
+			LOG_ERROR("can't read nparts");
+			err = 1;
+			goto CLEAN_UP;
+		}
+		shp->sn_parts = ival;
+		n_read += 4;
+	}
+
 
 CLEAN_UP : ;
 
@@ -389,5 +428,9 @@ SHP_dump_shape(FILE *fp, SF_SHAPE_T *shp, int verbose)
 	fprintf(fp, "\trnum = %d\n", shp->s_rnum);
 	fprintf(fp, "\tlength = %d\n", shp->s_length);
 	fprintf(fp, "\ttype   = %d\n", shp->s_type);
+	if(shp->s_type != ST_NULL && !ST_IS_POINT_TYPE(shp->s_type))
+		SHP_dump_bbox(fp, &shp->s_bbox, "\t");
+	if(ST_IS_PLINE_TYPE(shp->s_type) || ST_IS_PGON_TYPE(shp->s_type) || shp->s_type == ST_MULTIPATCH)
+		fprintf(fp, "\tnparts = %d\n", shp->sn_parts);
 	fprintf(fp, "}\n");
 }
