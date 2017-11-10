@@ -263,6 +263,47 @@ SHP_dump_bbox(FILE *fp, const SF_BBOX_T *bbox, const char *indent)
 }
 
 int
+SHP_read_point(FILE *fp, SF_POINT_T *pt)
+{
+	int	err = 0;
+
+	memset(pt, 0, sizeof(SF_POINT_T));
+
+	if(FIO_read_le_double(fp, &pt->s_x)){
+		LOG_ERROR("FIO_read_le_double failed for x");
+		err = 1;
+		goto CLEAN_UP;
+	}
+	if(FIO_read_le_double(fp, &pt->s_y)){
+		LOG_ERROR("FIO_read_le_double failed for y");
+		err = 1;
+		goto CLEAN_UP;
+	}
+
+CLEAN_UP : ;
+
+	// prevent info leak on error
+	if(err)
+		memset(pt, 0, sizeof(SF_POINT_T));
+
+	return err;
+}
+
+void
+SHP_dump_point(FILE *fp, const SF_POINT_T *pt, const char *indent, int u_blk)
+{
+
+	if(!u_blk)
+		fprintf(fp, "%s%.15e\t%.15e\n", indent ? indent : "", pt->s_x, pt->s_y);
+	else{
+		fprintf(fp, "%spoint = {\n", indent ? indent : "");
+		fprintf(fp, "%s\tx = %.15e\n", indent ? indent : "", pt->s_x);
+		fprintf(fp, "%s\ty = %.15e\n", indent ? indent : "", pt->s_y);
+		fprintf(fp, "%s}\n", indent ? indent : "");
+	}
+}
+
+int
 SHP_read_ridx(FILE *fp, SF_RIDX_T *ridx)
 {
 	int	err = 0;
@@ -384,6 +425,83 @@ SHP_read_shape(FILE *fp)
 		n_read += 4;
 	}
 
+	if(shp->s_type != ST_NULL && !ST_IS_POINT_TYPE(shp->s_type)){
+		if(FIO_read_le_int4(fp, &ival)){
+			LOG_ERROR("can't read nparts");
+			err = 1;
+			goto CLEAN_UP;
+		}
+		shp->sn_points = ival;
+		n_read += 4;
+	}else
+		shp->sn_points = 1;
+
+	if(ST_IS_PLINE_TYPE(shp->s_type) || ST_IS_PGON_TYPE(shp->s_type) || shp->s_type == ST_MULTIPATCH){
+		int	i;
+
+		shp->s_parts = (int *)malloc(shp->sn_parts * sizeof(int));
+		if(shp->s_parts == NULL){
+			LOG_ERROR("can't allocate s_parts");
+			err = 1;
+			goto CLEAN_UP;
+		}
+		for(i = 0; i < shp->sn_parts; i++){
+			if(FIO_read_le_int4(fp, &ival)){
+				LOG_ERROR("can't read parts[%d]", i+1);
+				err = 1;
+				goto CLEAN_UP;
+			}
+			shp->s_parts[i] = ival;
+			n_read += 4;
+		}
+	}
+
+	if(shp->s_type == ST_MULTIPATCH){
+		// read the ptypes
+		int	i;
+
+		shp->s_ptypes = (int *)malloc(shp->sn_parts * sizeof(int));
+		if(shp->s_ptypes == NULL){
+			LOG_ERROR("can't allocate s_ptypes");
+			err = 1;
+			goto CLEAN_UP;
+		}
+		for(i = 0; i < shp->sn_parts; i++){
+			if(FIO_read_le_int4(fp, &ival)){
+				LOG_ERROR("can't read ptypes[%d]", i+1);
+				err = 1;
+				goto CLEAN_UP;
+			}
+			shp->s_ptypes[i] = ival;
+			n_read += 4;
+		}
+	}
+
+	// read the points -- point types get an array w/1 elt
+	if(shp->s_type != ST_NULL){
+		int	i;
+
+		shp->s_points = (SF_POINT_T *)malloc(shp->sn_points * sizeof(SF_POINT_T));
+		if(shp->s_points == NULL){
+			LOG_ERROR("can't allocate s_points");
+			err = 1;
+			goto CLEAN_UP;
+		}
+		for(i = 0; i < shp->sn_points; i++){
+			if(SHP_read_point(fp, &shp->s_points[i])){
+				LOG_ERROR("can't read points[%d]", i+1);
+				err = 1;
+				goto CLEAN_UP;
+			}
+			n_read += 16;
+		}
+	}
+
+	// for types w/Z except point types, read the Z range
+	
+	// read the Z vals -- point types get an array w/1 elt.
+
+	// read the M vals -- point type get an array w/1 elt
 
 CLEAN_UP : ;
 
@@ -432,5 +550,31 @@ SHP_dump_shape(FILE *fp, SF_SHAPE_T *shp, int verbose)
 		SHP_dump_bbox(fp, &shp->s_bbox, "\t");
 	if(ST_IS_PLINE_TYPE(shp->s_type) || ST_IS_PGON_TYPE(shp->s_type) || shp->s_type == ST_MULTIPATCH)
 		fprintf(fp, "\tnparts = %d\n", shp->sn_parts);
+	if(shp->s_type != ST_NULL)	// everything else has >= 1 point
+		fprintf(fp, "\tnpoints = %d\n", shp->sn_points);
+	if(ST_IS_PLINE_TYPE(shp->s_type) || ST_IS_PGON_TYPE(shp->s_type) || shp->s_type == ST_MULTIPATCH){
+		int	i;
+
+		fprintf(fp, "\tparts = {\n");
+		for(i = 0; i < shp->sn_parts; i++)
+			fprintf(fp, "\t\t%d\n", shp->s_parts[i]);
+		fprintf(fp, "\t}\n");
+	}
+	if(shp->s_type == ST_MULTIPATCH){
+		int	i;
+
+		fprintf(fp, "\tptypes = {\n");
+		for(i = 0; i < shp->sn_parts; i++)
+			fprintf(fp, "\t\t%d\n", shp->s_parts[i]);
+		fprintf(fp, "\t}\n");
+	}
+	if(shp->s_type != ST_NULL){
+		int	i;
+
+		fprintf(fp, "\tpoints = {\n");
+		for(i = 0; i < shp->sn_points; i++)
+			SHP_dump_point(fp, &shp->s_points[i], "\t\t", 0);
+		fprintf(fp, "\t}\n");
+	}
 	fprintf(fp, "}\n");
 }

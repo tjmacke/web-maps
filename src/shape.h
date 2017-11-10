@@ -114,6 +114,12 @@ void
 SHP_dump_bbox(FILE *, const SF_BBOX_T *, const char *);
 
 int
+SHP_read_point(FILE *, SF_POINT_T *);
+
+void
+SHP_dump_point(FILE *, const SF_POINT_T *, const char *, int);
+
+int
 SHP_read_ridx(FILE *, SF_RIDX_T *);
 
 void
