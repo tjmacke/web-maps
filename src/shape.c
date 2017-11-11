@@ -498,10 +498,15 @@ SHP_read_shape(FILE *fp)
 	}
 
 	// for types w/Z except point types, read the Z range
-	
 	// read the Z vals -- point types get an array w/1 elt.
+	if(ST_HAS_ZDATA(shp->s_type)){
+	}
 
+	// for types w/M except point types, read the M range if
 	// read the M vals -- point type get an array w/1 elt
+	if(ST_HAS_MDATA(shp->s_type)){
+		// MDATA is optional for everything except ST_POINT_Z, ST_POINT_M, so check if at end of record
+	}
 
 CLEAN_UP : ;
 

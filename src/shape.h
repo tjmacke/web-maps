@@ -38,11 +38,15 @@
 #define	STP_FIRST_RING	4
 #define	STP_RING	5
 
-// macros that chk related type
+// macros that chk type stuff
 #define	ST_IS_POINT_TYPE(t)	(((t) == ST_POINT) || ((t) == ST_POINT_Z) || ((t) == ST_POINT_M))
 #define	ST_IS_MPOINT_TYPE(t)	(((t) == ST_MULTIPOINT) || ((t) == ST_MULTIPOINT_Z) || ((t) == ST_MULTIPOINT_M))
 #define	ST_IS_PLINE_TYPE(t)	(((t) == ST_POLYLINE) || ((t) == ST_POLYLINE_Z) || ((t) == ST_POLYLINE_M))
 #define	ST_IS_PGON_TYPE(t)	(((t) == ST_POLYGON) || ((t) == ST_POLYGON_Z) || ((t) == ST_POLYGON_M))
+#define	ST_HAS_ZDATA(t)		\
+	((t) == ST_POINT_Z || ((t) == ST_MULTIPOINT_Z) || ((t) == ST_POLYLINE_Z) || ((t) == ST_POLYGON_Z) || ((t) == ST_MULTIPATCH))
+#define	ST_HAS_MDATA(t)		\
+	(ST_HAS_ZDATA(t) || ((t) == ST_POINT_M) || ((t) == ST_MULTIPOINT_M) || ((t) == ST_POLYLINE_M) || ((t) == ST_POLYGON_M))
 
 #define	SF_FHDR_SIZE	50	// 50 words = 100 bytes
 #define	SF_RIDX_SIZE	4	// 8 words = 8 bytes
