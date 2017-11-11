@@ -12,6 +12,7 @@
 #define	SF_WORD_SIZE	2	// shape file lengths and offset are as 16 bit words (2 bytes)
 #define	SF_VERSION	1000
 #define	SF_NO_DATA_UB	-1e38	// values smaller are conisded to be "no data"
+#define	SF_NO_DATA_TJM	-2e38	// smaller than above, so I'm using this in case I need a no data avlue.
 
 // shape types range from [0,33], although only 14 types were ever assigned  
 #define	ST_NULL		0

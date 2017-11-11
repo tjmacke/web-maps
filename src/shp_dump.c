@@ -79,21 +79,24 @@ main(int argc, char *argv[])
 
 		SHP_dump_fhdr(stdout, fhdr);
 		if(ftype == SFT_SHP){
-			int	i, n_recs;
+			int	c, n_recs;
 			SF_SHAPE_T	*shp = NULL;
 
-			n_recs = (fhdr->sl_file - SF_FHDR_SIZE) / SF_RIDX_SIZE;
-			for(i = 0; i < n_recs; i++){
+			// dump shp file w/o use of shx index
+			for(n_recs = 0; (c = getc(fp)) != EOF; ){
+				ungetc(c, fp);
 				shp = SHP_read_shape(fp);
 				if(shp == NULL){
 					LOG_ERROR("SHP_read_shape failed for record %d", i+1);
 					err = 1;
 					goto CLEAN_UP;
 				}
+				n_recs++;
 				SHP_dump_shape(stdout, shp, verbose);
 				SHP_delete_shape(shp);
 				shp = NULL;
 			}
+			LOG_INFO("%d recs", n_recs);
 		}else{
 			int	i, n_recs;
 			SF_RIDX_T	ridx;

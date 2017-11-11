@@ -370,7 +370,7 @@ SF_SHAPE_T	*
 SHP_read_shape(FILE *fp)
 {
 	SF_SHAPE_T	*shp = NULL;
-	int	n_read;
+	int	n_words;
 	int	ival;
 	double	dval;
 	int	err = 0;
@@ -382,30 +382,28 @@ SHP_read_shape(FILE *fp)
 		goto CLEAN_UP;
 	}
 
-	n_read = 0;
+	// read the record header
 	if(FIO_read_be_int4(fp, &ival)){
 		LOG_ERROR("can't read record number");
 		err = 1;
 		goto CLEAN_UP;
 	}
 	shp->s_rnum = ival;
-	n_read += 4;
-
 	if(FIO_read_be_int4(fp, &ival)){
 		LOG_ERROR("can't read record length");
 		err = 1;
 		goto CLEAN_UP;
 	}
 	shp->s_length = ival;
-	n_read += 4;
 
+	n_words = 0;
 	if(FIO_read_le_int4(fp, &ival)){
 		LOG_ERROR("can't read record length");
 		err = 1;
 		goto CLEAN_UP;
 	}
 	shp->s_type = ival;
-	n_read += 4;
+	n_words += 2;
 
 	if(shp->s_type != ST_NULL && !ST_IS_POINT_TYPE(shp->s_type)){
 		if(SHP_read_bbox(fp, &shp->s_bbox)){
@@ -413,7 +411,7 @@ SHP_read_shape(FILE *fp)
 			err = 1;
 			goto CLEAN_UP;
 		}
-		n_read += 16;
+		n_words += 16;
 	}
 	if(ST_IS_PLINE_TYPE(shp->s_type) || ST_IS_PGON_TYPE(shp->s_type) || shp->s_type == ST_MULTIPATCH){
 		if(FIO_read_le_int4(fp, &ival)){
@@ -422,7 +420,7 @@ SHP_read_shape(FILE *fp)
 			goto CLEAN_UP;
 		}
 		shp->sn_parts = ival;
-		n_read += 4;
+		n_words += 2;
 	}
 
 	if(shp->s_type != ST_NULL && !ST_IS_POINT_TYPE(shp->s_type)){
@@ -432,7 +430,7 @@ SHP_read_shape(FILE *fp)
 			goto CLEAN_UP;
 		}
 		shp->sn_points = ival;
-		n_read += 4;
+		n_words += 2;
 	}else
 		shp->sn_points = 1;
 
@@ -452,7 +450,7 @@ SHP_read_shape(FILE *fp)
 				goto CLEAN_UP;
 			}
 			shp->s_parts[i] = ival;
-			n_read += 4;
+			n_words += 2;
 		}
 	}
 
@@ -473,7 +471,7 @@ SHP_read_shape(FILE *fp)
 				goto CLEAN_UP;
 			}
 			shp->s_ptypes[i] = ival;
-			n_read += 4;
+			n_words += 2;
 		}
 	}
 
@@ -493,19 +491,88 @@ SHP_read_shape(FILE *fp)
 				err = 1;
 				goto CLEAN_UP;
 			}
-			n_read += 16;
+			n_words += 8;
 		}
 	}
 
 	// for types w/Z except point types, read the Z range
 	// read the Z vals -- point types get an array w/1 elt.
 	if(ST_HAS_ZDATA(shp->s_type)){
+		double	dval;
+		int	i;
+		
+		if(shp->s_type != ST_POINT_Z){
+			if(FIO_read_le_double(fp, &dval)){
+				LOG_ERROR("FIO_read_le_double failed for zmin");
+				err = 1;
+				goto CLEAN_UP;
+			}
+			shp->s_zmin = dval;
+			n_words += 4;
+			if(FIO_read_le_double(fp, &dval)){
+				LOG_ERROR("FIO_read_le_double failed for zmax");
+				err = 1;
+				goto CLEAN_UP;
+			}
+			shp->s_zmax = dval;
+			n_words += 4;
+		}
+		shp->s_zvals = (double *)malloc(shp->sn_points * sizeof(double));
+		if(shp->s_zvals == NULL){
+			LOG_ERROR("can't allocate zvals");
+			err = 1;
+			goto CLEAN_UP;
+		}
+		for(i = 0; i < shp->sn_points; i++){
+			if(FIO_read_le_double(fp, &shp->s_zvals[i])){
+				LOG_ERROR("FIO_read_le_double failed for zvals[%d]", i+1);
+				err = 1;
+				goto CLEAN_UP;
+			}
+			n_words += 4;
+		}
 	}
 
-	// for types w/M except point types, read the M range if
-	// read the M vals -- point type get an array w/1 elt
-	if(ST_HAS_MDATA(shp->s_type)){
-		// MDATA is optional for everything except ST_POINT_Z, ST_POINT_M, so check if at end of record
+	// M data is optional for all but ST_POINT_Z & ST_POINT_M
+	if(ST_HAS_MDATA(shp->s_type) && n_words < shp->s_length){
+		int	i;
+
+		if(shp->s_type != ST_POINT_Z && shp->s_type != ST_POINT_M){
+			if(FIO_read_le_double(fp, &dval)){
+				LOG_ERROR("FIO_read_le_double failed for mmin");
+				err = 1;
+				goto CLEAN_UP;
+			}
+			shp->s_mmin = dval;
+			n_words += 4;
+			if(FIO_read_le_double(fp, &dval)){
+				LOG_ERROR("FIO_read_le_double failed for zmax");
+				err = 1;
+				goto CLEAN_UP;
+			}
+			shp->s_mmax = dval;
+			n_words += 4;
+		}
+		shp->s_mvals = (double *)malloc(shp->sn_points * sizeof(double));
+		if(shp->s_mvals == NULL){
+			LOG_ERROR("can't allocate mvals");
+			err = 1;
+			goto CLEAN_UP;
+		}
+		for(i = 0; i < shp->sn_points; i++){
+			if(FIO_read_le_double(fp, &shp->s_mvals[i])){
+				LOG_ERROR("FIO_read_le_double failed for mvals[%d]", i+1);
+				err = 1;
+				goto CLEAN_UP;
+			}
+			n_words += 4;
+		}
+	}
+
+	if(n_words != shp->s_length){
+		LOG_ERROR("bad record length %d, expect %d", n_words, shp->s_length);
+		err = 1;
+		goto CLEAN_UP;
 	}
 
 CLEAN_UP : ;
@@ -580,6 +647,37 @@ SHP_dump_shape(FILE *fp, SF_SHAPE_T *shp, int verbose)
 		for(i = 0; i < shp->sn_points; i++)
 			SHP_dump_point(fp, &shp->s_points[i], "\t\t", 0);
 		fprintf(fp, "\t}\n");
+	}
+	if(ST_HAS_ZDATA(shp->s_type)){
+		if(shp->s_type != ST_POINT_Z){
+			int	i;
+
+			fprintf(fp, "\tzrange = {\n");
+			fprintf(fp, "\t\tmin = %.15e\n", shp->s_zmin);
+			fprintf(fp, "\t\tmax = %.15e\n", shp->s_zmax);
+			fprintf(fp, "\t}\n");
+			fprintf(fp, "\tzvals = {\n");
+			for(i = 0; i < shp->sn_points; i++)
+				fprintf(fp, "\t\t%.15e\n", shp->s_zvals[i]);
+			fprintf(fp, "\t}\n");
+		}else
+			fprintf(fp, "\tzval = %.15e\n", shp->s_zvals[0]);
+	}
+	if(ST_HAS_MDATA(shp->s_type) && shp->s_mvals != NULL){
+		if(shp->s_type != ST_POINT_Z && shp->s_type != ST_POINT_M){
+			int	i;
+
+			fprintf(fp, "\tmrange = {\n");
+			fprintf(fp, "\t\tmin = %.15e\n", shp->s_mmin);
+			fprintf(fp, "\t\tmax = %.15e\n", shp->s_mmax);
+			fprintf(fp, "\t}\n");
+			fprintf(fp, "\tmvals = {\n");
+			for(i = 0; i < shp->sn_points; i++)
+				fprintf(fp, "\t\t%.15e\n", shp->s_mvals[i]);
+			fprintf(fp, "\t}\n");
+		}else
+			fprintf(fp, "\tmval = %.15e\n", shp->s_mvals[0]);
+
 	}
 	fprintf(fp, "}\n");
 }
