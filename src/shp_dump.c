@@ -64,28 +64,21 @@ main(int argc, char *argv[])
 	switch(ftype){
 	case SFT_SHP :
 	case SFT_SHX :
-		fhdr = SHP_new_fhdr(args->a_files[0]);
+		fhdr = SHP_open_file(args->a_files[0]);
 		if(fhdr == NULL){
-			LOG_ERROR("SHP_new_fhdr failed for %s", args->a_files[0]);
+			LOG_ERROR("SHP_open_file failed for %s", args->a_files[0]);
 			err = 1;
 			goto CLEAN_UP;
 		}
-
-		if(SHP_read_fhdr(fp, fhdr)){
-			LOG_ERROR("SHP_read_fhdr failed for %s", args->a_files[0]);
-			err = 1;
-			goto CLEAN_UP;
-		}
-
 		SHP_dump_fhdr(stdout, fhdr);
 		if(ftype == SFT_SHP){
 			int	c, n_recs;
 			SF_SHAPE_T	*shp = NULL;
 
 			// dump shp file w/o use of shx index
-			for(n_recs = 0; (c = getc(fp)) != EOF; ){
-				ungetc(c, fp);
-				shp = SHP_read_shape(fp);
+			for(n_recs = 0; (c = getc(fhdr->s_fp)) != EOF; ){
+				ungetc(c, fhdr->s_fp);
+				shp = SHP_read_shape(fhdr->s_fp);
 				if(shp == NULL){
 					LOG_ERROR("SHP_read_shape failed for record %d", i+1);
 					err = 1;
@@ -103,7 +96,7 @@ main(int argc, char *argv[])
 
 			n_recs = (fhdr->sl_file - SF_FHDR_SIZE) / SF_RIDX_SIZE;
 			for(i = 0; i < n_recs; i++){
-				if(SHP_read_ridx(fp, &ridx)){
+				if(SHP_read_ridx(fhdr->s_fp, &ridx)){
 					LOG_ERROR("SHP_read_ridx failed for record %d", i+1);
 					err = 1;
 					goto CLEAN_UP;
@@ -187,7 +180,7 @@ CLEAN_UP : ;
 		fclose(fp);
 
 	if(fhdr != NULL)
-		SHP_delete_fhdr(fhdr);
+		SHP_close_file(fhdr);
 
 	if(dbm != NULL)
 		DBF_delete_dbf_meta(dbm);

@@ -112,16 +112,35 @@ SHP_delete_fhdr(SF_FHDR_T *fhdr)
 	free(fhdr);
 }
 
-int
-SHP_read_fhdr(FILE *fp, SF_FHDR_T *fhdr)
+SF_FHDR_T	*
+SHP_open_file(const char *fname)
 {
+	SF_FHDR_T	*fhdr = NULL;
 	int	ival, i, c;
 	double	dval;
 	int	err = 0;
 
+	if(fname == NULL || *fname == '\0'){
+		LOG_ERROR("fname is NULL or empty");
+		err = 1;
+		goto CLEAN_UP;
+	}
+
+	fhdr = SHP_new_fhdr(fname);
+	if(fhdr == NULL){
+		LOG_ERROR("SHP_new_fhdr failed for %s", fname);
+		err = 1;
+		goto CLEAN_UP;
+	}
+	if((fhdr->s_fp = fopen(fhdr->s_fname, "r")) == NULL){
+		LOG_ERROR("can't read file %s", fhdr->s_fname);
+		err = 1;
+		goto CLEAN_UP;
+	}
+
 	// values 1-7 are big endian
 	// read the magic number
-	if(FIO_read_be_int4(fp, &ival)){
+	if(FIO_read_be_int4(fhdr->s_fp, &ival)){
 		LOG_ERROR("FIO_read_be_int4 failed for magic number");
 		err = 1;
 		goto CLEAN_UP;
@@ -135,7 +154,7 @@ SHP_read_fhdr(FILE *fp, SF_FHDR_T *fhdr)
 
 	// The next 4 ints (20 bytes) must be 0, but are not used
 	for(i = 0; i < 5; i++){
-		if(FIO_read_be_int4(fp, &ival)){
+		if(FIO_read_be_int4(fhdr->s_fp, &ival)){
 			LOG_ERROR("FIO_read_be_int4 failed for unused value %d", i+1);
 			err = 1;
 			goto CLEAN_UP;
@@ -148,7 +167,7 @@ SHP_read_fhdr(FILE *fp, SF_FHDR_T *fhdr)
 	}
 
 	// get the file length
-	if(FIO_read_be_int4(fp, &ival)){
+	if(FIO_read_be_int4(fhdr->s_fp, &ival)){
 		LOG_ERROR("FIO_read_be_int4 failed for file length");
 		err = 1;
 		goto CLEAN_UP;
@@ -157,7 +176,7 @@ SHP_read_fhdr(FILE *fp, SF_FHDR_T *fhdr)
 
 	// the remaining values are little endian
 	// get the version
-	if(FIO_read_le_int4(fp, &ival)){
+	if(FIO_read_le_int4(fhdr->s_fp, &ival)){
 		LOG_ERROR("FIO_read_le_int4 failed for version");
 		err = 1;
 		goto CLEAN_UP;
@@ -170,47 +189,65 @@ SHP_read_fhdr(FILE *fp, SF_FHDR_T *fhdr)
 	fhdr->s_version = ival;
 
 	// get the shape type
-	if(FIO_read_le_int4(fp, &ival)){
+	if(FIO_read_le_int4(fhdr->s_fp, &ival)){
 		LOG_ERROR("FIO_read_le_int4 failed for version");
 		err = 1;
 		goto CLEAN_UP;
 	}
 	fhdr->s_type = ival;
 
-	if(SHP_read_bbox(fp, &fhdr->s_bbox)){
+	if(SHP_read_bbox(fhdr->s_fp, &fhdr->s_bbox)){
 		LOG_ERROR("SHP_get_bbox failed");
 		err = 1;
 		goto CLEAN_UP;
 	}
 
 	// get the z range
-	if(FIO_read_le_double(fp, &fhdr->s_zmin)){
+	if(FIO_read_le_double(fhdr->s_fp, &fhdr->s_zmin)){
 		LOG_ERROR("FIO_read_le_double failed for zmin");
 		err = 1;
 		goto CLEAN_UP;
 	}
-	if(FIO_read_le_double(fp, &fhdr->s_zmax)){
+	if(FIO_read_le_double(fhdr->s_fp, &fhdr->s_zmax)){
 		LOG_ERROR("FIO_read_le_double failed for zmax");
 		err = 1;
 		goto CLEAN_UP;
 	}
 
 	// get the m range
-	if(FIO_read_le_double(fp, &fhdr->s_mmin)){
+	if(FIO_read_le_double(fhdr->s_fp, &fhdr->s_mmin)){
 		LOG_ERROR("FIO_read_le_double failed for mmin");
 		err = 1;
 		goto CLEAN_UP;
 	}
-	if(FIO_read_le_double(fp, &fhdr->s_mmax)){
+	if(FIO_read_le_double(fhdr->s_fp, &fhdr->s_mmax)){
 		LOG_ERROR("FIO_read_le_double failed for mmax");
 		err = 1;
 		goto CLEAN_UP;
 	}
 
-
 CLEAN_UP : ;
 
-	return err;
+	if(err){
+		SHP_close_file(fhdr);
+		fhdr = NULL;
+	}
+
+	return fhdr;
+}
+
+void
+SHP_close_file(SF_FHDR_T *fhdr)
+{
+
+	if(fhdr == NULL)
+		return;
+
+	if(fhdr->s_fp != NULL)
+		fclose(fhdr->s_fp);
+	if(fhdr->s_fname != NULL)
+		free(fhdr->s_fname);
+	free(fhdr);
 }
 
 int

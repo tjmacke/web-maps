@@ -65,19 +65,9 @@ main(int argc, char *argv[])
 		err = 1;
 		goto CLEAN_UP;
 	}
-	if((shp_fp = fopen(shp_fname, "r")) == NULL){
-		LOG_ERROR("can't read shp file %s", shp_fname);
-		err = 1;
-		goto CLEAN_UP;
-	}
-	shp_fhdr = SHP_new_fhdr(shp_fname);
+	shp_fhdr = SHP_open_file(shp_fname);
 	if(shp_fhdr == NULL){
-		LOG_ERROR("SHP_new_fhdr failed for shape file %s", shp_fname);
-		err = 1;
-		goto CLEAN_UP;
-	}
-	if(SHP_read_fhdr(shp_fp, shp_fhdr)){
-		LOG_ERROR("SHP_read_fhdr failed for shape file %s", shp_fname);
+		LOG_ERROR("SHP_open_file failed for %s", shp_fname);
 		err = 1;
 		goto CLEAN_UP;
 	}
@@ -90,19 +80,9 @@ main(int argc, char *argv[])
 		err = 1;
 		goto CLEAN_UP;
 	}
-	if((shx_fp = fopen(shx_fname, "r")) == NULL){
-		LOG_ERROR("can't read shx file %s", shx_fname);
-		err = 1;
-		goto CLEAN_UP;
-	}
-	shx_fhdr = SHP_new_fhdr(shx_fname);
+	shx_fhdr = SHP_open_file(shx_fname);
 	if(shx_fhdr == NULL){
-		LOG_ERROR("SHP_new_fhdr failed for shape index file %s", shx_fname);
-		err = 1;
-		goto CLEAN_UP;
-	}
-	if(SHP_read_fhdr(shx_fp, shx_fhdr)){
-		LOG_ERROR("SHP_read_fhdr failed for shape index file %s", shx_fname);
+		LOG_ERROR("SHP_open_file failed for %s", shx_fname);
 		err = 1;
 		goto CLEAN_UP;
 	}
@@ -123,19 +103,16 @@ LOG_DEBUG("%s: %d recs", shp_fname, n_recs);
 
 CLEAN_UP : ;
 
-	if(shp_fhdr != NULL)
-		SHP_delete_fhdr(shp_fhdr);
-
 	if(pfp != NULL)
 		fclose(pfp);
 
-	if(shx_fp != NULL)
-		fclose(shx_fp);
+	if(shx_fhdr != NULL)
+		SHP_close_file(shx_fhdr);
 	if(shx_fname != NULL)
 		free(shx_fname);
 
-	if(shp_fp != NULL)
-		fclose(shp_fp);
+	if(shp_fhdr != NULL)
+		SHP_close_file(shp_fhdr);
 	if(shp_fname != NULL)
 		free(shp_fname);
 

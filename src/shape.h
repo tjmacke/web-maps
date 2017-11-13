@@ -65,6 +65,7 @@ typedef	struct	sf_bbox_t	{
 
 typedef	struct	sf_fhdr_t	{
 	char	*s_fname;
+	FILE	*s_fp;
 	int	s_magic;
 	int	sl_file;
 	int	s_version;
@@ -113,8 +114,11 @@ SHP_new_fhdr(const char *);
 void
 SHP_delete_fhdr(SF_FHDR_T *);
 
-int
-SHP_read_fhdr(FILE *, SF_FHDR_T *);
+SF_FHDR_T	*
+SHP_open_file(const char *);
+
+void
+SHP_close_file(SF_FHDR_T *);
 
 int
 SHP_read_bbox(FILE *, SF_BBOX_T *);
