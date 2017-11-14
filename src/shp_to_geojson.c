@@ -19,6 +19,9 @@ static	int	n_flags = sizeof(flags)/sizeof(flags[0]);
 static	char	*
 mk_sf_name(const char *, const char *);
 
+static	int
+rd_shx_data(const char *, int, int *, SF_RIDX_T **);
+
 int
 main(int argc, char *argv[])
 {
@@ -28,14 +31,20 @@ main(int argc, char *argv[])
 	const char	*sf = NULL;
 	const char	*pfname = NULL;
 	FILE	*pfp = NULL;
+	int	all = 0;
+	FILE	*fp = NULL;
 	char	*shp_fname = NULL;
-	FILE	*shp_fp = NULL;
 	SF_FHDR_T	*shp_fhdr = NULL;
 	char	*shx_fname = NULL;
-	FILE	*shx_fp = NULL;
-	SF_FHDR_T	*shx_fhdr = NULL;
-	int	all = 0;
-	int	n_recs;
+	int	n_recs = 0;
+	SF_RIDX_T	*ridx = NULL;
+	SF_RIDX_T	*rip;
+	char	*line = NULL;
+	size_t	s_line = 0;
+	ssize_t	l_line;
+	int	lcnt;
+	int	i, rnum;
+	SF_SHAPE_T	*shp = NULL;
 	int	err = 0;
 
 	a_stat = TJM_get_args(argc, argv, n_flags, flags, 0, 1, &args);
@@ -59,12 +68,30 @@ main(int argc, char *argv[])
 	if(verbose > 1)
 		TJM_dump_args(stderr, args);
 
+	if(!all){
+		if(args->an_files == 0)
+			fp = stdin;
+		else if((fp = fopen(args->a_files[0], "r")) == NULL){
+			LOG_ERROR("can't read rnum file %s", args->a_files[0]);
+			err = 1;
+			goto CLEAN_UP;
+		}
+	}
+
+	// make the names from the value -sf
 	shp_fname = mk_sf_name(sf, "shp");
 	if(shp_fname == NULL){
 		LOG_ERROR("mk_sfname failed for shp file");
 		err = 1;
 		goto CLEAN_UP;
 	}
+	shx_fname = mk_sf_name(sf, "shx");
+	if(shx_fname == NULL){
+		LOG_ERROR("mk_sf_name failed for shx file");
+		err = 1;
+		goto CLEAN_UP;
+	}
+
 	shp_fhdr = SHP_open_file(shp_fname);
 	if(shp_fhdr == NULL){
 		LOG_ERROR("SHP_open_file failed for %s", shp_fname);
@@ -74,25 +101,6 @@ main(int argc, char *argv[])
 	if(verbose)
 		SHP_dump_fhdr(stderr, shp_fhdr);
 
-	shx_fname = mk_sf_name(sf, "shx");
-	if(shx_fname == NULL){
-		LOG_ERROR("mk_sf_name failed for shx file");
-		err = 1;
-		goto CLEAN_UP;
-	}
-	shx_fhdr = SHP_open_file(shx_fname);
-	if(shx_fhdr == NULL){
-		LOG_ERROR("SHP_open_file failed for %s", shx_fname);
-		err = 1;
-		goto CLEAN_UP;
-	}
-	if(verbose)
-		SHP_dump_fhdr(stderr, shx_fhdr);
-
-	n_recs = (shx_fhdr->sl_file - SF_FHDR_SIZE) / SF_RIDX_SIZE;
-
-LOG_DEBUG("%s: %d recs", shp_fname, n_recs);
-
 	if(pfname != NULL){
 		if((pfp = fopen(pfname, "r")) == NULL){
 			LOG_ERROR("can't read property file %s", pfname);
@@ -101,13 +109,69 @@ LOG_DEBUG("%s: %d recs", shp_fname, n_recs);
 		}
 	}
 
+	if(rd_shx_data(shx_fname, verbose, &n_recs, &ridx)){
+		LOG_ERROR("rd_shx_data failed for %s", shx_fname);
+		err = 1;
+		goto CLEAN_UP;
+	}
+
+	if(all){
+		for(i = 0; i < n_recs; i++){
+			shp = SHP_read_shape(shp_fhdr->s_fp);
+			if(shp == NULL){
+				LOG_ERROR("SHP_read_shape failed for record %d", i+1);
+				err = 1;
+				goto CLEAN_UP;
+			}
+			SHP_dump_shape(stderr, shp, verbose);
+			SHP_delete_shape(shp);
+			shp = NULL;
+		}
+	}else{
+		for(lcnt = 0; (l_line = getline(&line, &s_line, fp)) > 0; ){
+			lcnt++;
+			if(line[l_line - 1] == '\n'){
+				line[l_line - 1] = '\0';
+				l_line--;
+				if(l_line == 0){
+					LOG_WARN("line %7d: empty line", lcnt);
+					continue;
+				}
+			}
+			rnum = atoi(line);
+			if(rnum < 1 || rnum > n_recs){
+				LOG_WARN("line %7d: rnum %d out of range: 1:%d", lcnt, rnum, n_recs);
+				err = 1;
+				continue;
+			}
+			rip = &ridx[rnum - 1];
+			fseek(shp_fhdr->s_fp, SF_WORD_SIZE * rip->s_offset, SEEK_SET);
+			shp = SHP_read_shape(shp_fhdr->s_fp);
+			if(shp == NULL){
+				LOG_ERROR("line %7d: SHP_read_shape failed for record %d", lcnt, rnum);
+				err = 1;
+				goto CLEAN_UP;
+			}
+			SHP_dump_shape(stderr, shp, verbose);
+			SHP_delete_shape(shp);
+			shp = NULL;
+		}
+	}
+
 CLEAN_UP : ;
+
+	if(shp != NULL)
+		SHP_delete_shape(shp);
+
+	if(line != NULL)
+		free(line);
 
 	if(pfp != NULL)
 		fclose(pfp);
 
-	if(shx_fhdr != NULL)
-		SHP_close_file(shx_fhdr);
+	if(ridx != NULL)
+		free(ridx);
+
 	if(shx_fname != NULL)
 		free(shx_fname);
 
@@ -115,6 +179,9 @@ CLEAN_UP : ;
 		SHP_close_file(shp_fhdr);
 	if(shp_fname != NULL)
 		free(shp_fname);
+
+	if(fp != NULL && fp != stdin)
+		fclose(fp);
 
 	TJM_free_args(args);
 
@@ -204,4 +271,60 @@ CLEAN_UP : ;
 	}
 
 	return sfname;
+}
+
+int
+rd_shx_data(const char *shx_fname, int verbose, int *n_ridx, SF_RIDX_T **ridx)
+{
+	SF_FHDR_T	*shx_fhdr = NULL;
+	int	i;
+	int	err = 0;
+
+	*n_ridx = 0;
+	*ridx = NULL;
+
+	shx_fhdr = SHP_open_file(shx_fname);
+	if(shx_fhdr == NULL){
+		LOG_ERROR("SHP_open_file failed for %s", shx_fname);
+		err = 1;
+		goto CLEAN_UP;
+	}
+	if(verbose)
+		SHP_dump_fhdr(stderr, shx_fhdr);
+
+	*n_ridx = (shx_fhdr->sl_file - SF_FHDR_SIZE) / SF_RIDX_SIZE;
+	*ridx = (SF_RIDX_T *)malloc(*n_ridx * sizeof(SF_RIDX_T));
+
+LOG_DEBUG("*n_rdix = %d", *n_ridx);
+
+	if(*ridx == NULL){
+		LOG_ERROR("can't allocate ridx");
+		err = 1;
+		goto CLEAN_UP;
+	}
+	for(i = 0; i < *n_ridx; i++){
+		if(SHP_read_ridx(shx_fhdr->s_fp, &(*ridx)[i])){
+			LOG_ERROR("SHP_read_ridx failed for record %d", i+1);
+			err = 1;
+			goto CLEAN_UP;
+		}
+	}
+
+LOG_DEBUG("ridx[  0] = %d, %d", (*ridx)[0].s_offset, (*ridx)[0].s_length);
+LOG_DEBUG("ridx[199] = %d, %d", (*ridx)[199].s_offset, (*ridx)[199].s_length);
+
+CLEAN_UP : ;
+
+	// prevent info leak on error
+	if(err){
+		if(*ridx != NULL){
+			free(*ridx);
+			*ridx = NULL;
+		}
+		*n_ridx = 0;
+	}
+
+	SHP_close_file(shx_fhdr);
+
+	return err;
 }
