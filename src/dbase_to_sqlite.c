@@ -135,6 +135,26 @@ mk_create_table_cmd(const DBF_META_T *dbm, const char *tname, const char *pk)
 		pk++;
 	}
 
+	for(i = 0; i < dbm->dn_fields; i++){
+		fldp = dbm->d_fields[i];
+		if(!strcmp(fldp->d_name, pk)){
+			if(fldp->d_type != 'N'){
+				LOG_ERROR("requested primary key field %s has wrong type %c", pk, fldp->d_type);
+				err = 1;
+				goto CLEAN_UP;
+			}else if(fldp->d_dec_count != 0){
+				LOG_ERROR("requested primary key field %s has non-zero dec_count type %d", pk, fldp->d_type);
+				err = 1;
+				goto CLEAN_UP;
+			}
+			if(add_pk){
+				LOG_WARN("requested primary key field %s already in db", pk);
+				add_pk = 0;
+			}
+			break;
+		}
+	}
+
 	printf("CREATE TABLE %s (\n", tname);
 	if(add_pk)
 		printf("\t%s integer NOT NULL,\n", pk);
