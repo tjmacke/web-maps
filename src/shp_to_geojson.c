@@ -44,6 +44,7 @@ main(int argc, char *argv[])
 	ssize_t	l_line;
 	int	lcnt;
 	int	i, rnum;
+	int	a_prlg;
 	SF_SHAPE_T	*shp = NULL;
 	int	err = 0;
 
@@ -100,6 +101,11 @@ main(int argc, char *argv[])
 	}
 	if(verbose)
 		SHP_dump_fhdr(stderr, shp_fhdr);
+	if(shp_fhdr->s_type == ST_NULL){
+		LOG_WARN("shape file %s contains only NULL objects, nothing to do", shp_fname);
+		err = 1;
+		goto CLEAN_UP;
+	}
 
 	if(pfname != NULL){
 		if((pfp = fopen(pfname, "r")) == NULL){
@@ -115,6 +121,7 @@ main(int argc, char *argv[])
 		goto CLEAN_UP;
 	}
 
+	a_prlg = 1;
 	if(all){
 		for(i = 0; i < n_recs; i++){
 			shp = SHP_read_shape(shp_fhdr->s_fp);
@@ -123,12 +130,20 @@ main(int argc, char *argv[])
 				err = 1;
 				goto CLEAN_UP;
 			}
-			SHP_dump_shape(stderr, shp, verbose);
+			if(verbose)
+				SHP_dump_shape(stderr, shp, verbose);
+			if(a_prlg){
+				a_prlg = 0;
+				SHP_write_geojson_prolog(stdout);
+			}
+			SHP_write_geojson(stdout, shp, i == 0);
 			SHP_delete_shape(shp);
 			shp = NULL;
 		}
 	}else{
-		for(lcnt = 0; (l_line = getline(&line, &s_line, fp)) > 0; ){
+		int	first;
+
+		for(first = 1, lcnt = 0; (l_line = getline(&line, &s_line, fp)) > 0; ){
 			lcnt++;
 			if(line[l_line - 1] == '\n'){
 				line[l_line - 1] = '\0';
@@ -152,11 +167,20 @@ main(int argc, char *argv[])
 				err = 1;
 				goto CLEAN_UP;
 			}
-			SHP_dump_shape(stderr, shp, verbose);
+			if(verbose)
+				SHP_dump_shape(stderr, shp, verbose);
+			if(a_prlg){
+				a_prlg = 0;
+				SHP_write_geojson_prolog(stdout);
+			}
+			SHP_write_geojson(stdout, shp, first);
 			SHP_delete_shape(shp);
 			shp = NULL;
+			first = 0;
 		}
 	}
+	if(!a_prlg)
+		SHP_write_geojson_trailer(stdout);
 
 CLEAN_UP : ;
 
@@ -224,20 +248,17 @@ mk_sf_name(const char *pfx, const char *ext)
 			err = 1;
 			goto CLEAN_UP;
 		}
-		
 		if(dot < slash)
 			add_dot = add_ext = 1;
 		else if(dot[1] == '\0')
 			add_ext = 1;
 		else if(strcmp(&dot[1], ext))
 			add_dot = add_ext = 1;
-		// pfx is alread correct, just copy it
 	}else if(dot != NULL){
 		if(dot[1] == '\0')
 			add_ext = 1;
 		else if(strcmp(&dot[1], ext))
 			add_dot = add_ext = 1;
-		// pfx is alread correct, just copy it
 	}else
 		add_dot = add_ext = 1;
 
@@ -295,8 +316,6 @@ rd_shx_data(const char *shx_fname, int verbose, int *n_ridx, SF_RIDX_T **ridx)
 	*n_ridx = (shx_fhdr->sl_file - SF_FHDR_SIZE) / SF_RIDX_SIZE;
 	*ridx = (SF_RIDX_T *)malloc(*n_ridx * sizeof(SF_RIDX_T));
 
-LOG_DEBUG("*n_rdix = %d", *n_ridx);
-
 	if(*ridx == NULL){
 		LOG_ERROR("can't allocate ridx");
 		err = 1;
@@ -309,9 +328,6 @@ LOG_DEBUG("*n_rdix = %d", *n_ridx);
 			goto CLEAN_UP;
 		}
 	}
-
-LOG_DEBUG("ridx[  0] = %d, %d", (*ridx)[0].s_offset, (*ridx)[0].s_length);
-LOG_DEBUG("ridx[199] = %d, %d", (*ridx)[199].s_offset, (*ridx)[199].s_length);
 
 CLEAN_UP : ;
 

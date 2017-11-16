@@ -150,4 +150,13 @@ SHP_delete_shape(SF_SHAPE_T *);
 void
 SHP_dump_shape(FILE *, SF_SHAPE_T *, int);
 
+void
+SHP_write_geojson_prolog(FILE *);
+
+int
+SHP_write_geojson(FILE *, const SF_SHAPE_T *, int);
+
+void
+SHP_write_geojson_trailer(FILE *);
+
 #endif

@@ -743,3 +743,118 @@ SHP_dump_shape(FILE *fp, SF_SHAPE_T *shp, int verbose)
 	}
 	fprintf(fp, "}\n");
 }
+
+void
+SHP_write_geojson_prolog(FILE *fp)
+{
+
+	fprintf(fp, "{\n");
+	fprintf(fp, "  \"type\": \"FeatureCollection\",\n");
+	fprintf(fp, "  \"features\":[");
+}
+
+int
+SHP_write_geojson(FILE *fp, const SF_SHAPE_T *shp, int first)
+{
+	int	err = 0;
+
+	fprintf(fp, "%s\n{\n", !first ? "," : "");
+	fprintf(fp, "  \"type\": \"Feature\",\n");
+	fprintf(fp, "  \"geometry\": {\n");
+	fprintf(fp, "    \"type\": \"");
+	switch(shp->s_type){
+	case ST_NULL :
+		LOG_ERROR("shape type NULL can not be converted to geojson");
+		err = 1;
+		break;
+	case ST_POINT :
+	case ST_POINT_Z :
+	case ST_POINT_M :
+		fprintf(fp, "Point");
+		break;
+	case ST_POLYLINE :
+	case ST_POLYLINE_Z :
+	case ST_POLYLINE_M :
+		fprintf(fp, "MultiLineString");
+		break;
+	case ST_POLYGON :
+	case ST_POLYGON_Z :
+	case ST_POLYGON_M :
+		fprintf(fp, "Polygon");
+		break;
+	case ST_MULTIPOINT :
+	case ST_MULTIPOINT_Z :
+	case ST_MULTIPOINT_M :
+		fprintf(fp, "MultiPoint");
+		break;
+	case ST_MULTIPATCH :
+		LOG_ERROR("shape type MULTIPATCH can not be converted to geojson at this time");
+		err = 1;
+		break;
+	default :
+		fprintf(fp, "?%d?", shp->s_type);
+		LOG_ERROR("unexpected shape type %d", shp->s_type);
+		err = 1;
+		break;
+	}
+	fprintf(fp, "\",\n");
+	fprintf(fp, "    \"coordinates\": [\n");
+	if(!err){
+		int	i, p, pf, pl;
+
+		switch(shp->s_type){
+		case ST_POINT :
+		case ST_POINT_Z :
+		case ST_POINT_M :
+			fprintf(fp, "%.15e, %.15e", shp->s_points[0].s_x, shp->s_points[0].s_y);
+			if(shp->s_type == ST_POINT_Z)
+				fprintf(fp, ", %.15e", shp->s_zvals[0]);
+			fprintf(fp, "\n");
+			break;
+		case ST_POLYLINE :
+		case ST_POLYLINE_Z :
+		case ST_POLYLINE_M :
+		case ST_POLYGON :
+		case ST_POLYGON_Z :
+		case ST_POLYGON_M :
+			for(p = 0; p < shp->sn_parts; p++){
+				pf = shp->s_parts[p];
+				pl = (p == shp->sn_parts - 1) ? shp->sn_points : shp->s_parts[p+1];
+				fprintf(fp, "[\n");
+					for(i = pf; i < pl; i++){
+						fprintf(fp, "[%.15e, %.15e", shp->s_points[i].s_x, shp->s_points[i].s_y);
+						if(shp->s_type == ST_POLYGON_Z || shp->s_type == ST_POLYLINE_Z)
+							fprintf(fp, ", %.15e", shp->s_zvals[i]);
+						fprintf(fp, "]%s\n", (i < pl - 1) ? "," : "");
+					}
+				fprintf(fp, "]%s\n", p < shp->sn_parts - 1 ? "," : "");
+			}
+			break;
+		case ST_MULTIPOINT :
+		case ST_MULTIPOINT_Z :
+		case ST_MULTIPOINT_M :
+			for(i = 0; i < shp->sn_points; i++){
+				fprintf(fp, "%.15e, %.15e", shp->s_points[i].s_x, shp->s_points[i].s_y);
+				if(shp->s_type == ST_MULTIPOINT_Z)
+					fprintf(fp, ", %.15e", shp->s_zvals[i]);
+				fprintf(fp, "\n");
+			}
+			break;
+		}
+	}
+	fprintf(fp, "    ]\n");
+	fprintf(fp, "  },\n");
+	fprintf(fp, "  \"properties\": {\n");
+	fprintf(fp, "  }\n");
+	fprintf(fp, "}");
+	return err;
+}
+
+void
+SHP_write_geojson_trailer(FILE *fp)
+{
+
+	fprintf(fp, "  ]\n");
+	fprintf(fp, "}\n");
+
+}
