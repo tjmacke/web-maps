@@ -273,6 +273,42 @@ DBF_dump_field(FILE *fp, DBF_FIELD_T *fldp, int verbose, int fnum, const char *i
 }
 
 void
+DBF_chk_pkey_cands(DBF_META_T *dbm, int rnum, const char *rbuf)
+{
+	int	i;
+	DBF_FIELD_T	*fldp;
+	const char	*rbuf1, *rbp, *e_rbp;
+	char	*fval = NULL;
+	char	*pkey = NULL;
+
+	if(dbm == NULL){
+		LOG_ERROR("dbm is NULL\n");	
+		return;
+	}
+
+	if(rbuf == NULL || *rbuf == '\0'){
+		LOG_ERROR("rbuf is NULL or empty\n");
+		return;
+	}
+
+	rbuf1 = &rbuf[1];	// skip the deleted marker
+	for(i = 0; i < dbm->dn_fields; i++){
+		fldp = dbm->d_fields[i];
+		if(fldp->d_is_pkey_cand){
+			fval = DBF_get_field_value(fldp, rbuf, 1);
+			if(fval == NULL){
+				LOG_ERROR("DBF_get_field_value failed for rec %d, field %s", rnum, fldp->d_name);
+				return;
+			}
+			if(*fval == '\0')
+				fldp->d_is_pkey_cand = 0;
+			else if(atoi(fval) != rnum)
+				fldp->d_is_pkey_cand = 0;
+		}
+	}
+}
+
+void
 DBF_dump_rec(FILE *fp, DBF_META_T *dbm, int verbose, int trim, int rnum, const char *rbuf)
 {
 	int	i;
@@ -286,8 +322,8 @@ DBF_dump_rec(FILE *fp, DBF_META_T *dbm, int verbose, int trim, int rnum, const c
 		return;
 	}
 
-	if(rbuf == NULL){
-		fprintf(fp, "rbuf is NULL\n");
+	if(rbuf == NULL || *rbuf == '\0'){
+		fprintf(fp, "rbuf is NULL or empty\n");
 		return;
 	}
 

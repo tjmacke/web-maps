@@ -78,6 +78,9 @@ void
 DBF_dump_field(FILE *, DBF_FIELD_T *, int, int, const char *);
 
 void
+DBF_chk_pkey_cands(DBF_META_T *, int, const char *);
+
+void
 DBF_dump_rec(FILE *, DBF_META_T *, int, int, int, const char *);
 
 char	*

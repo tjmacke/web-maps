@@ -127,7 +127,11 @@ main(int argc, char *argv[])
 			err = 1;
 			goto CLEAN_UP;
 		}
-		// set all the d_is_pkey_cand w/value = -1 to 1, so we actually settle the issue now
+		// check for possibley primary key fields.  They must have type integer
+		// and the value must equal the record number.
+		// Step 1, assume fields not previously disqualified are primary keys.
+		// Step 2. read the records and disqualify any where the value != rec num
+		// Step 3. Any survivors are primary key candidates
 		for(i = 0; i < dbm->dn_fields; i++){
 			if(dbm->d_fields[i]->d_is_pkey_cand == -1)
 				dbm->d_fields[i]->d_is_pkey_cand = 1;
@@ -140,7 +144,9 @@ main(int argc, char *argv[])
 				goto CLEAN_UP;
 			}
 			rbuf[l_rbuf] = '\0';	// records are ascii
-			DBF_dump_rec(stdout, dbm, verbose, trim, i+1, rbuf);
+			DBF_chk_pkey_cands(dbm, i+1, rbuf);
+			if(verbose)
+				DBF_dump_rec(stdout, dbm, verbose, trim, i+1, rbuf);
 		}
 		c = getc(fp);
 		if(c == EOF){
@@ -153,7 +159,7 @@ main(int argc, char *argv[])
 			goto CLEAN_UP;
 		}
 		for(h_pkey_cands = i = 0; i < dbm->dn_fields; i++){
-			if(dbm->d_fields[i]->d_is_pkey_cand){
+			if(dbm->d_fields[i]->d_is_pkey_cand == 1){
 				if(!h_pkey_cands){
 					h_pkey_cands = 1;
 					printf("pkey_cands = {\n");
