@@ -29,5 +29,8 @@ shape.o:	log.h shape.h
 
 dbase.o:	log.h dbase.h
 
+install:	all
+	mv $(PROGRAMS) ../bin
+
 clean:
 	rm -rf $(PROGRAMS) *.o core core.* junk.*
