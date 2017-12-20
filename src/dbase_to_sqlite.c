@@ -13,7 +13,7 @@ static	FLAG_T	flags[] = {
 	{"-t",    0, AVK_REQ,  AVT_STR,  NULL, "Use -t T to put the dbase data into a sqlite table named T."},
 	{"-pk",   0, AVK_REQ,  AVT_STR,  NULL, "Use -pk F to use field F as the primary key; use -pk +F to add field F as the primary key."},
 	{"-kth",  1, AVK_REQ,  AVT_STR,  NULL, "Use -kth D to look for known tables in directory D, instead of $WM_HOME/etc."},
-	{"-ktl",  0, AVK_REQ,  AVT_STR,  NULL, "Use -ktl L, L comma separated list of known tables to add to the new db."}
+	{"-ktl",  1, AVK_REQ,  AVT_STR,  NULL, "Use -ktl L, L comma separated list of known tables to add to the new db."}
 };
 static	int	n_flags = sizeof(flags)/sizeof(flags[0]);
 
