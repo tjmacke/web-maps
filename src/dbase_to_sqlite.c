@@ -167,12 +167,7 @@ add_known_tables(const char *kt_home, const char *kt_list)
 			err = 1;
 			goto CLEAN_UP;
 		}
-
-LOG_DEBUG("wm_home = %s", wm_home);
-
 	}
-
-LOG_DEBUG("kt_list = %s", kt_list);
 
 	s_fname = 0;
 	for(s_kt = e_kt = kt_list; *s_kt; ){
@@ -192,10 +187,12 @@ LOG_DEBUG("kt_list = %s", kt_list);
 			s_fname = e_kt - s_kt;
 		s_kt = *e_kt ? e_kt + 1 : e_kt;
 	}
-
-LOG_DEBUG("s_fname = %ld", s_fname);
-
-	s_fname = (wm_home == NULL ? strlen(kt_home) + 1 : strlen("/etc/")) + 1;
+	// NB: some assignments are too complicate to do as ? :
+	if(wm_home == NULL){
+		s_fname += strlen(kt_home) + 1 + 1;
+	}else{
+		s_fname += strlen(wm_home) + strlen("/etc/") + 1;
+	}
 	fname = (char *)malloc(s_fname * sizeof(char));
 	if(fname == NULL){
 		LOG_ERROR("can't allocate fname");
@@ -208,6 +205,7 @@ LOG_DEBUG("s_fname = %ld", s_fname);
 			e_kt = s_kt + strlen(s_kt);
 	
 		tname = strndup(s_kt, e_kt - s_kt);
+
 		if(tname == NULL){
 			LOG_ERROR("can't strndup tname: %.*s", (int)(e_kt - s_kt), s_kt);
 			err = 1;
@@ -220,8 +218,6 @@ LOG_DEBUG("s_fname = %ld", s_fname);
 			sprintf(fname, "%s/etc/%.*s", wm_home, (int)(e_kt - s_kt), s_kt);
 		else
 			sprintf(fname, "%s/%.*s", kt_home, (int)(e_kt - s_kt), s_kt);
-
-LOG_DEBUG("make known table %s from file %s", tname, fname);
 
 		if((fp = fopen(fname, "r")) == NULL){
 			LOG_ERROR("can't read known table file %s", fname);
