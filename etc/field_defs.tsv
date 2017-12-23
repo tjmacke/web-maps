@@ -1,0 +1,71 @@
+CLASSFP	Current Federal Information Processing Series (FIPS) class code
+	C1	An active incorporated place that does not serve as a county subdivision
+	C2	An active incorporated place that is legally coextensive with a county subdivision 
+	C5	An active incorporated place that is independent of any county subdivision and serves as a county subdivision equivalent
+	C6	An active incorporated place that is coextensive with or approximates an Alaska Native village statistical area
+	C7	An incorporated place that is independent of any county
+	C8	The balance of a consolidated city excluding the separately incorporated place(s) within that consolidated government
+	C9	An inactive or nonfunctioning incorporated place
+	H1	An active county or equivalent feature
+	H4	An inactive county or equivalent feature
+	H5	A statistical county equivalent feature
+	H6	A county that is coextensive with an incorporated place, part of an incorporated place, or a consolidated city and the governmental functions of the county are part of the municipal government
+	M2	A military or other defense installation entirely within a place
+	U1	A census designated place with an official federally recognized name
+	U2	A census designated place without an official federally recognized name
+
+FUNCSTAT	Current functional status
+	A	Active government providing primary general-purpose functions
+	B	Active government that is partially consolidated with another government but with separate officials providing primary general-purpose functions
+	C	Active government consolidated with another government with a single set of officials
+	F	Fictitious Entity created to fill the Census Bureau geographic hierarchy
+	F	Fictitious entity created to fill the Census Bureau geographic hierachy
+	G	Active government that is subordinate to another unit of government
+	I	Inactive governemental unit that has the power to provide primary special-purpose functions
+	N	Nonfunctioning legal entity
+	S	Statistical Entity
+	S	Statistical entity
+
+LSAD	Current legal/statistical area description code for place/county
+	00	Blank
+	03	City and Borough (suffix)
+	04	Borough (suffix)
+	05	Census Area (suffix)
+	06	County (suffix)
+	07	District (suffix)
+	10	Island (suffix)
+	12	Municipality (suffix)
+	13	Municipio (suffix)
+	15	Parish (suffix)
+	21	borough (suffix)
+	25	city (suffix)
+	37	municipality (suffix)
+	43	town (suffix)
+	47	village (suffix)
+	53	city and borough (suffix)
+	55	comunidad (suffix)
+	57	census designated place (CDP) (suffix)
+	62	zona urbana (suffix)
+	CN	corporation (suffix)
+	MG	metropolitan government (suffix)
+	UC	urban county (suffix)
+	UG	unified government (suffix)
+
+MTFCC	MAF/TIGER feature class code
+	G4020	County or Equivalent Feature
+	G4110	Incorporated place
+	G4210	Census designated place
+	G5020	Census Tract
+
+PCICBSA	Current metropolitan or micropolitan statistical area principal city indicator
+	N	Geographic entity is not a principal city of a CBSA
+	Y	Geographic entity is a principal city of a CBSA
+
+PCINECTA	Current New England city and town area principal city indicator
+	N	Geographic entity is not a principal city of a NECTA
+	Y	Geographic entity is a principal city of a NECTA
+
+TRACTCE	Current census tract code
+	000100 to 998999	Census tract number
+	990000 to 990099	Water tract (2010 and continuing)
+	990100 to 998999	Census tract number
