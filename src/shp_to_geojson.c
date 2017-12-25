@@ -13,7 +13,8 @@ static	FLAG_T	flags[] = {
 	{"-v",    1, AVK_OPT,  AVT_UINT, "0",  "Use -v to set the verbosity to 1; use -v=N to set it to N."},
 	{"-sf",   0, AVK_REQ,  AVT_STR,  NULL, "Use -sf S to use convert that shapes in S.shp, S.shx to geojson."},
 	{"-pf",   1, AVK_REQ,  AVT_STR,  NULL, "Use -pf P to to add properties to the geojson."},
-	{"-all",  1, AVK_NONE, AVT_BOOL, "0",  "Use -all to convert all records, else convert only records whose rnums are in file."}
+	{"-all",  1, AVK_NONE, AVT_BOOL, "0",  "Use -all to convert all records, else convert only records whose rnums are in file."},
+	{"-wrap", 1, AVK_NONE, AVT_BOOL, "0",  "Use -wrap to wrap the geojson with map_view.html wrapper."}
 };
 static	int	n_flags = sizeof(flags)/sizeof(flags[0]);
 
@@ -34,7 +35,10 @@ main(int argc, char *argv[])
 	FILE	*pfp = NULL;
 	PROP_T	**props = NULL;
 	int	n_props;
+	const PROP_T	*pp;
+	const char	*p_value;
 	int	all = 0;
+	int	wrap = 0;
 	FILE	*fp = NULL;
 	char	*shp_fname = NULL;
 	SF_FHDR_T	*shp_fhdr = NULL;
@@ -68,6 +72,9 @@ main(int argc, char *argv[])
 
 	a_val = TJM_get_flag_value(args, "-all", AVT_BOOL);
 	all = a_val->av_value.v_int;
+
+	a_val = TJM_get_flag_value(args, "-wrap", AVT_BOOL);
+	wrap = a_val->av_value.v_int;
 
 	if(verbose > 1)
 		TJM_dump_args(stderr, args);
@@ -144,9 +151,18 @@ main(int argc, char *argv[])
 				SHP_dump_shape(stderr, shp, verbose);
 			if(a_prlg){
 				a_prlg = 0;
-				SHP_write_geojson_prolog(stdout);
+				SHP_write_geojson_prolog(stdout, wrap);
 			}
-			SHP_write_geojson(stdout, shp, i == 0);
+			p_value = NULL;
+			if(props != NULL){
+				pp = PROPS_find_prop(shp->s_rnum, n_props, props);
+				if(pp == NULL){
+					LOG_WARN("no properties for rnum = %d", shp->s_rnum);
+					err = 1;
+				}else
+					p_value = pp->p_value;
+			}
+			SHP_write_geojson(stdout, shp, i == 0, p_value);
 			SHP_delete_shape(shp);
 			shp = NULL;
 		}
@@ -181,16 +197,25 @@ main(int argc, char *argv[])
 				SHP_dump_shape(stderr, shp, verbose);
 			if(a_prlg){
 				a_prlg = 0;
-				SHP_write_geojson_prolog(stdout);
+				SHP_write_geojson_prolog(stdout, wrap);
 			}
-			SHP_write_geojson(stdout, shp, first);
+			p_value = NULL;
+			if(props != NULL){
+				pp = PROPS_find_prop(shp->s_rnum, n_props, props);
+				if(pp == NULL){
+					LOG_WARN("no properties for rnum = %d", shp->s_rnum);
+					err = 1;
+				}else
+					p_value = pp->p_value;
+			}
+			SHP_write_geojson(stdout, shp, first, p_value);
 			SHP_delete_shape(shp);
 			shp = NULL;
 			first = 0;
 		}
 	}
 	if(!a_prlg)
-		SHP_write_geojson_trailer(stdout);
+		SHP_write_geojson_trailer(stdout, wrap);
 
 CLEAN_UP : ;
 

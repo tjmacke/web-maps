@@ -166,6 +166,25 @@ CLEAN_UP : ;
 	return err;
 }
 
+const PROP_T	*
+PROPS_find_prop(int pkey, int n_props, PROP_T *props[])
+{
+	int	i, j, k;
+	PROP_T	*pp;
+
+	for(i = 0, j = n_props - 1; i <= j; ){
+		k = (i + j) / 2;
+		pp = props[k];
+		if(pp->p_key == pkey)
+			return pp;
+		else if(pp->p_key < pkey)
+			i = k + 1;
+		else
+			j = k - 1;
+	}
+	return NULL;
+}
+
 void
 PROPS_dump_props(FILE *fp, int n_props, PROP_T *props[])
 {

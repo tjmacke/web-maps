@@ -745,16 +745,19 @@ SHP_dump_shape(FILE *fp, SF_SHAPE_T *shp, int verbose)
 }
 
 void
-SHP_write_geojson_prolog(FILE *fp)
+SHP_write_geojson_prolog(FILE *fp, int wrap)
 {
 
+	if(wrap){
+		fprintf(fp, "{\n\"geojson\": ");
+	}
 	fprintf(fp, "{\n");
 	fprintf(fp, "  \"type\": \"FeatureCollection\",\n");
 	fprintf(fp, "  \"features\":[");
 }
 
 int
-SHP_write_geojson(FILE *fp, const SF_SHAPE_T *shp, int first)
+SHP_write_geojson(FILE *fp, const SF_SHAPE_T *shp, int first, const char *props)
 {
 	int	err = 0;
 
@@ -844,17 +847,23 @@ SHP_write_geojson(FILE *fp, const SF_SHAPE_T *shp, int first)
 	}
 	fprintf(fp, "    ]\n");
 	fprintf(fp, "  },\n");
-	fprintf(fp, "  \"properties\": {\n");
-	fprintf(fp, "  }\n");
+	fprintf(fp, "  \"properties\": ");
+	if(props == NULL)
+		fprintf(fp, GJ_DEFAULT_PROPS_FMT_D, shp->s_rnum);
+	else
+		fprintf(fp, "%s", props);
+	fprintf(fp, "\n");
 	fprintf(fp, "}");
 	return err;
 }
 
 void
-SHP_write_geojson_trailer(FILE *fp)
+SHP_write_geojson_trailer(FILE *fp, int wrap)
 {
 
 	fprintf(fp, "  ]\n");
 	fprintf(fp, "}\n");
+	if(wrap)
+		fprintf(fp, "}\n");
 
 }

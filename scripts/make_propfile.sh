@@ -53,16 +53,31 @@ awk -F'\t' 'BEGIN {
 }
 NR == 1 {
 	pk_fnum = 0
+	ti_fnum = 0
 	n_htab = 0
 	for(i = 1; i <= NF; i++){
 		if($i == pkey)
 			pk_fnum = i
+		if($i == "title"){
+			if(ti_fnum == 0)
+				ti_fnum = i
+			else{
+				printf("ERROR: main: field named \"title\" appears more than once in the header\n") > "/dev/stderr"
+				err = 1
+				exit err
+			}
+		}
 		n_htab++
 		htab[i] = $i
 	}
 	if(!pk_fnum){
 		printf("ERROR: main: primary key %s is not in list of fields\n", pkey) > "/dev/stderr"
-		err = 1;
+		err = 1
+		exit err
+	}
+	if(!ti_fnum){
+		printf("ERROR: main: no field is named \"title\"\n") > "/dev/stderr"
+		err = 1
 		exit err
 	}
 	next

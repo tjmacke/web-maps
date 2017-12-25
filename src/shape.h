@@ -56,6 +56,8 @@
 #define	SF_FHDR_SIZE	50	// 50 words = 100 bytes
 #define	SF_RIDX_SIZE	4	// 8 words = 8 bytes
 
+#define	GJ_DEFAULT_PROPS_FMT_D	"{\"title\": \"shape_%07d\"}"
+
 typedef	struct	sf_bbox_t	{
 	double	s_xmin;
 	double	s_ymin;
@@ -151,12 +153,12 @@ void
 SHP_dump_shape(FILE *, SF_SHAPE_T *, int);
 
 void
-SHP_write_geojson_prolog(FILE *);
+SHP_write_geojson_prolog(FILE *, int);
 
 int
-SHP_write_geojson(FILE *, const SF_SHAPE_T *, int);
+SHP_write_geojson(FILE *, const SF_SHAPE_T *, int, const char *);
 
 void
-SHP_write_geojson_trailer(FILE *);
+SHP_write_geojson_trailer(FILE *, int);
 
 #endif
