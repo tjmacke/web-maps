@@ -5,6 +5,7 @@
 #include "log.h"
 #include "args.h"
 #include "shape.h"
+#include "props.h"
 
 static	ARGS_T	*args;
 static	FLAG_T	flags[] = {
@@ -31,6 +32,8 @@ main(int argc, char *argv[])
 	const char	*sf = NULL;
 	const char	*pfname = NULL;
 	FILE	*pfp = NULL;
+	PROP_T	**props = NULL;
+	int	n_props;
 	int	all = 0;
 	FILE	*fp = NULL;
 	char	*shp_fname = NULL;
@@ -113,6 +116,13 @@ main(int argc, char *argv[])
 			err = 1;
 			goto CLEAN_UP;
 		}
+		if(PROPS_read_propfile(pfp, &n_props, &props)){
+			LOG_ERROR("PROPS_read_propfile failed");
+			err = 1;
+			goto CLEAN_UP;
+		}
+		if(verbose)
+			PROPS_dump_props(stderr, n_props, props);
 	}
 
 	if(rd_shx_data(shx_fname, verbose, &n_recs, &ridx)){
@@ -192,6 +202,8 @@ CLEAN_UP : ;
 
 	if(pfp != NULL)
 		fclose(pfp);
+	if(props != NULL)
+		PROPS_delete_all_props(n_props, props);
 
 	if(ridx != NULL)
 		free(ridx);
