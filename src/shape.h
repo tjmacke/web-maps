@@ -153,12 +153,12 @@ void
 SHP_dump_shape(FILE *, SF_SHAPE_T *, int);
 
 void
-SHP_write_geojson_prolog(FILE *, int);
+SHP_write_geojson_prolog(FILE *, const char *);
 
 int
 SHP_write_geojson(FILE *, const SF_SHAPE_T *, int, const char *);
 
 void
-SHP_write_geojson_trailer(FILE *, int);
+SHP_write_geojson_trailer(FILE *, const char *);
 
 #endif
