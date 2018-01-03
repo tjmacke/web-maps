@@ -110,6 +110,9 @@ typedef	struct	sf_shape_t	{
 int
 SHP_get_file_type(const char *);
 
+char	*
+SHP_make_sf_name(const char *, const char *);
+
 SF_FHDR_T	*
 SHP_new_fhdr(const char *);
 
@@ -142,6 +145,9 @@ SHP_dump_fhdr(FILE *, SF_FHDR_T *);
 
 void
 SHP_dump_ridx(FILE *, SF_RIDX_T *);
+
+int
+SHP_read_shx_data(const char *, int, int *, SF_RIDX_T **);
 
 SF_SHAPE_T	*
 SHP_read_shape(FILE *);

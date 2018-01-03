@@ -63,6 +63,88 @@ CLEAN_UP : ;
 	return ftype;
 }
 
+char	*
+SHP_make_sf_name(const char *pfx, const char *ext)
+{
+	char	*sfname = NULL;
+	size_t	s_sfname = 0;
+	char	*sfp;
+	const char	*pp, *slash, *dot;
+	int	add_dot = 0;
+	int	add_ext = 0;
+	int	err = 0;
+
+	if(pfx == NULL || *pfx == '\0'){
+		LOG_ERROR("pfx is NULL or empty");
+		err = 1;
+		goto CLEAN_UP;
+	}
+
+	if(ext == NULL || *ext == '\0'){
+		LOG_ERROR("ext is NULL or empty");
+		err = 1;
+		goto CLEAN_UP;
+	}
+
+	for(dot = slash = NULL, pp = pfx; *pp; pp++){
+		if(*pp == '/')
+			slash = pp;
+		else if(*pp == '.')
+			dot = pp;
+	}
+
+	if(slash != NULL){
+		if(slash[1] == '\0'){
+			LOG_ERROR("pfx %s is a directory", pfx);
+			err = 1;
+			goto CLEAN_UP;
+		}
+		if(dot < slash)
+			add_dot = add_ext = 1;
+		else if(dot[1] == '\0')
+			add_ext = 1;
+		else if(strcmp(&dot[1], ext))
+			add_dot = add_ext = 1;
+	}else if(dot != NULL){
+		if(dot[1] == '\0')
+			add_ext = 1;
+		else if(strcmp(&dot[1], ext))
+			add_dot = add_ext = 1;
+	}else
+		add_dot = add_ext = 1;
+
+	s_sfname = strlen(pfx);
+	if(add_dot)
+		s_sfname++;
+	if(add_ext)
+		s_sfname += strlen(ext);
+	s_sfname++;	// don't forget the final \0
+
+	sfname = (char *)malloc(s_sfname * sizeof(char));
+	if(sfname == NULL){
+		LOG_ERROR("can't allocate sfname");
+		err = 1;
+		goto CLEAN_UP;
+	}
+	strcpy(sfname, pfx);
+	sfp = &sfname[pp - pfx];
+	if(add_dot)	// add_dot implies add_ext
+		*sfp++ = '.';
+	if(add_ext)
+		strcpy(sfp, ext);
+
+CLEAN_UP : ;
+
+	if(err){
+		if(sfname != NULL){
+			free(sfname);
+			sfname = NULL;
+		}
+	}
+
+	return sfname;
+}
+
 SF_FHDR_T	*
 SHP_new_fhdr(const char *fname)
 {
@@ -393,6 +475,57 @@ SHP_dump_ridx(FILE *fp, SF_RIDX_T *ridx)
 		return;
 	}
 	fprintf(fp, "%d\t%d\n", ridx->s_offset, ridx->s_length);
+}
+
+int
+SHP_read_shx_data(const char *shx_fname, int verbose, int *n_ridx, SF_RIDX_T **ridx)
+{
+	SF_FHDR_T	*shx_fhdr = NULL;
+	int	i;
+	int	err = 0;
+
+	*n_ridx = 0;
+	*ridx = NULL;
+
+	shx_fhdr = SHP_open_file(shx_fname);
+	if(shx_fhdr == NULL){
+		LOG_ERROR("SHP_open_file failed for %s", shx_fname);
+		err = 1;
+		goto CLEAN_UP;
+	}
+	if(verbose)
+		SHP_dump_fhdr(stderr, shx_fhdr);
+
+	*n_ridx = (shx_fhdr->sl_file - SF_FHDR_SIZE) / SF_RIDX_SIZE;
+	*ridx = (SF_RIDX_T *)malloc(*n_ridx * sizeof(SF_RIDX_T));
+
+	if(*ridx == NULL){
+		LOG_ERROR("can't allocate ridx");
+		err = 1;
+		goto CLEAN_UP;
+	}
+	for(i = 0; i < *n_ridx; i++){
+		if(SHP_read_ridx(shx_fhdr->s_fp, &(*ridx)[i])){
+			LOG_ERROR("SHP_read_ridx failed for record %d", i+1);
+			err = 1;
+			goto CLEAN_UP;
+		}
+	}
+
+CLEAN_UP : ;
+
+	// prevent info leak on error
+	if(err){
+		if(*ridx != NULL){
+			free(*ridx);
+			*ridx = NULL;
+		}
+		*n_ridx = 0;
+	}
+
+	SHP_close_file(shx_fhdr);
+
+	return err;
 }
 
 SF_SHAPE_T	*
