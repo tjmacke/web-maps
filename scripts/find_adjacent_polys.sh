@@ -235,22 +235,24 @@ END {
 			else if(p21 < p12){
 				graph[t1, t2] = 1
 				graph[t2, t1] = 1
+				e_count[t1]++
+				e_count[t2]++
 			}else
 				continue
 		}
 	}
 
 	for(i = 1; i <= n_titles; i++){
-		printf("%-30s = {", t_index[i])
+		printf("%d\t%s\t%d\t", i, t_index[i], e_count[t_index[i]])
 		e_cnt = 0
 		for(j = 1; j <= n_titles; j++){
 			if(j == i)
 				continue
 			if(graph[t_index[i], t_index[j]]){
 				e_cnt++
-				printf("%s %s", e_cnt > 1 ? "," : "", t_index[j])
+				printf("%s%s", e_cnt > 1 ? "|" : "", t_index[j])
 			}
 		} 
-		printf(" }\n")
+		printf("\n")
 	}
 }'
