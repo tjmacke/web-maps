@@ -9,7 +9,7 @@
 
 static	ARGS_T	*args;
 static	FLAG_T	flags[] = {
-	{"-help", 1, AVK_NONE, AVT_BOOL, "0",  "Use -help to print this message.h"},
+	{"-help", 1, AVK_NONE, AVT_BOOL, "0",  "Use -help to print this message."},
 	{"-v",    1, AVK_OPT,  AVT_UINT, "0",  "Use -v to set the verbosity to 1; use -v=N to set it to N."},
 	{"-sf",   0, AVK_REQ,  AVT_STR,  NULL, "Use -sf S to convert the shapes in S.shp, S.shx to geojson."},
 	{"-pf",   1, AVK_REQ,  AVT_STR,  NULL, "Use -pf P to to add properties to the geojson."},

@@ -89,6 +89,18 @@ typedef	struct	sf_point_t	{
 	double	s_y;
 } SF_POINT_T;
 
+typedef	struct	sf_edge_t	{
+	int	s_name_idx;
+	int	s_pnum;
+	int	s_is_vertical;
+	double	s_slope;
+	double	s_intercept;
+	double	s_x1;
+	double	s_y1;
+	double	s_x2;
+	double	s_y2;
+} SF_EDGE_T;
+
 typedef	struct	sf_shape_t	{
 	int	s_rnum;
 	int	s_length;	// 16 bit words!
