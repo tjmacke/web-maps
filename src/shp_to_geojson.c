@@ -13,6 +13,7 @@ static	FLAG_T	flags[] = {
 	{"-v",    1, AVK_OPT,  AVT_UINT, "0",  "Use -v to set the verbosity to 1; use -v=N to set it to N."},
 	{"-sf",   0, AVK_REQ,  AVT_STR,  NULL, "Use -sf S to convert the shapes in S.shp, S.shx to geojson."},
 	{"-pf",   1, AVK_REQ,  AVT_STR,  NULL, "Use -pf P to to add properties to the geojson."},
+	{"-pk",   1, AVK_REQ,  AVT_STR,  NULL, "Use -pk K to set the primary key to K."},
 	{"-all",  1, AVK_NONE, AVT_BOOL, "0",  "Use -all to convert all records, else convert only records whose rnums are in file."},
 	{"-fmt",  1, AVK_REQ,  AVT_STR,  "wrap*|plain|list",  "Use -fmt F, F in {wrap, plain, list} to control the format of the json output."}
 };
@@ -26,9 +27,8 @@ main(int argc, char *argv[])
 	int	verbose = 0;
 	const char	*sf = NULL;
 	const char	*pfname = NULL;
-	FILE	*pfp = NULL;
-	PROP_T	**props = NULL;
-	int	n_props;
+	const char	*pkey = NULL;
+	PROPERTIES_T	*props = NULL;
 	const PROP_T	*pp;
 	const char	*p_value;
 	int	all = 0;
@@ -63,6 +63,9 @@ main(int argc, char *argv[])
 
 	a_val = TJM_get_flag_value(args, "-pf", AVT_STR);
 	pfname = a_val->av_value.v_str;
+
+	a_val = TJM_get_flag_value(args, "-pk", AVT_STR);
+	pkey = a_val->av_value.v_str;
 
 	a_val = TJM_get_flag_value(args, "-all", AVT_BOOL);
 	all = a_val->av_value.v_int;
@@ -112,18 +115,19 @@ main(int argc, char *argv[])
 	}
 
 	if(pfname != NULL){
-		if((pfp = fopen(pfname, "r")) == NULL){
-			LOG_ERROR("can't read property file %s", pfname);
+		props = PROPS_new_properties(pfname, pkey);
+		if(props == NULL){
+			LOG_ERROR("PROPS_new_properties failed");
 			err = 1;
 			goto CLEAN_UP;
 		}
-		if(PROPS_read_propfile(pfp, &n_props, &props)){
-			LOG_ERROR("PROPS_read_propfile failed");
+		if(PROPS_read_properties(props)){
+			LOG_ERROR("PROPS_read_properties failed");
 			err = 1;
 			goto CLEAN_UP;
 		}
 		if(verbose)
-			PROPS_dump_props(stderr, n_props, props);
+			PROPS_dump_properties(stderr, props);
 	}
 
 	if(SHP_read_shx_data(shx_fname, verbose, &n_recs, &ridx)){
@@ -149,12 +153,14 @@ main(int argc, char *argv[])
 			}
 			p_value = NULL;
 			if(props != NULL){
-				pp = PROPS_find_prop(shp->s_rnum, n_props, props);
+				pp = PROPS_find_props_for_record(props, shp->s_rnum);
 				if(pp == NULL){
 					LOG_WARN("no properties for rnum = %d", shp->s_rnum);
 					err = 1;
-				}else
+				}else{
+					PROPS_to_json_object(props, pp);
 					p_value = pp->p_value;
+				}
 			}
 			SHP_write_geojson(stdout, shp, i == 0, p_value);
 			SHP_delete_shape(shp);
@@ -195,12 +201,14 @@ main(int argc, char *argv[])
 			}
 			p_value = NULL;
 			if(props != NULL){
-				pp = PROPS_find_prop(shp->s_rnum, n_props, props);
+				pp = PROPS_find_props_for_record(props, shp->s_rnum);
 				if(pp == NULL){
 					LOG_WARN("no properties for rnum = %d", shp->s_rnum);
 					err = 1;
-				}else
+				}else{
+					PROPS_to_json_object(props, pp);
 					p_value = pp->p_value;
+				}
 			}
 			SHP_write_geojson(stdout, shp, first, p_value);
 			SHP_delete_shape(shp);
@@ -219,10 +227,8 @@ CLEAN_UP : ;
 	if(line != NULL)
 		free(line);
 
-	if(pfp != NULL)
-		fclose(pfp);
 	if(props != NULL)
-		PROPS_delete_all_props(n_props, props);
+		PROPS_delete_properties(props);
 
 	if(ridx != NULL)
 		free(ridx);
