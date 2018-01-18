@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <ctype.h>
 #include <string.h>
 #include <stdlib.h>
 
@@ -7,6 +8,15 @@
 
 static	int
 props_cmp_key(const void *, const void *);
+
+static	char	*
+mk_json_kv_pair(const char *, const char *, int);
+
+static	char	*
+mk_json_primary(const char *, int);
+
+static	size_t
+fi_json_strlen(const char *);
 
 PROPERTIES_T	*
 PROPS_new_properties(const char *fname, const char *pkey)
@@ -58,21 +68,26 @@ CLEAN_UP : ;
 void
 PROPS_delete_properties(PROPERTIES_T	*props)
 {
+	int	i;
+
 	if(props == NULL)
 		return;
 
 	if(props->p_ptab != NULL){
-		int	p;
-
-		for(p = 0; p < props->pn_ptab; p++){
-			if(props->p_ptab[p] != NULL)
-				PROPS_delete_prop(props->p_ptab[p]);
+		for(i = 0; i < props->pn_ptab; i++){
+			if(props->p_ptab[i] != NULL)
+				PROPS_delete_prop(props->p_ptab[i]);
 		}
 		free(props->p_ptab);
 	}
 
-	if(props->p_hdr != NULL)
-		free(props->p_hdr);
+	if(props->p_ftab != NULL){
+		for(i = 0; i < props->pn_ftab; i++){
+			if(props->p_ftab[i] != NULL)
+				free(props->p_ftab[i]);
+		}
+		free(props->p_ftab);
+	}
 
 	if(props->p_pkey != NULL)
 		free(props->p_pkey);
@@ -146,6 +161,7 @@ PROPS_read_properties(PROPERTIES_T *props)
 	int	lcnt;
 	int	nf;
 	char	*s_fp, *e_fp;
+	char	*sp = NULL;
 	char	*pkey = NULL;
 	PROP_T	*pp;
 	int	err = 0;
@@ -168,7 +184,7 @@ PROPS_read_properties(PROPERTIES_T *props)
 		goto CLEAN_UP;
 	}
 
-	props->pn_ptab = (lcnt - 1);	// first line is the header
+	props->pn_ptab = (lcnt - 1);	// first line is the header and is stored in p_ftab
 	props->p_ptab = (PROP_T **)calloc(props->pn_ptab, sizeof(PROP_T *));
 	if(props->p_ptab == NULL){
 		LOG_ERROR("can't allocate ptab");
@@ -188,22 +204,51 @@ PROPS_read_properties(PROPERTIES_T *props)
 				goto CLEAN_UP;
 			}
 		}
-		if(lcnt == 1){
-			props->p_hdr = strdup(line);
-			if(props->p_hdr == NULL){
-				LOG_ERROR("can't strdup header line");
-				err = 1;
-				goto CLEAN_UP;
-			}
+		if(lcnt == 1){	// the header
 			// get the number of fields, set pf_pkey, pf_title
 			for(nf = 0, e_fp = s_fp = line; *s_fp; ){
 				nf++;
 				if((e_fp = strchr(s_fp, '\t')) == NULL)
 					e_fp = s_fp + strlen(s_fp);
-				if(!strncmp(props->p_pkey, s_fp, e_fp - s_fp))
-					props->pf_pkey = nf;
-				else if(!strncmp("title", s_fp, e_fp - s_fp))
-					props->pf_title = nf;
+				if(e_fp == s_fp){
+					LOG_ERROR("header field %d is empty", nf);
+					err = 1;
+					goto CLEAN_UP;
+				}
+				// deal with empty last field
+				if(*e_fp == '\t' && e_fp[1] == '\0'){
+					nf++;
+					LOG_ERROR("header field %d (last) is empty", nf);
+					err = 1;
+					goto CLEAN_UP;
+				}
+				s_fp = *e_fp != '\0' ? e_fp + 1 : e_fp;
+			}
+			props->pn_ftab = nf;
+			props->p_ftab = (char **)calloc((size_t)nf, sizeof(char *));
+			if(props->p_ftab == NULL){
+				LOG_ERROR("can't allocate p_ftab");
+				err = 1;
+				goto CLEAN_UP;
+			}
+			// store the field names in p_ftab. No empty fields at this point
+			for(nf = 0, e_fp = s_fp = line; *s_fp; nf++){
+				char	*sp = NULL;
+
+				if((e_fp = strchr(s_fp, '\t')) == NULL)
+					e_fp = s_fp + strlen(s_fp);
+				sp = strndup(s_fp, e_fp - s_fp);
+				if(sp == NULL){
+					LOG_ERROR("can't allocate header field %d", nf+1);
+					err = 1;
+					goto CLEAN_UP;
+				}
+				if(!strcmp(sp, props->p_pkey))
+					props->pf_pkey = nf+1;
+				else if(!strcmp(sp, "title"))
+					props->pf_title = nf+1;
+				props->p_ftab[nf] = sp;
+				sp = NULL;
 				s_fp = *e_fp != '\0' ? e_fp + 1 : e_fp;
 			}
 			if(props->pf_pkey == 0){
@@ -216,8 +261,7 @@ PROPS_read_properties(PROPERTIES_T *props)
 				err = 1;
 				goto CLEAN_UP;
 			}
-			props->pn_fields = nf;
-		}else{
+		}else{	// the property records
 			for(nf = 0, e_fp = s_fp = line; *s_fp; ){
 				nf++;
 				if((e_fp = strchr(s_fp, '\t')) == NULL)
@@ -243,8 +287,8 @@ PROPS_read_properties(PROPERTIES_T *props)
 				}
 				s_fp = *e_fp != '\0' ? e_fp + 1 : e_fp;
 			}
-			if(nf != props->pn_fields){
-				LOG_ERROR("line %d: wrong number of fields %d, must be %d", lcnt, nf, props->pn_fields);
+			if(nf != props->pn_ftab){
+				LOG_ERROR("line %d: wrong number of fields %d, must be %d", lcnt, nf, props->pn_ftab);
 				err = 1;
 				goto CLEAN_UP;
 			}
@@ -302,7 +346,7 @@ PROPS_find_props_for_record(PROPERTIES_T *props, int pkey)
 void
 PROPS_dump_properties(FILE *fp, PROPERTIES_T *props)
 {
-	int	p;
+	int	i;
 	PROP_T	*pp;
 
 	if(props == NULL){
@@ -311,29 +355,37 @@ PROPS_dump_properties(FILE *fp, PROPERTIES_T *props)
 	}
 
 	fprintf(fp, "props = %d {\n", props->pn_ptab);
-	for(p = 0; p < props->pn_ptab; p++){
-		pp = props->p_ptab[p];
+	fprintf(fp, "\tftab = %d {\n", props->pn_ftab);
+	for(i = 0; i < props->pn_ftab; i++)
+		fprintf(fp, "\t\t%d = %s\n", i+1, props->p_ftab[i]);
+	fprintf(fp, "\t}\n");
+	fprintf(fp, "\tptab = %d {\n", props->pn_ptab);
+	for(i = 0; i < props->pn_ptab; i++){
+		pp = props->p_ptab[i];
 		if(pp == NULL)
-			fprintf(fp, "\t%d = NULL\n", p+1);
+			fprintf(fp, "\t\t%d = NULL\n", i+1);
 		else{
-			fprintf(fp, "\t%d = {\n", p+1);
-			fprintf(fp, "\t\tkey   = %d\n", pp->p_key);
-			fprintf(fp, "\t\tvalue = %s\n", pp->p_value ? pp->p_value : "NULL");
-			fprintf(fp, "\t}\n");
+			fprintf(fp, "\t\t%d = {\n", i+1);
+			fprintf(fp, "\t\t\tkey   = %d\n", pp->p_key);
+			fprintf(fp, "\t\t\tvalue = %s\n", pp->p_value ? pp->p_value : "NULL");
+			fprintf(fp, "\t\t}\n");
 		}
 	}
+	fprintf(fp, "\t}\n");
 	fprintf(fp, "}\n");
 }
 
 char	*
 PROPS_to_json_object(const PROPERTIES_T *props, const PROP_T *pp)
 {
-	char	**keys = NULL;
 	char	**values = NULL;
+	char	**kvp_tab = NULL;
 	int	i;
 	char	*s_fp, *e_fp;
 	char	*sp = NULL;
+	size_t	s_obj = 0;
 	char	*obj = NULL;
+	char	*op;
 	int	err = 0;
 
 	if(props == NULL){
@@ -354,40 +406,26 @@ PROPS_to_json_object(const PROPERTIES_T *props, const PROP_T *pp)
 		goto CLEAN_UP;
 	}
 
-	keys = (char **)calloc((size_t)props->pn_fields, sizeof(char *));
-	if(keys == NULL){
-		LOG_ERROR("can't allocate keys");
-		err = 1;
-		goto CLEAN_UP;
-	}
-
-	values = (char **)calloc((size_t)props->pn_fields, sizeof(char *));
+	values = (char **)calloc((size_t)props->pn_ftab, sizeof(char *));
 	if(values == NULL){
 		LOG_ERROR("can't allocate values");
 		err = 1;
 		goto CLEAN_UP;
 	}
 
-	// get the keys from the header
-	for(i = 0, e_fp = s_fp = props->p_hdr; *s_fp; ){
-		if((e_fp = strchr(s_fp, '\t')) == NULL)
-			e_fp = s_fp + strlen(s_fp);
-		sp = e_fp == s_fp ? strdup("") : strndup(s_fp, e_fp - s_fp);
-		if(sp == NULL){
-			LOG_ERROR("can't strdup header field %d, \"%.*s\"", i+1, (int)(e_fp - s_fp), s_fp);
-			err = 1;
-			goto CLEAN_UP;
-		}
-		keys[i] = sp;
-		sp = NULL;
-		s_fp = *e_fp != '\0' ? e_fp + 1 : e_fp;
-		i++;
+	kvp_tab = (char **)calloc((size_t)props->pn_ftab, sizeof(char *));
+	if(kvp_tab == NULL){
+		LOG_ERROR("can't allocate kvp_tab");
+		err = 1;
+		goto CLEAN_UP;
 	}
 
 	// get the values from pp->p_value
 	for(i = 0, e_fp = s_fp = pp->p_value; *s_fp; ){
 		if((e_fp = strchr(s_fp, '\t')) == NULL)
 			e_fp = s_fp + strlen(s_fp);
+
+		// handle empty field
 		sp = e_fp == s_fp ? strdup("") : strndup(s_fp, e_fp - s_fp);
 		if(sp == NULL){
 			LOG_ERROR("can't strdup value field %d, \"%.*s\"", i+1, (int)(e_fp - s_fp), s_fp);
@@ -396,32 +434,75 @@ PROPS_to_json_object(const PROPERTIES_T *props, const PROP_T *pp)
 		}
 		values[i] = sp;
 		sp = NULL;
-		s_fp = *e_fp != '\0' ? e_fp + 1 : e_fp;
 		i++;
+
+		// check for and handle empty last field
+		if(*e_fp == '\t' && e_fp[1] == '\0'){
+			sp = strdup("");
+			if(sp == NULL){
+				LOG_ERROR("can't strdup empty field %d (last), \"\"", i+1);
+				err = 1;
+				goto CLEAN_UP;
+			}
+			values[i] = sp;
+			sp = NULL;
+			i++;
+		}
+
+		s_fp = *e_fp != '\0' ? e_fp + 1 : e_fp;
 	}
 
-	for(i = 0; i < props->pn_fields; i++)
-		fprintf(stderr, "%s -> %s\n", keys[i], values[i]);
+	s_obj = 1;	// {
+	for(i = 0; i < props->pn_ftab; i++){
+		char	*kvp = mk_json_kv_pair(props->p_ftab[i], values[i], 0);
+		if(kvp == NULL){
+			LOG_ERROR("mk_json_kv_pair failed");
+			err = 1;
+			goto CLEAN_UP;
+		}
+		s_obj += strlen(kvp);
+		kvp_tab[i] = kvp;
+		kvp = NULL;
+	}
+	s_obj += 2 * (props->pn_ftab - 1) + 1 + 1;	// ", " between kv pairs, closing } and \0
+	obj = (char *)malloc(s_obj * sizeof(char));
+	if(obj == NULL){
+		LOG_ERROR("can't allocate obj");
+		err = 1;
+		goto CLEAN_UP;
+	}
+	op = obj;
+	*op++ = '{';
+	for(i = 0; i < props->pn_ftab; i++){
+		strcpy(op, kvp_tab[i]);
+		op += strlen(kvp_tab[i]);
+		if(i < props->pn_ftab - 1){
+			strcpy(op, ", ");
+			op += 2;
+		}
+	}
+	*op++ = '}';
+	*op = '\0';
 
 CLEAN_UP : ;
 
 	if(sp != NULL)
 		free(sp);
 
+	if(kvp_tab != NULL){
+		for(i = 0; i < props->pn_ftab; i++){
+			if(kvp_tab[i] != NULL)
+				free(kvp_tab[i]);
+		}
+		free(kvp_tab);
+	}
+
 	if(values != NULL){
-		for(i = 0; i < props->pn_fields; i++){
+		for(i = 0; i < props->pn_ftab; i++){
 			if(values[i] != NULL)
 				free(values[i]);
 		}
 		free(values);
-	}
-
-	if(keys != NULL){
-		for(i = 0; i < props->pn_fields; i++){
-			if(keys[i] != NULL)
-				free(keys[i]);
-		}
-		free(keys);
 	}
 
 	if(err){
@@ -445,4 +526,179 @@ props_cmp_key(const void *p1, const void *p2)
 		return 1;
 	else
 		return 0;
+}
+
+static	char	*
+mk_json_kv_pair(const char *key, const char *value, int is_str)
+{
+	char	*j_key = NULL;
+	char	*j_value = NULL;
+	size_t	s_kvp;
+	char	*kvp = NULL;
+	int	err = 0;
+
+	j_key = mk_json_primary(key, 1);
+	j_value = mk_json_primary(value, is_str);
+	s_kvp = strlen(j_key) + 2 + strlen(j_value) + 1;
+	kvp = (char *)malloc(s_kvp * sizeof(char));
+	if(kvp == NULL){
+		LOG_ERROR("can't allocate kvp");
+		err = 1;
+		goto CLEAN_UP;
+	}
+	sprintf(kvp, "%s: %s", j_key, j_value);
+
+CLEAN_UP : ;
+
+	if(j_value != NULL)
+		free(j_value);
+
+	if(j_key != NULL)
+		free(j_key);
+
+	if(err){
+		if(kvp != NULL){
+			free(kvp);
+			kvp = NULL;
+		}
+	}
+
+	return kvp;
+}
+
+static	char	*
+mk_json_primary(const char *str, int is_str)
+{
+	const char	*sp;
+	size_t	jl_str = 0;
+	char	*j_str = NULL;
+	char	*jsp;
+	int	err = 0;
+
+	if(!is_str){
+		// check for 3 json reserved words: null, false, true, if no match could be a number
+		if(strcmp(str, "null") && strcmp(str, "false") && strcmp(str, "true")){	// possible number
+			sp = str;
+			if(*sp == '-')
+				sp++;
+			if(isdigit(*sp)){	// still possible number
+				if(*sp == '0')
+					sp++;
+				else{
+					for(++sp; isdigit(*sp); sp++)
+						;
+				}
+				if(*sp == '.'){		// possible real
+					sp++;
+					if(isdigit(*sp)){	// still possible real
+						for(++sp; isdigit(*sp); sp++)
+							;
+						if(*sp == 'e' && *sp == 'E'){	// possible exponent
+							sp++;
+							if(*sp == '+' || *sp == '-')
+								sp++;
+							if(isdigit(*sp)){	// still possible exponent
+								for(++sp; isdigit(*sp); sp++)
+									;
+								is_str = *sp != '\0';	// NUM if at end else STR
+							}else
+								is_str = 1;
+						}else if(*sp != '\0')	// STR: frac digits followed by other than exponent
+							is_str = 1;
+					}else
+						is_str = 1;
+				}else if(*sp != '\0')	// STR: digits followed by something other than '.'
+					is_str = 1;
+			}else	// STR: - followed by non-digit
+				is_str = 1;
+		}
+	}
+
+	if(is_str){
+		jl_str = fi_json_strlen(str);
+		jl_str += 2 + 1;		// "<str>"\0
+		j_str = (char *)malloc(jl_str * sizeof(char));
+		if(j_str == NULL){
+			LOG_ERROR("can't allocate j_str");
+			err = 1;
+			goto CLEAN_UP;
+		}
+		jsp = j_str;
+		*jsp++ = '"';
+		for(sp = str; *sp; sp++){
+			if((*sp & 0xff) < 32){
+				sprintf(jsp, "\\u%04x", (*sp & 0xff));
+				jsp += 6;
+			}else{
+				switch(*sp){
+				case '"' :
+				case '\\' :
+				case '/' :
+					*jsp++ = '\\';
+					*jsp++ = *sp;
+					break;
+				case '\b' :
+					*jsp++ = '\\';
+					*jsp++ = 'b';
+					break;
+				case '\f' :
+					*jsp++ = '\\';
+					*jsp++ = 'f';
+					break;
+				case '\n' :
+					*jsp++ = '\\';
+					*jsp++ = 'n';
+					break;
+				case '\r' :
+					*jsp++ = '\\';
+					*jsp++ = 'r';
+					break;
+				case '\t' :
+					*jsp++ = '\\';
+					*jsp++ = 't';
+					break;
+				default :
+					*jsp++ = *sp;
+				}
+			}
+		}
+		*jsp++ = '"';
+		*jsp = '\0';
+	}else{	// just dup it
+		j_str = strdup(str);	
+		if(j_str == NULL){
+			LOG_ERROR("can't strdup str");
+			err = 1;
+			goto CLEAN_UP;
+		}
+	}
+
+CLEAN_UP : ;
+
+	if(err){
+		if(j_str != NULL){
+			free(j_str);
+			j_str = NULL;
+		}
+	}
+
+	return j_str;
+}
+
+static	size_t
+fi_json_strlen(const char *str)
+{
+	size_t	l_str;
+	const char	*sp;
+
+	for(l_str = 2, sp = str; *sp; sp++){
+		if(*sp == '"' || *sp == '\\' || *sp == '/')
+			l_str++;
+		else if(*sp == '\b' || *sp == '\f' || *sp == '\n' || *sp == '\r' || *sp == '\t')
+			l_str++;
+		else if((*sp & 0xff) < 32)
+			l_str += 5;
+		l_str++;
+	}
+	return l_str;
 }

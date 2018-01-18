@@ -30,7 +30,7 @@ main(int argc, char *argv[])
 	const char	*pkey = NULL;
 	PROPERTIES_T	*props = NULL;
 	const PROP_T	*pp;
-	const char	*p_value;
+	char	*p_value;
 	int	all = 0;
 	const char	*fmt = NULL;
 	FILE	*fp = NULL;
@@ -158,13 +158,21 @@ main(int argc, char *argv[])
 					LOG_WARN("no properties for rnum = %d", shp->s_rnum);
 					err = 1;
 				}else{
-					PROPS_to_json_object(props, pp);
-					p_value = pp->p_value;
+					p_value = PROPS_to_json_object(props, pp);
+					if(p_value == NULL){
+						LOG_ERROR("PROPS_to_json_object failed");
+						err = 1;
+						goto CLEAN_UP;
+					}
 				}
 			}
 			SHP_write_geojson(stdout, shp, i == 0, p_value);
 			SHP_delete_shape(shp);
 			shp = NULL;
+			if(p_value != NULL){
+				free(p_value);
+				p_value = NULL;
+			}
 		}
 	}else{
 		int	first;
@@ -206,13 +214,21 @@ main(int argc, char *argv[])
 					LOG_WARN("no properties for rnum = %d", shp->s_rnum);
 					err = 1;
 				}else{
-					PROPS_to_json_object(props, pp);
-					p_value = pp->p_value;
+					p_value = PROPS_to_json_object(props, pp);
+					if(p_value == NULL){
+						LOG_ERROR("PROPS_to_json_object failed");
+						err = 1;
+						goto CLEAN_UP;
+					}
 				}
 			}
 			SHP_write_geojson(stdout, shp, first, p_value);
 			SHP_delete_shape(shp);
 			shp = NULL;
+			if(p_value != NULL){
+				free(p_value);
+				p_value = NULL;
+			}
 			first = 0;
 		}
 	}

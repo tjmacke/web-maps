@@ -9,10 +9,10 @@ typedef	struct	prop_t	{
 typedef	struct	properties_t	{
 	char	*p_fname;
 	char	*p_pkey;
-	char	*p_hdr;
 	int	pf_pkey;
 	int	pf_title;
-	int	pn_fields;
+	int	pn_ftab;
+	char	**p_ftab;
 	int	pn_ptab;
 	PROP_T	**p_ptab;
 } PROPERTIES_T;
