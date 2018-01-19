@@ -54,6 +54,8 @@ fi
 
 awk -F'\t' 'BEGIN {
 	mkey = "'"$MKEY"'"
+
+	printf("DEBUG: BEGIN: mkey = \"%s\"\n", mkey) > "/dev/stderr"
 }
 {
 	if(l_FILENAME != FILENAME){
@@ -144,7 +146,7 @@ function fi_mkey(mkey,   f_mkey, i) {
 	
 	f_mkey = 0
 	for(i = 1; i <= NF; i++){
-		if($1 == mkey){
+		if($i == mkey){
 			f_mkey = i
 			break
 		}

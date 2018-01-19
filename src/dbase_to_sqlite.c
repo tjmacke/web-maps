@@ -411,6 +411,8 @@ mk_create_table_cmd(const DBF_META_T *dbm, const char *tname, const char *pk)
 			printf(" text");
 		else if(fldp->d_type == 'N')
 			printf(" %s", fldp->d_dec_count == 0 ? "integer" : "double");
+		else if(fldp->d_type == 'F')
+			printf(" double");
 		else{
 			LOG_ERROR("unknown field type %c", fldp->d_type);
 			err = 1;
