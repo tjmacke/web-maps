@@ -316,11 +316,6 @@ CLEAN_UP : ;
 	if(fp != NULL)
 		fclose(fp);
 
-	if(err){
-		PROPS_delete_properties(props);
-		props = NULL;
-	}
-
 	return err;
 }
 

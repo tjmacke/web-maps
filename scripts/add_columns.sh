@@ -54,8 +54,6 @@ fi
 
 awk -F'\t' 'BEGIN {
 	mkey = "'"$MKEY"'"
-
-	printf("DEBUG: BEGIN: mkey = \"%s\"\n", mkey) > "/dev/stderr"
 }
 {
 	if(l_FILENAME != FILENAME){

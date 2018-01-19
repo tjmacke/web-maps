@@ -22,6 +22,9 @@ else
 	exit 1
 fi
 
+TMP_ATFILE=/tmp/all.titles.$$
+TMP_EFILE=/tmp/edges.$$
+
 FMT=
 FILE=
 
@@ -76,7 +79,11 @@ fi
 
 $JU_BIN/json_get -v=2 -g $JG $FILE 2> /dev/null	|\
 $JU_BIN/json_get -n -g '{properties}{title, LSAD}, {geometry}{type, coordinates}' 2> /dev/null	|\
-awk -F'\t' '{
+awk -F'\t' 'BEGIN {
+	at_file = "'"$TMP_ATFILE"'"
+}
+{
+	all_titles[$1] = 1
 	nf = split($4, ary, "]")
 	n_polys = n_points = 0
 	for(i = 1; i < nf; i++){
@@ -115,6 +122,11 @@ awk -F'\t' '{
 		}
 	}
 }
+END {
+	for(t in all_titles)
+		printf("%s\n", t) > at_file
+	close(at_file)
+}
 function get_xy(str, n_points, x, y,   work, idx, x_str, y_str) {
 	work = str
 	idx = match(work, /[0-9-]/)
@@ -127,7 +139,7 @@ function get_xy(str, n_points, x, y,   work, idx, x_str, y_str) {
 }
 function abs(x) {
 	return x < 0 ? -x : x
-}'	|\
+}'					|\
 sort -t $'\t' -k 3,3 -k 4g,5 -k 5g,5	|\
 awk -F'\t' 'BEGIN {
 	l_key[1] = ""
@@ -173,8 +185,16 @@ function key_assign(kd, ks) {
 	kd[1] = ks[1]
 	kd[2] = ks[2]
 	kd[3] = ks[3]
-}'	|\
-awk -F'\t' '{
+}' 					> $TMP_EFILE	# required so that TMP_ATFILE is written before this part starts
+awk -F'\t' 'BEGIN {
+	at_file = "'"$TMP_ATFILE"'"
+	for(n_all_titles = 0; (getline < at_file) > 0; ){
+		n_all_titles++
+		all_titles[$0] = 1
+	}
+	close(at_file)
+}
+{
 	if(!($1 in titles)){
 		n_titles++
 		titles[$1] = 1
@@ -237,6 +257,10 @@ END {
 				graph[t2, t1] = 1
 				e_count[t1]++
 				e_count[t2]++
+				if(t1 in all_titles)
+					delete all_titles[t1]
+				if(t2 in all_titles)
+					delete all_titles[t2]
 			}else
 				continue
 		}
@@ -255,4 +279,12 @@ END {
 		} 
 		printf("\n")
 	}
-}'
+
+	
+	for(t in all_titles){
+		printf("%d\t%s\t%d\t\n", i, t, 0)
+	}
+
+}' $TMP_EFILE
+
+rm -f $TMP_ATFILE $TMP_EFILE

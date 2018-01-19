@@ -61,14 +61,23 @@ awk -F'\t' ' BEGIN {
 	colors["next"] = 1
 }
 {
-	n_nodes++
-	graf[n_nodes, "num"] = $1
-	graf[n_nodes, "name"] = $2
-	graf[n_nodes, "c_neighbors"] = $3
-	graf[n_nodes, "neighbors"] = $4
-	graf[n_nodes, "color"] = ""
-	name_index[$2] = n_nodes
-	stacked[n_nodes] = 0
+	# deal with "islands" separately
+	if($3 == 0){
+		n_islands++
+		islands[n_islands, "num"] = $1
+		islands[n_islands, "name"] = $2
+		islands[n_islands, "c_neighbors"] = $3
+		islands[n_islands, "neighbors"] = $4
+	}else{
+		n_nodes++
+		graf[n_nodes, "num"] = $1
+		graf[n_nodes, "name"] = $2
+		graf[n_nodes, "c_neighbors"] = $3
+		graf[n_nodes, "neighbors"] = $4
+		graf[n_nodes, "color"] = ""
+		name_index[$2] = n_nodes
+		stacked[n_nodes] = 0
+	}
 }
 END {
 	node_stk["stkp"] = 0
@@ -93,6 +102,13 @@ END {
 	printf("%s\t%s\n", "title", "fill")
 	for(i = 1; i <= n_nodes; i++)
 		printf("%s\t%s\n", graf[i, "name"], graf[i, "color"])
+
+	# color the islands
+	for(i = 1; i <= colors["n_colors"]; i++)
+		colors["used", i] = 0
+	for(i = 1; i <= n_islands; i++){
+		printf("%s\t%s\n", islands[i, "name"], get_color(colors));
+	}
 }
 function remove_node(graf, n, name_index, node_stk,    nf, ary, i, ni) {
 	nf = split(graf[n, "neighbors"], ary, "|")
