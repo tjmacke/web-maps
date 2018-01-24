@@ -69,9 +69,11 @@ SHP_make_sf_name(const char *pfx, const char *ext)
 	char	*sfname = NULL;
 	size_t	s_sfname = 0;
 	char	*sfp;
-	const char	*pp, *slash, *dot;
-	int	add_dot = 0;
-	int	add_ext = 0;
+	const char	*e_pfx, *slash, *dot;
+	int	copy_pfx;
+	int	repl_ext;
+	int	add_dot;
+	int	add_ext;
 	int	err = 0;
 
 	if(pfx == NULL || *pfx == '\0'){
@@ -86,38 +88,52 @@ SHP_make_sf_name(const char *pfx, const char *ext)
 		goto CLEAN_UP;
 	}
 
-	for(dot = slash = NULL, pp = pfx; *pp; pp++){
-		if(*pp == '/')
-			slash = pp;
-		else if(*pp == '.')
-			dot = pp;
+	for(dot = slash = NULL, e_pfx = pfx; *e_pfx; e_pfx++){
+		if(*e_pfx == '/')
+			slash = e_pfx;
+		else if(*e_pfx == '.')
+			dot = e_pfx;
 	}
 
+	copy_pfx = repl_ext = add_dot = add_ext = 0;
 	if(slash != NULL){
 		if(slash[1] == '\0'){
 			LOG_ERROR("pfx %s is a directory", pfx);
 			err = 1;
 			goto CLEAN_UP;
 		}
-		if(dot < slash)
+		if(dot != NULL){	// dot, more checking needed
+			if(dot < slash)	// last dot before last slash, so pfx is a true pfx
+				add_dot = add_ext = 1;
+			else if(dot[1] == '\0')	// dot is last char, so needs ext
+				add_ext = 1;
+			else if(strcmp(&dot[1], ext)){	// pfx ends w/.ext, but ext != requested ext
+				repl_ext = 1;
+				add_ext = 1;
+			}else		// pfx is the desired file name
+				copy_pfx = 1;
+		}else	// no dot, so true pfx
 			add_dot = add_ext = 1;
-		else if(dot[1] == '\0')
-			add_ext = 1;
-		else if(strcmp(&dot[1], ext))
-			add_dot = add_ext = 1;
-	}else if(dot != NULL){
+	}else if(dot != NULL){	// pfx contains . so may have or need an ext
 		if(dot[1] == '\0')
 			add_ext = 1;
-		else if(strcmp(&dot[1], ext))
-			add_dot = add_ext = 1;
-	}else
+		else if(strcmp(&dot[1], ext)){
+			repl_ext = 1;
+			add_ext = 1;
+		}else		// pfx is the desired file name
+			copy_pfx = 1;
+	}else		// no dot, so true pfx
 		add_dot = add_ext = 1;
 
 	s_sfname = strlen(pfx);
-	if(add_dot)
-		s_sfname++;
-	if(add_ext)
-		s_sfname += strlen(ext);
+	if(!copy_pfx){
+		if(repl_ext)
+			s_sfname -= strlen(&dot[1]);
+		if(add_dot)
+			s_sfname++;
+		if(add_ext)
+			s_sfname += strlen(ext);
+	}
 	s_sfname++;	// don't forget the final \0
 
 	sfname = (char *)malloc(s_sfname * sizeof(char));
@@ -126,12 +142,16 @@ SHP_make_sf_name(const char *pfx, const char *ext)
 		err = 1;
 		goto CLEAN_UP;
 	}
+
+	// more logic here
 	strcpy(sfname, pfx);
-	sfp = &sfname[pp - pfx];
-	if(add_dot)	// add_dot implies add_ext
-		*sfp++ = '.';
-	if(add_ext)
-		strcpy(sfp, ext);
+	if(!copy_pfx){
+		sfp = repl_ext ? &sfname[(dot+1) - pfx] : &sfname[e_pfx - pfx];
+		if(add_dot)	// add_dot implies add_ext
+			*sfp++ = '.';
+		if(add_ext)
+			strcpy(sfp, ext);
+	}
 
 CLEAN_UP : ;
 
