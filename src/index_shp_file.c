@@ -68,16 +68,12 @@ index_shp_file(const char *fname)
 		goto CLEAN_UP;
 	}
 
-LOG_DEBUG("fname      = %s", fname);
-LOG_DEBUG("shx_fname  = %s", shx_fname);
-
 	ridx_fname = SHP_make_sf_name(fname, "ridx");
 	if(ridx_fname == NULL){
 		LOG_ERROR("SHP_make_sf_name failed for \"ridx\" file");
 		err = 1;
 		goto CLEAN_UP;
 	}
-LOG_DEBUG("ridx_fname = %s", ridx_fname);
 
 	shx_fhdr = SHP_open_file(shx_fname);
 	if(shx_fhdr == NULL){
@@ -104,6 +100,7 @@ LOG_DEBUG("ridx_fname = %s", ridx_fname);
 		ridx.r_length = SF_WORD_SIZE * sf_ridx.s_length;
 		fwrite(&ridx, sizeof(RIDX_T), (size_t)1, ridx_fp);
 	}
+	fprintf(stderr, "%s nrecs=%ld\n", args->a_files[0], hdr.h_count);
 
 CLEAN_UP : ;
 
