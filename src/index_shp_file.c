@@ -96,8 +96,11 @@ index_shp_file(const char *fname)
 			err = 1;
 			goto CLEAN_UP;
 		}
-		ridx.r_offset = SF_WORD_SIZE * sf_ridx.s_offset;
-		ridx.r_length = SF_WORD_SIZE * sf_ridx.s_length;
+		// the offset is the offset of shp rec header
+		// the length from sf_ridx.s_length is the length of the actual shape data
+		// so I'm adding SF_RIDX_SIZE to it to cover the length of the shape header + shape data
+		ridx.r_offset = SF_WORD_SIZE * sf_ridx.s_offset;	
+		ridx.r_length = SF_WORD_SIZE * (SF_RIDX_SIZE + sf_ridx.s_length);
 		fwrite(&ridx, sizeof(RIDX_T), (size_t)1, ridx_fp);
 	}
 	fprintf(stderr, "%s nrecs=%ld\n", args->a_files[0], hdr.h_count);

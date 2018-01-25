@@ -17,6 +17,7 @@ FM_HOME=$HOME/fmap
 FM_BIN=$FM_HOME/bin
 
 INS_DIR=
+rval=0
 
 while [ $# -gt 0 ] ; do
 	case $1 in
@@ -163,22 +164,39 @@ for k in *.key; do
 done
 LOG INFO "created the md5 hashes of the keys: *.key -> *.md5"
 
+# the records in this index are shp.hdr + shp.data
 LOG INFO "convert the shx files to ridx files"
-nr_file="$(echo "$zpat" | awk '{
-	nf = split($1, ary, "/")
-	nf_2 = split(ary[2], ary_2, "_")
-	printf("%s_%s_%s", ary_2[1], ary_2[2], ary_2[3])
-	if(nf_2 > 3)
-		printf("_%s", ary_2[4])
-	printf(".nrecs")
-}')"
 for r in *.shp; do
 	$WM_BIN/index_shp_file $r
-done 2> $nr_file
+done 2> $INS_DIR.nrecs
 LOG INFO "converted the shx files to ridx files"
 
-# TODO:
-# 1. make ridx
 # 2. make filemap
+LOG INFO "make the file map $INS_DIR.fmap"
+cat > $INS_DIR.fmap <<_EOF_
+root = $WM_DATA/$INS_DIR
+format = shp
+ridx = ridx
+key = md5
+index = $INS_DIR.i2r
+count = $(ls *.shp | wc -l)
+files = {
+_EOF_
+awk 'BEGIN {
+	ins_dir = "'"$INS_DIR"'"
+}
+{
+	printf(" %s %d %s\n", ins_dir, NR, $0)
+}' $INS_DIR.nrecs >> $INS_DIR.fmap
+echo '}' >> $INS_DIR.fmap
+LOG INFO "made the file map $INS_DIR.fmap"
+
 # 3. make key index
+LOG INFO "make the key index $INS_DIR.i2r"
+$FM_BIN/mk_key2rnum $INS_DIR.fmap
+LOG INFO "made the key index $INS_DIR.i2r"
+
 # 4. set all files to 444
+chmod 444 *
+
+exit $rval

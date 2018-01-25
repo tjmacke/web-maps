@@ -54,7 +54,7 @@
 	 ((t) == ST_MULTIPATCH))
 
 #define	SF_FHDR_SIZE	50	// 50 words = 100 bytes
-#define	SF_RIDX_SIZE	4	// 8 words = 8 bytes
+#define	SF_RIDX_SIZE	4	// 4 words = 8 bytes
 
 #define	GJ_DEFAULT_PROPS_FMT_D	"{\"title\": \"shape_%07d\"}"
 
