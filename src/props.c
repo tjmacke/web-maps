@@ -7,7 +7,10 @@
 #include "props.h"
 
 static	int
-props_cmp_key(const void *, const void *);
+props_cmp_int_key(const void *, const void *);
+
+static	int
+props_cmp_str_key(const void *, const void *);
 
 static	char	*
 mk_json_kv_pair(const char *, const char *, int);
@@ -99,7 +102,7 @@ PROPS_delete_properties(PROPERTIES_T	*props)
 }
 
 PROP_T	*
-PROPS_new_prop(const char *key, const char *value)
+PROPS_new_prop(const char *key, int int_key, const char *value)
 {
 	PROP_T	*pp = NULL;
 	int	err = 0;
@@ -116,16 +119,25 @@ PROPS_new_prop(const char *key, const char *value)
 		goto CLEAN_UP;
 	}
 
-	pp = (PROP_T *)malloc(sizeof(PROP_T));
+	pp = (PROP_T *)calloc((size_t)1, sizeof(PROP_T));
 	if(pp == NULL){
 		LOG_ERROR("can't allocate pp");
 		err = 1;
 		goto CLEAN_UP;
 	}
-	pp->p_key = atoi(key);
+	if(int_key)
+		pp->p_int_key = atoi(key);
+	else{
+		pp->p_str_key = strdup(key);
+		if(pp->p_str_key == NULL){
+			LOG_ERROR("can't strdup key");
+			err = 1;
+			goto CLEAN_UP;
+		}
+	}
 	pp->p_value = strdup(value);
 	if(pp->p_value == NULL){
-		LOG_ERROR("can't allocate p_value");
+		LOG_ERROR("can't strdup value");
 		err = 1;
 		goto CLEAN_UP;
 	}
@@ -147,12 +159,14 @@ PROPS_delete_prop(PROP_T *pp)
 	if(pp != NULL){
 		if(pp->p_value != NULL)
 			free(pp->p_value);
+		if(pp->p_str_key != NULL)
+			free(pp->p_str_key);
 		free(pp);
 	}
 }
 
 int
-PROPS_read_properties(PROPERTIES_T *props)
+PROPS_read_properties(PROPERTIES_T *props, int int_key)
 {
 	FILE	*fp = NULL;
 	char	*line = NULL;
@@ -292,7 +306,7 @@ PROPS_read_properties(PROPERTIES_T *props)
 				err = 1;
 				goto CLEAN_UP;
 			}
-			pp = PROPS_new_prop(pkey, line);
+			pp = PROPS_new_prop(pkey, int_key, line);
 			if(pp == NULL){
 				LOG_ERROR("line %d: PROPS_new_prop failed", lcnt);
 				err = 1;
@@ -303,7 +317,7 @@ PROPS_read_properties(PROPERTIES_T *props)
 			pkey = NULL;
 		}
 	}
-	qsort(props->p_ptab, props->pn_ptab, sizeof(PROP_T *), props_cmp_key);
+	qsort(props->p_ptab, props->pn_ptab, sizeof(PROP_T *), int_key ? props_cmp_int_key : props_cmp_str_key);
 
 CLEAN_UP : ;
 
@@ -320,7 +334,7 @@ CLEAN_UP : ;
 }
 
 const PROP_T	*
-PROPS_find_props_for_record(PROPERTIES_T *props, int pkey)
+PROPS_find_props_with_int_key(PROPERTIES_T *props, int pkey)
 {
 	int	i, j, k;
 	PROP_T	*pp;
@@ -328,9 +342,9 @@ PROPS_find_props_for_record(PROPERTIES_T *props, int pkey)
 	for(i = 0, j = props->pn_ptab - 1; i <= j; ){
 		k = (i + j) / 2;
 		pp = props->p_ptab[k];
-		if(pp->p_key == pkey)
+		if(pp->p_int_key == pkey)
 			return pp;
-		else if(pp->p_key < pkey)
+		else if(pp->p_int_key < pkey)
 			i = k + 1;
 		else
 			j = k - 1;
@@ -361,8 +375,9 @@ PROPS_dump_properties(FILE *fp, PROPERTIES_T *props)
 			fprintf(fp, "\t\t%d = NULL\n", i+1);
 		else{
 			fprintf(fp, "\t\t%d = {\n", i+1);
-			fprintf(fp, "\t\t\tkey   = %d\n", pp->p_key);
-			fprintf(fp, "\t\t\tvalue = %s\n", pp->p_value ? pp->p_value : "NULL");
+			fprintf(fp, "\t\t\tint_key   = %d\n", pp->p_int_key);
+			fprintf(fp, "\t\t\tstr_key   = %s\n", pp->p_str_key != NULL ? pp->p_str_key : "NULL");
+			fprintf(fp, "\t\t\tvalue     = %s\n", pp->p_value ? pp->p_value : "NULL");
 			fprintf(fp, "\t\t}\n");
 		}
 	}
@@ -510,17 +525,26 @@ CLEAN_UP : ;
 }
 
 static	int
-props_cmp_key(const void *p1, const void *p2)
+props_cmp_int_key(const void *p1, const void *p2)
 {
 	const PROP_T	**pp1 = (const PROP_T **)p1;
 	const PROP_T	**pp2 = (const PROP_T **)p2;
 
-	if((*pp1)->p_key < (*pp2)->p_key)
+	if((*pp1)->p_int_key < (*pp2)->p_int_key)
 		return -1;
-	else if((*pp1)->p_key > (*pp2)->p_key)
+	else if((*pp1)->p_int_key > (*pp2)->p_int_key)
 		return 1;
 	else
 		return 0;
+}
+
+static	int
+props_cmp_str_key(const void *p1, const void *p2)
+{
+	const PROP_T	**pp1 = (const PROP_T **)p1;
+	const PROP_T	**pp2 = (const PROP_T **)p2;
+
+	return strcmp((*pp1)->p_str_key, (*pp2)->p_str_key);
 }
 
 static	char	*

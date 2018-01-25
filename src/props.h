@@ -2,7 +2,8 @@
 #define	_PROPS_H_
 
 typedef	struct	prop_t	{
-	int	p_key;
+	int	p_int_key;
+	char	*p_str_key;
 	char	*p_value;
 } PROP_T;
 
@@ -27,16 +28,19 @@ void
 PROPS_dump_properties(FILE *, PROPERTIES_T *);
 
 PROP_T	*
-PROPS_new_prop(const char *, const char *);
+PROPS_new_prop(const char *, int, const char *);
 
 void
 PROPS_delete_prop(PROP_T *);
 
 int
-PROPS_read_properties(PROPERTIES_T *);
+PROPS_read_properties(PROPERTIES_T *, int);
 
 const PROP_T	*
-PROPS_find_props_for_record(PROPERTIES_T *, int);
+PROPS_find_props_with_int_key(PROPERTIES_T *, int);
+
+const PROP_T	*
+PROPS_find_props_with_str_key(PROPERTIES_T *, const char *);
 
 void
 PROPS_dump_properties(FILE *, PROPERTIES_T *);
