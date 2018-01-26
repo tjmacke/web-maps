@@ -1,12 +1,19 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <unistd.h>
+#include <sys/stat.h>
+#include <sys/mman.h>
+#include <openssl/evp.h>
 
 #include "log.h"
 #include "args.h"
 #include "props.h"
 #include "shape.h"
+#include "index.h"
 #include "fmap.h"
+
+#define	MD_NAME	"md5"
 
 static	ARGS_T	*args;
 static	FLAG_T	flags[] = {
@@ -41,9 +48,25 @@ main(int argc, char *argv[])
 	SF_FHDR_T	*shp_fhdr = NULL;
 	char	*shx_fname = NULL;
 	int	n_recs = 0;
-	SF_RIDX_T	*ridx = NULL;
-	SF_RIDX_T	*rip;
+	SF_RIDX_T	*sf_ridx = NULL;
+	SF_RIDX_T	*sf_rip;
 	SF_SHAPE_T	*shp = NULL;
+
+	FMAP_T	*fmap = NULL;
+	FILE	*i2rfp = NULL;
+
+	const EVP_MD	*md = NULL;
+	EVP_MD_CTX	mdctx;
+	int	mdctx_init = 0;
+	unsigned char	md_value[EVP_MAX_MD_SIZE];
+	unsigned int	md_len;
+	char	*mvp;
+	int	i2rfd;
+	struct stat	i2rsbuf;
+	void	*map = NULL;
+	HDR_T	*i2rhdr;
+	KEY2RNUM_T	*atab, *i2r;
+	int	n_atab;
 
 	FILE	*fp = NULL;
 	char	*line = NULL;
@@ -101,7 +124,6 @@ main(int argc, char *argv[])
 	}
 
 	if(sf != NULL){	// data in a single shp/shx pair
-		// make the names from the value -sf
 		shp_fname = SHP_make_sf_name(sf, "shp");
 		if(shp_fname == NULL){
 			LOG_ERROR("SHP_make_sf_name failed for \"shp\" file");
@@ -114,7 +136,8 @@ main(int argc, char *argv[])
 			err = 1;
 			goto CLEAN_UP;
 		}
-		if(SHP_read_shx_data(shx_fname, verbose, &n_recs, &ridx)){
+
+		if(SHP_read_shx_data(shx_fname, verbose, &n_recs, &sf_ridx)){
 			LOG_ERROR("SHP_read_shx_data failed for %s", shx_fname);
 			err = 1;
 			goto CLEAN_UP;
@@ -134,6 +157,43 @@ main(int argc, char *argv[])
 			goto CLEAN_UP;
 		}
 	}else{		// data in a file map
+		// TODO: collect all of this into a func
+		OpenSSL_add_all_digests();
+		md = EVP_get_digestbyname(MD_NAME);
+		if(md == NULL){
+			LOG_ERROR("no such digest %s", MD_NAME);
+			err = 1;
+			goto CLEAN_UP;
+		}
+		EVP_MD_CTX_init(&mdctx);
+		mdctx_init = 1;
+	
+		// TODO: collect all of this into a func
+		if((fmap = FMread_fmap(fm_name)) == NULL){
+			LOG_ERROR("FMread_fmap failed for fie map %s", fm_name);
+			err = 1;
+			goto CLEAN_UP;
+		}
+		if((i2rfp = FMfopen(fmap->f_root, "", fmap->f_index, "r")) == NULL){
+			LOG_ERROR("FMfopen failed for rec index file %s", fmap->f_index);
+			err = 1;
+			goto CLEAN_UP;
+		}
+		i2rfd = fileno(i2rfp);
+		if(fstat(i2rfd, &i2rsbuf)){
+			LOG_ERROR("can't stat rec index file %s", fmap->f_index);
+			err = 1;
+			goto CLEAN_UP;
+		}
+		map = mmap(NULL, i2rsbuf.st_size, PROT_READ, MAP_SHARED, i2rfd, 0L);
+		if(map == NULL){
+			LOG_ERROR("can't mmap rec index file %s", fmap->f_index);
+			err = 1;
+			goto CLEAN_UP;
+		}
+		i2rhdr = (HDR_T *)map;
+		n_atab = i2rhdr->h_count;
+		atab = (KEY2RNUM_T *)&((char *)map)[sizeof(HDR_T)];
 	}
 
 	if(pfname != NULL){
@@ -168,8 +228,8 @@ main(int argc, char *argv[])
 			err = 1;
 			continue;
 		}
-		rip = &ridx[rnum - 1];
-		fseek(shp_fhdr->s_fp, SF_WORD_SIZE * rip->s_offset, SEEK_SET);
+		sf_rip = &sf_ridx[rnum - 1];
+		fseek(shp_fhdr->s_fp, SF_WORD_SIZE * sf_rip->s_offset, SEEK_SET);
 		shp = SHP_read_shape(shp_fhdr->s_fp);
 		if(shp == NULL){
 			LOG_ERROR("line %7d: SHP_read_shape failed for record %d", lcnt, rnum);
@@ -221,12 +281,21 @@ CLEAN_UP : ;
 	if(props != NULL)
 		PROPS_delete_properties(props);
 
-	if(ridx != NULL)
-		free(ridx);
+	// file map stuff
+	if(mdctx_init)
+		EVP_MD_CTX_cleanup(&mdctx);
+	if(map != NULL){
+		munmap(map, i2rsbuf.st_size);
+		map = NULL;
+	}
+	if(fmap != NULL)
+		FMfree_fmap(fmap);
 
+	// shape file stuff
+	if(sf_ridx != NULL)
+		free(sf_ridx);
 	if(shx_fname != NULL)
 		free(shx_fname);
-
 	if(shp_fhdr != NULL)
 		SHP_close_file(shp_fhdr);
 	if(shp_fname != NULL)
