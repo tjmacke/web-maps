@@ -4,8 +4,9 @@
 
 #include "log.h"
 #include "args.h"
-#include "shape.h"
 #include "props.h"
+#include "shape.h"
+#include "fmap.h"
 
 static	ARGS_T	*args;
 static	FLAG_T	flags[] = {
@@ -31,23 +32,27 @@ main(int argc, char *argv[])
 	const char	*fmt = NULL;
 	const char	*sf = NULL;
 	const char	*fm_name = NULL;
+
 	PROPERTIES_T	*props = NULL;
 	const PROP_T	*pp;
 	char	*p_value;
-	FILE	*fp = NULL;
+
 	char	*shp_fname = NULL;
 	SF_FHDR_T	*shp_fhdr = NULL;
 	char	*shx_fname = NULL;
 	int	n_recs = 0;
 	SF_RIDX_T	*ridx = NULL;
 	SF_RIDX_T	*rip;
+	SF_SHAPE_T	*shp = NULL;
+
+	FILE	*fp = NULL;
 	char	*line = NULL;
 	size_t	s_line = 0;
 	ssize_t	l_line;
 	int	lcnt;
 	int	i, rnum;
 	int	a_prlg, first;
-	SF_SHAPE_T	*shp = NULL;
+
 	int	err = 0;
 
 	a_stat = TJM_get_args(argc, argv, n_flags, flags, 0, 1, &args);
@@ -109,6 +114,11 @@ main(int argc, char *argv[])
 			err = 1;
 			goto CLEAN_UP;
 		}
+		if(SHP_read_shx_data(shx_fname, verbose, &n_recs, &ridx)){
+			LOG_ERROR("SHP_read_shx_data failed for %s", shx_fname);
+			err = 1;
+			goto CLEAN_UP;
+		}
 
 		shp_fhdr = SHP_open_file(shp_fname);
 		if(shp_fhdr == NULL){
@@ -127,7 +137,6 @@ main(int argc, char *argv[])
 	}
 
 	if(pfname != NULL){
-		// TODO: Fix so p_key can be int or str depending is the data is from -sf S or -fmap F
 		props = PROPS_new_properties(pfname, pkey);
 		if(props == NULL){
 			LOG_ERROR("PROPS_new_properties failed");
@@ -141,12 +150,6 @@ main(int argc, char *argv[])
 		}
 		if(verbose)
 			PROPS_dump_properties(stderr, props);
-	}
-
-	if(SHP_read_shx_data(shx_fname, verbose, &n_recs, &ridx)){
-		LOG_ERROR("SHP_read_shx_data failed for %s", shx_fname);
-		err = 1;
-		goto CLEAN_UP;
 	}
 
 	for(a_prlg = first = 1, lcnt = 0; (l_line = getline(&line, &s_line, fp)) > 0; ){
@@ -181,6 +184,7 @@ main(int argc, char *argv[])
 		}
 		p_value = NULL;
 		if(props != NULL){
+			// TODO: add code that also get str props if using a fmap
 			pp = PROPS_find_props_with_int_key(props, shp->s_rnum);
 			if(pp == NULL){
 				LOG_WARN("no properties for rnum = %d", shp->s_rnum);

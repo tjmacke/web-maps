@@ -22,8 +22,8 @@ index_shp_file:	index_shp_file.o log.o args.o shape.o
 shp_dump:	shp_dump.o log.o args.o file_io.o shape.o dbase.o
 	$(CC) $(CFLAGS) -o shp_dump shp_dump.o log.o args.o file_io.o shape.o dbase.o
 
-shp_to_geojson:	shp_to_geojson.o log.o args.o file_io.o shape.o props.o
-	$(CC) $(CFLAGS) -o shp_to_geojson shp_to_geojson.o log.o args.o file_io.o shape.o props.o
+shp_to_geojson:	shp_to_geojson.o log.o args.o file_io.o shape.o props.o fmap.o split.o
+	$(CC) $(CFLAGS) -o shp_to_geojson shp_to_geojson.o log.o args.o file_io.o shape.o props.o fmap.o split.o
 
 dbase_to_sqlite.o:	log.h args.h dbase.h
 
@@ -33,9 +33,11 @@ index_shp_file.o:	log.h args.h index.h shape.h
 
 shp_dump.o:	log.h args.h shape.h dbase.h
 
-shp_to_geojson.o:	log.h args.h shape.h props.h
+shp_to_geojson.o:	log.h args.h props.h shape.h fmap.h
 
 file_io.o:	log.h
+
+fmap.o:		log.h fmap.h
 
 shape.o:	log.h shape.h
 
