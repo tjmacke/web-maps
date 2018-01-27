@@ -28,6 +28,9 @@ static	FLAG_T	flags[] = {
 };
 static	int	n_flags = sizeof(flags)/sizeof(flags[0]);
 
+static	KEY2RNUM_T	*
+findkey(const char *, int , KEY2RNUM_T []);
+
 int
 main(int argc, char *argv[])
 {
@@ -52,21 +55,30 @@ main(int argc, char *argv[])
 	SF_RIDX_T	*sf_rip;
 	SF_SHAPE_T	*shp = NULL;
 
-	FMAP_T	*fmap = NULL;
-	FILE	*i2rfp = NULL;
-
 	const EVP_MD	*md = NULL;
 	EVP_MD_CTX	mdctx;
 	int	mdctx_init = 0;
 	unsigned char	md_value[EVP_MAX_MD_SIZE];
 	unsigned int	md_len;
+	char	md_value_str[(2*EVP_MAX_MD_SIZE + 1)];
 	char	*mvp;
+
+	FMAP_T	*fmap = NULL;
+	FILE	*i2rfp = NULL;
 	int	i2rfd;
 	struct stat	i2rsbuf;
 	void	*map = NULL;
 	HDR_T	*i2rhdr;
 	KEY2RNUM_T	*atab, *i2r;
 	int	n_atab;
+	FM_ENTRY_T	*l_fme, *fme;
+	FILE	*rixfp = NULL;
+	HDR_T	rixhdr;
+	RIDX_T	ridx;
+	char	*fm_dfname = NULL;
+	size_t	s_fm_dfname = 0;
+	size_t	l_fm_dfname = 0;
+	long	offset;
 
 	FILE	*fp = NULL;
 	char	*line = NULL;
@@ -212,7 +224,7 @@ main(int argc, char *argv[])
 			PROPS_dump_properties(stderr, props);
 	}
 
-	for(a_prlg = first = 1, lcnt = 0; (l_line = getline(&line, &s_line, fp)) > 0; ){
+	for(l_fme = NULL, a_prlg = first = 1, lcnt = 0; (l_line = getline(&line, &s_line, fp)) > 0; ){
 		lcnt++;
 		if(line[l_line - 1] == '\n'){
 			line[l_line - 1] = '\0';
@@ -222,14 +234,79 @@ main(int argc, char *argv[])
 				continue;
 			}
 		}
-		rnum = atoi(line);
-		if(rnum < 1 || rnum > n_recs){
-			LOG_WARN("line %7d: rnum %d out of range 1:%d", lcnt, rnum, n_recs);
-			err = 1;
-			continue;
+		if(sf != NULL){
+			rnum = atoi(line);
+			if(rnum < 1 || rnum > n_recs){
+				LOG_WARN("line %7d: rnum %d out of range 1:%d", lcnt, rnum, n_recs);
+				err = 1;
+				continue;
+			}
+			sf_rip = &sf_ridx[rnum - 1];
+			fseek(shp_fhdr->s_fp, SF_WORD_SIZE * sf_rip->s_offset, SEEK_SET);
+		}else{	// using fmap
+			EVP_DigestInit_ex(&mdctx, md, NULL);
+			EVP_DigestUpdate(&mdctx, line, l_line);
+			EVP_DigestFinal(&mdctx, md_value, &md_len);
+			for(mvp = md_value_str, i = 0; i < md_len; i++, mvp += 2)
+				sprintf(mvp, "%02x", md_value[i] & 0xff);
+			*mvp = '\0';
+
+			i2r = findkey(md_value_str, n_atab, atab);
+			if(i2r == NULL){
+				LOG_ERROR("%s (%s) not in index %s", line, md_value_str, fmap->f_index);
+				err = 1;
+				continue;
+			}
+
+			if((fme = FMrnum2fmentry(fmap, i2r->k_rnum)) == NULL){
+				LOG_ERROR("NO fme for rnum %010u", i2r->k_rnum);
+				err = 1;
+				goto CLEAN_UP;
+			}
+			if(fme != l_fme){
+				if(rixfp != NULL){
+					fclose(rixfp);
+					rixfp = NULL;
+				}
+				if((rixfp = FMfopen(fmap->f_root, fme->f_fname, fmap->f_ridx, "r")) == NULL){
+					LOG_ERROR("FMfopen failed for %s", fme->f_fname);
+					err = 1;
+					goto CLEAN_UP;
+				}
+				fread(&rixhdr, sizeof(HDR_T), (size_t)1, rixfp);
+				if(shp_fhdr != NULL){
+					SHP_close_file(shp_fhdr);
+					shp_fhdr = NULL;
+				}
+				// TODO: open new one
+				l_fm_dfname = strlen(fmap->f_root) + 1 + strlen(fme->f_fname); 
+				if(l_fm_dfname + 1 > s_fm_dfname){
+					if(fm_dfname != NULL)
+						free(fm_dfname);
+					s_fm_dfname = l_fm_dfname + 1;
+					fm_dfname = (char *)malloc(s_fm_dfname);
+					if(fm_dfname == NULL){
+						LOG_ERROR("can't allocate fm_dfname for %s/%s", fmap->f_root, fme->f_fname);
+						err = 1;
+						goto CLEAN_UP;
+					}
+				}
+				sprintf(fm_dfname, "%s/%s", fmap->f_root, fme->f_fname);
+				shp_fhdr = SHP_open_file(fm_dfname);
+				if(shp_fhdr == NULL){
+					LOG_ERROR("SHP_open_file failed for %s", fme->f_fname);
+					err = 1;
+					goto CLEAN_UP;
+				}
+			}
+
+			// get the offset (as bytes this time for the shp to read)
+			offset = (i2r->k_rnum - fme->f_first) * rixhdr.h_size + sizeof(HDR_T);
+			fseek(rixfp, (long)offset, SEEK_SET);
+			fread(&ridx, sizeof(ridx), 1L, rixfp);
+
+			fseek(shp_fhdr->s_fp, ridx.r_offset, SEEK_SET);
 		}
-		sf_rip = &sf_ridx[rnum - 1];
-		fseek(shp_fhdr->s_fp, SF_WORD_SIZE * sf_rip->s_offset, SEEK_SET);
 		shp = SHP_read_shape(shp_fhdr->s_fp);
 		if(shp == NULL){
 			LOG_ERROR("line %7d: SHP_read_shape failed for record %d", lcnt, rnum);
@@ -244,8 +321,7 @@ main(int argc, char *argv[])
 		}
 		p_value = NULL;
 		if(props != NULL){
-			// TODO: add code that also get str props if using a fmap
-			pp = PROPS_find_props_with_int_key(props, shp->s_rnum);
+			pp = (sf != NULL) ? PROPS_find_props_with_int_key(props, shp->s_rnum) : PROPS_find_props_with_str_key(props, line);
 			if(pp == NULL){
 				LOG_WARN("no properties for rnum = %d", shp->s_rnum);
 				err = 1;
@@ -282,6 +358,8 @@ CLEAN_UP : ;
 		PROPS_delete_properties(props);
 
 	// file map stuff
+	if(fm_dfname != NULL)
+		free(fm_dfname);
 	if(mdctx_init)
 		EVP_MD_CTX_cleanup(&mdctx);
 	if(map != NULL){
@@ -307,4 +385,23 @@ CLEAN_UP : ;
 	TJM_free_args(args);
 
 	exit(err);
+}
+
+static	KEY2RNUM_T	*
+findkey(const char *key, int n_idx, KEY2RNUM_T idx[])
+{
+	int	i, j, k, cv;
+	KEY2RNUM_T	*k2r;
+
+	for(i = 0, j = n_idx - 1; i <= j; ){
+		k = (i + j) / 2;
+		k2r = &idx[k];
+		if((cv = strcmp(k2r->k_key, key)) == 0)
+			return k2r;
+		else if(cv < 0)
+			i = k + 1;
+		else
+			j = k - 1;
+	}
+	return NULL;
 }

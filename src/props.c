@@ -352,6 +352,25 @@ PROPS_find_props_with_int_key(PROPERTIES_T *props, int pkey)
 	return NULL;
 }
 
+const PROP_T	*
+PROPS_find_props_with_str_key(PROPERTIES_T *props, const char *pkey)
+{
+	int	i, j, k, cv;
+	PROP_T	*pp;
+
+	for(i = 0, j = props->pn_ptab - 1; i <= j; ){
+		k = (i + j) / 2;
+		pp = props->p_ptab[k];
+		if((cv = strcmp(pp->p_str_key, pkey)) == 0)
+			return pp;
+		else if(cv < 0)
+			i = k + 1;
+		else
+			j = k - 1;
+	}
+	return NULL;
+}
+
 void
 PROPS_dump_properties(FILE *fp, PROPERTIES_T *props)
 {
