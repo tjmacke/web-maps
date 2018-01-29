@@ -21,6 +21,9 @@ typedef	struct	properties_t	{
 PROPERTIES_T	*
 PROPS_new_properties(const char *, const char *);
 
+PROPERTIES_T	*
+PROPS_make_default_ptab(const char *pkey);
+
 void
 PROPS_delete_properties(PROPERTIES_T *);
 

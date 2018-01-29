@@ -68,6 +68,53 @@ CLEAN_UP : ;
 	return props;
 }
 
+PROPERTIES_T	*
+PROPS_make_default_ptab(const char *pkey)
+{
+	PROPERTIES_T	*props = NULL;
+	int	err = 0;
+
+	if(pkey == NULL || *pkey == '\0'){
+		LOG_ERROR("pkey is NULL or empty");
+		err = 1;
+		goto CLEAN_UP;
+	}
+	props = (PROPERTIES_T *)calloc((size_t)1, sizeof(PROPERTIES_T));
+	if(props == NULL){
+		LOG_ERROR("can't allocatte props");
+		err = 1;
+		goto CLEAN_UP;
+	}
+	props->p_pkey = strdup(pkey);
+	if(props->p_pkey == NULL){
+		LOG_ERROR("can't strdup pkey %s", pkey);
+		err = 1;
+		goto CLEAN_UP;
+	}
+	props->pn_ftab = 1;
+	props->p_ftab = (char **)calloc((size_t)1, sizeof(char *));
+	if(props->p_ftab == NULL){
+		LOG_ERROR("can't allocate p_ftab");
+		err = 1;
+		goto CLEAN_UP;
+	}
+	props->p_ftab[0] = strdup(pkey);
+	if(props->p_ftab[0] == NULL){
+		LOG_ERROR("can't strdup pkey");
+		err = 1;
+		goto CLEAN_UP;
+	}
+
+CLEAN_UP : ;
+
+	if(err){
+		PROPS_delete_properties(props);
+		props = NULL;
+	}
+
+	return props;
+}
+
 void
 PROPS_delete_properties(PROPERTIES_T	*props)
 {
@@ -270,6 +317,8 @@ PROPS_read_properties(PROPERTIES_T *props, int int_key)
 				err = 1;
 				goto CLEAN_UP;
 			}
+			if(!strcmp(props->p_pkey, "title"))
+				props->pf_title = props->pf_pkey;
 			if(props->pf_title == 0){
 				LOG_ERROR("title field %s not in header", "title");
 				err = 1;

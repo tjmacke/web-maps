@@ -45,6 +45,7 @@ main(int argc, char *argv[])
 
 	PROPERTIES_T	*props = NULL;
 	const PROP_T	*pp;
+	PROP_T	*def_pp = NULL;
 	char	*p_value;
 
 	char	*shp_fname = NULL;
@@ -222,6 +223,14 @@ main(int argc, char *argv[])
 		}
 		if(verbose)
 			PROPS_dump_properties(stderr, props);
+	}else if(fm_name != NULL){
+		// need some sort of props file as the default title shape_%07d need be unique
+		props = PROPS_make_default_ptab("title");
+		if(props == NULL){
+			LOG_ERROR("PROPS_make_default_ptab failed");
+			err = 1;
+			goto CLEAN_UP;
+		}
 	}
 
 	for(l_fme = NULL, a_prlg = first = 1, lcnt = 0; (l_line = getline(&line, &s_line, fp)) > 0; ){
@@ -321,12 +330,34 @@ main(int argc, char *argv[])
 		}
 		p_value = NULL;
 		if(props != NULL){
-			pp = (sf != NULL) ? PROPS_find_props_with_int_key(props, shp->s_rnum) : PROPS_find_props_with_str_key(props, line);
-			if(pp == NULL){
-				LOG_WARN("no properties for rnum = %d", shp->s_rnum);
-				err = 1;
+
+			if(sf != NULL){
+				pp = PROPS_find_props_with_int_key(props, shp->s_rnum);
+				if(pp == NULL){
+					LOG_WARN("no properties for rnum = %d", shp->s_rnum);
+					err = 1;
+				}else{
+					p_value = PROPS_to_json_object(props, pp);
+					if(p_value == NULL){
+						LOG_ERROR("PROPS_to_json_object failed");
+						err = 1;
+						goto CLEAN_UP;
+					}
+				}
 			}else{
-				p_value = PROPS_to_json_object(props, pp);
+				pp = PROPS_find_props_with_str_key(props, line);
+				if(pp == NULL){
+					def_pp = PROPS_new_prop("title", 0, line);
+					if(def_pp == NULL){
+						LOG_ERROR("PROPS_new_prop failed for %s", line);
+						err = 1;
+						goto CLEAN_UP;
+					}
+					p_value = PROPS_to_json_object(props, def_pp);
+					PROPS_delete_prop(def_pp);
+					def_pp = NULL;
+				}else
+					p_value = PROPS_to_json_object(props, pp);
 				if(p_value == NULL){
 					LOG_ERROR("PROPS_to_json_object failed");
 					err = 1;
