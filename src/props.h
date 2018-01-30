@@ -28,7 +28,7 @@ void
 PROPS_delete_properties(PROPERTIES_T *);
 
 void
-PROPS_dump_properties(FILE *, PROPERTIES_T *);
+PROPS_dump_properties(FILE *, const PROPERTIES_T *);
 
 PROP_T	*
 PROPS_new_prop(const char *, int, const char *);
@@ -40,13 +40,10 @@ int
 PROPS_read_properties(PROPERTIES_T *, int);
 
 const PROP_T	*
-PROPS_find_props_with_int_key(PROPERTIES_T *, int);
+PROPS_find_props_with_int_key(const PROPERTIES_T *, int);
 
 const PROP_T	*
-PROPS_find_props_with_str_key(PROPERTIES_T *, const char *);
-
-void
-PROPS_dump_properties(FILE *, PROPERTIES_T *);
+PROPS_find_props_with_str_key(const PROPERTIES_T *, const char *);
 
 char	*
 PROPS_to_json_object(const PROPERTIES_T *, const PROP_T *);

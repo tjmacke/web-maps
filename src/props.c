@@ -383,7 +383,7 @@ CLEAN_UP : ;
 }
 
 const PROP_T	*
-PROPS_find_props_with_int_key(PROPERTIES_T *props, int pkey)
+PROPS_find_props_with_int_key(const PROPERTIES_T *props, int pkey)
 {
 	int	i, j, k;
 	PROP_T	*pp;
@@ -402,7 +402,7 @@ PROPS_find_props_with_int_key(PROPERTIES_T *props, int pkey)
 }
 
 const PROP_T	*
-PROPS_find_props_with_str_key(PROPERTIES_T *props, const char *pkey)
+PROPS_find_props_with_str_key(const PROPERTIES_T *props, const char *pkey)
 {
 	int	i, j, k, cv;
 	PROP_T	*pp;
@@ -421,7 +421,7 @@ PROPS_find_props_with_str_key(PROPERTIES_T *props, const char *pkey)
 }
 
 void
-PROPS_dump_properties(FILE *fp, PROPERTIES_T *props)
+PROPS_dump_properties(FILE *fp, const PROPERTIES_T *props)
 {
 	int	i;
 	PROP_T	*pp;

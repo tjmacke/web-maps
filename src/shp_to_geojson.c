@@ -330,7 +330,6 @@ main(int argc, char *argv[])
 		}
 		p_value = NULL;
 		if(props != NULL){
-
 			if(sf != NULL){
 				pp = PROPS_find_props_with_int_key(props, shp->s_rnum);
 				if(pp == NULL){
@@ -435,4 +434,58 @@ findkey(const char *key, int n_idx, KEY2RNUM_T idx[])
 			j = k - 1;
 	}
 	return NULL;
+}
+
+static	char	*
+PROPS_get_as_json_object(const PROPERTIES_T *props, int use_rnum, int rnum, const char *str)
+{
+	const PROP_T	*pp;
+	PROP_T	*def_pp = NULL;
+	char	*p_objstr = NULL;
+	int	err = 0;
+
+	if(use_rnum){
+		pp = PROPS_find_props_with_int_key(props, rnum);
+		if(pp == NULL){
+			LOG_WARN("no properties for rnum = %d", rnum);
+			err = 1;
+		}else{
+			p_objstr = PROPS_to_json_object(props, pp);
+			if(p_objstr == NULL){
+				LOG_ERROR("PROPS_to_json_object failed");
+				err = 1;
+				goto CLEAN_UP;
+			}
+		}
+	}else{
+		pp = PROPS_find_props_with_str_key(props, str);
+		if(pp == NULL){
+			def_pp = PROPS_new_prop("title", 0, str);
+			if(def_pp == NULL){
+				LOG_ERROR("PROPS_new_prop failed for %s", str);
+				err = 1;
+				goto CLEAN_UP;
+			}
+			p_objstr = PROPS_to_json_object(props, def_pp);
+			PROPS_delete_prop(def_pp);
+			def_pp = NULL;
+		}else
+			p_objstr = PROPS_to_json_object(props, pp);
+		if(p_objstr == NULL){
+			LOG_ERROR("PROPS_to_json_object failed");
+			err = 1;
+			goto CLEAN_UP;
+		}
+	}
+
+CLEAN_UP : ;
+
+	if(err){
+		if(p_objstr != NULL){
+			free(p_objstr);
+			p_objstr = NULL;
+		}
+	}
+
+	return p_objstr;
 }
