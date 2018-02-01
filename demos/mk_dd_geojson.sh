@@ -2,7 +2,7 @@
 #
 . ~/etc/funcs.sh
 
-U_MSG="usage: $0 [ -help ] (no other options or arguments)"
+U_MSG="usage: $0 [ -help ] [ -sa adj-file ] (no arguments)"
 
 if [ -z "$WM_HOME" ] ; then
 	LOG ERROR "WM_HOME not defined"
@@ -18,11 +18,23 @@ TMP_RNFILE=/tmp/dd.rnums.$$
 TMP_CFILE=/tmp/dd.colors.tsv.$$
 TMP_PFILE_2=/tmp/dd_2.tsv.$$
 
+AFILE=
+
 while [ $# -gt 0 ] ; do
 	case $1 in
 	-help)
 		echo "$U_MSG"
 		exit 0
+		;;
+	-sa)
+		shift
+		if [ $# -eq 0 ] ; then
+			LOG ERROR "-sa requires adj-file argument"
+			echo "$U_MSG" 1>&2
+			exit 1
+		fi
+		AFILE=$1
+		shift
 		;;
 	-*)
 		LOG ERROR "unknown option $1"
@@ -64,6 +76,11 @@ tail -n +2 $TMP_PFILE	| awk -F'\t' '{ print $NF }' 			> $TMP_RNFILE
 $WM_BIN/shp_to_geojson -pf $TMP_PFILE -pk rnum -sf $DD_DATA $TMP_RNFILE	|\
 $WM_SCRIPTS/find_adjacent_polys.sh -fmt wrapped 			|\
 $WM_SCRIPTS/rm_dup_islands.sh						|\
+if [ ! -z "$AFILE" ] ; then
+	tee $AFILE
+else
+	cat
+fi	|\
 $WM_SCRIPTS/color_graph.sh						> $TMP_CFILE
 $WM_SCRIPTS/add_columns.sh -mk title $TMP_PFILE $TMP_CFILE 		> $TMP_PFILE_2
 $WM_BIN/shp_to_geojson -pf $TMP_PFILE_2 -pk rnum -sf $DD_DATA $TMP_RNFILE

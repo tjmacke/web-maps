@@ -1,0 +1,67 @@
+#! /bin/bash
+#
+. ~/etc/funcs.sh
+
+U_MSG="usage: $0 [ -help ] [ -sa adj-file ] (no arguments)"
+
+if [ -z "$WM_HOME" ] ; then
+	LOG ERROR "WM_HOME not defined"
+	exit 1
+fi
+WM_BIN=$WM_HOME/bin
+WM_DATA=$WM_HOME/data
+WM_SCRIPTS=$WM_HOME/scripts
+CB_DATA=$WM_DATA/cb_2016_place_500k
+
+TMP_PFILE=/tmp/cb_2016.tsv.$$
+TMP_TFILE=/tmp/cb_2016.titles.$$
+TMP_CFILE=/tmp/cb_2016.colors.tsv.$$
+TMP_PFILE_2=/tmp/cb_2016_2.tsv.$$
+
+AFILE=
+
+while [ $# -gt 0 ] ; do
+	case $1 in 
+	-help)
+		echo "$U_MSG"
+		exit 0
+		;;
+	-sa)
+		shift
+		if [ $# -eq 0 ] ; then
+			LOG ERROR "-sa requires adj-file argument"
+			echo "$U_MSG" 1>&2
+			exit 1
+		fi
+		AFILE=$1
+		shift
+		;;
+	-*)
+		LOG ERROR "unknown option $1"
+		echo "$U_MSG" 1>&2
+		exit 1
+		;;
+	*)
+		LOG ERROR "extra arguments $*"
+		echo "$U_MSG" 1>&2
+		exit 1
+		;;
+	esac
+done
+
+echo "title" > $TMP_PFILE
+cat $CB_DATA/*.key | sort >> $TMP_PFILE
+tail -n +2 $TMP_PFILE > $TMP_TFILE
+$WM_BIN/shp_to_geojson -fmap $CB_DATA/cb_2016_place_500k.fmap -pf $TMP_PFILE -pk title	$TMP_TFILE	|\
+$WM_SCRIPTS/find_adjacent_polys.sh -fmt wrapped								|\
+$WM_SCRIPTS/rm_dup_islands.sh										|\
+if [ ! -z "$AFILE" ] ; then
+	tee $AFILE
+else
+	cat
+fi													|\
+$WM_SCRIPTS/color_graph.sh										> $TMP_CFILE
+$WM_SCRIPTS/add_columns.sh -mk title $TMP_PFILE $TMP_CFILE						> $TMP_PFILE_2
+$WM_BIN/shp_to_geojson -fmap $CB_DATA/cb_2016_place_500k.fmap -pf $TMP_PFILE_2 -pk title $TMP_TFILE
+
+rm -f $TMP_PFILE $TMP_TFILE $TMP_CFILE $TMP_PFILE_2
