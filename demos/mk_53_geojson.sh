@@ -2,27 +2,27 @@
 #
 . ~/etc/funcs.sh
 
-U_MSG="usage: $0 [ -help ] [ -b ]"
+U_MSG="usage: $0 [ -help ] (no other options or arguments)"
 
 if [ -z "$WM_HOME" ] ; then
 	LOG ERROR "WM_HOME not defined"
 	exit 1
 fi
-WM_BUILD=$WM_HOME/src
 WM_BIN=$WM_HOME/bin
 WM_DATA=$WM_HOME/data
 WM_SCRIPTS=$WM_HOME/scripts
-WA_DATA=$WM_DATA/tl_2017_place
+WA_DATA=$WM_DATA/cb_2016_place_500k
+
+TMP_PFILE=/tmp/53.tsv.$$
+TMP_RNFILE=/tmp/53.rnums.$$
+TMP_CFILE=/tmp/53.colors.tsv.$$
+TMP_PFILE_2=/tmp/53_2.tsv.$$
 
 while [ $# -gt 0 ] ; do
 	case $1 in
 	-help)
 		echo "$U_MSG"
 		exit 0
-		;;
-	-b)
-		USE_BUILD="yes"
-		shift
 		;;
 	-*)
 		LOG_ERROR "unknown option $1"
@@ -37,22 +37,18 @@ while [ $# -gt 0 ] ; do
 	esac
 done
 
-if [ "$USE_BUILD" == "yes" ] ; then
-	BINDIR=$WM_BUILD
-else
-	BINDIR=$WM_BIN
-fi
-
-# 1. select the neighborhoods. Currenty neighborhoods w/L_HOOD = "" are skipped
-sqlite3 $WA_DATA/tl_2017_53_place.db <<_EOF_ > 53.tsv
+# 1. select ALL places in Washington state
+sqlite3 $WA_DATA/cb_2016_53_place_500k.db <<_EOF_ > $TMP_PFILE
 .headers on
 .mode tabs
 select rnum, NAME || ', ' || statefp.STUSAB || '_' || PLACEFP as title from data, statefp where data.STATEFP = statefp.STATEFP ;
 _EOF_
-tail -n +2 53.tsv | awk '{ print $1 }'							> 53.rnums
-$BINDIR/shp_to_geojson -sf $WA_DATA/tl_2017_53_place -pf 53.tsv -pk rnum 53.rnums	|\
-$WM_SCRIPTS/find_adjacent_polys.sh -fmt wrapped						|\
-./rm_dup_islands.sh									|\
-$WM_SCRIPTS/color_graph.sh 								> 53.colors.tsv
-$WM_SCRIPTS/add_columns.sh -mk title 53.tsv 53.colors.tsv 				> 53.all.tsv
-$BINDIR/shp_to_geojson -sf $WA_DATA/tl_2017_53_place -pf 53.all.tsv -pk rnum 53.rnums
+tail -n +2 $TMP_PFILE | awk '{ print $1 }'							> $TMP_RNFILE
+$WM_BIN/shp_to_geojson -sf $WA_DATA/cb_2016_53_place_500k -pf $TMP_PFILE -pk rnum $TMP_RNFILE	|\
+$WM_SCRIPTS/find_adjacent_polys.sh -fmt wrapped							|\
+$WM_SCRIPTS/rm_dup_islands.sh									|\
+$WM_SCRIPTS/color_graph.sh 									> $TMP_CFILE
+$WM_SCRIPTS/add_columns.sh -mk title $TMP_PFILE $TMP_CFILE 					> $TMP_PFILE_2
+$WM_BIN/shp_to_geojson -sf $WA_DATA/cb_2016_53_place_500k -pf $TMP_PFILE_2 -pk rnum $TMP_RNFILE
+
+rm -f $TMP_PFILE $TMP_RNFILE $TMP_CFILE $TMP_PFILE_2
