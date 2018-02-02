@@ -2,7 +2,7 @@
 #
 . ~/etc/funcs.sh
 
-U_MSG="usage: $0 [ -help ] [ -sa adj-file ] (no arguments)"
+U_MSG="usage: $0 [ -help ] [ -sa adj-file ] [ -h N ] [ -d { none | lines | colors } ] (no arguments)"
 
 if [ -z "$WM_HOME" ] ; then
 	LOG ERROR "WM_HOME not defined"
@@ -19,6 +19,8 @@ TMP_CFILE=/tmp/sn.colors.tsv.$$
 TMP_PFILE_2=/tmp/sn_2.tsv.$$
 
 AFILE=
+HLEV=0
+HDISP="none"
 
 while [ $# -gt 0 ] ; do
 	case $1 in
@@ -36,6 +38,26 @@ while [ $# -gt 0 ] ; do
 		AFILE=$1
 		shift
 		;;
+	-h)
+		shift
+		if [ $# -eq 0 ] ; then
+			LOG ERROR "-h requires hierarchy level argument"
+			echo "$U_MSG" 1>&2
+			exit 1
+		fi
+		HLEV=$1
+		shift
+		;;
+	-d)
+		shift
+		if [ $# -eq 0 ] ; then
+			LOG ERROR "-d requires display argument"
+			echo "$U_MSG" 1>&2
+			exit 1
+		fi
+		HDISP=$1
+		shift
+		;;
 	-*)
 		LOG_ERROR "unknown option $1"
 		echo "$U_MSG" 1>&2
@@ -49,13 +71,37 @@ while [ $# -gt 0 ] ; do
 	esac
 done
 
+if [ $HLEV -lt 0 ] || [ $HLEV -gt 2 ] ; then
+	LOG ERROR "bad hierarchy level $HLEV, must in [0, 2]"
+	echo "$U_MSG" 1>&2
+	exit 1
+fi
+
+if [ "$HDISP" != "none" ] && [ "$HDISP" != "lines" ] && [ "$HDISP" != "colors" ] ; then
+	LOG ERROR "bad hierarchy display type $HDISP, must none, lines or colors" 
+	echo "$U_MSG" 1>&2
+	exit 1
+fi
+
+if [ "$HDISP" == "lines" ] || [ "$HDISP" == "colors" ] ; then
+	if [ $HLEV -ne 2 ] ; then
+		LOG ERROR "hierarchy display type $HDISP requires hierarchy level 2"
+		echo "$U_MSG" 1>&2
+		exit 1
+	fi
+fi
+
 # 1. select the neighborhoods. Currenty neighborhoods w/L_HOOD = "" are skipped
 sqlite3 $SND_DATA/Neighborhoods.db <<_EOF_ |
 .headers on
 .mode tabs
 select OBJECTID, L_HOOD, S_HOOD from data order by L_HOOD, S_HOOD ;
 _EOF_
-awk -F'\t' 'NR == 1 {
+awk -F'\t' 'BEGIN {
+	hlev = "'"$HLEV"'" + 0
+	hdisp = "'"$HDISP"'"
+}
+NR == 1 {
 	for(i = 1; i <= NF; i++)
 		fnums[$i] = i
 }
@@ -66,9 +112,9 @@ NR > 1 {
 END {
 	for(i = 1; i <= n_recs; i++){
 		titles[i] = title = mk_title(fnums, recs[i])
- 		t_count[title]++
 		if(title == "")
 			continue;
+ 		t_count[title]++
 	}
 	printf("%s\t%s\n", "rnum", "title")
 	for(i = 1; i <= n_recs; i++){
@@ -81,7 +127,7 @@ END {
 		printf("%s\t%s\n", ary[fnums["OBJECTID"]], title)
 	}
 }
-function mk_title(fnums, rec, t_count,   nf, ary, i, title) {
+function mk_title(fnums, rec,   nf, ary, i, title) {
 
 	nf = split(rec, ary)
 	if(ary[fnums["L_HOOD"]] == "")
@@ -90,7 +136,6 @@ function mk_title(fnums, rec, t_count,   nf, ary, i, title) {
 		title = ary[fnums["S_HOOD"]]
 	else
 		title = sprintf("%s/%s", ary[fnums["L_HOOD"]], ary[fnums["S_HOOD"]])
-	t_count[title]++
 	return title
 }' > $TMP_PFILE
 
