@@ -71,6 +71,8 @@ main(int argc, char *argv[])
 			goto CLEAN_UP;
 		}
 		SHP_dump_fhdr(stdout, fhdr);
+		if(verbose == 0)
+			break;
 		if(ftype == SFT_SHP){
 			int	c, n_recs;
 			SF_SHAPE_T	*shp = NULL;

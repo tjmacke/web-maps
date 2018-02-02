@@ -825,21 +825,23 @@ SHP_dump_shape(FILE *fp, SF_SHAPE_T *shp, int verbose)
 	if(shp->s_type != ST_NULL){
 		int	i, p, pf, pl;
 
-		fprintf(fp, "\tpoints = {\n");
-		if(ST_HAS_PARTS(shp->s_type)){
-			for(p = 0; p < shp->sn_parts; p++){
-				pf = shp->s_parts[p];
-				pl = (p == shp->sn_parts - 1) ? shp->sn_points : shp->s_parts[p+1];
-				fprintf(fp, "\t\tpart = %d {\n", p+1);
-				for(i = pf; i < pl; i++)
-					SHP_dump_point(fp, &shp->s_points[i], "\t\t\t", 0);
-				fprintf(fp, "\t\t}\n");
+		if(verbose > 1){
+			fprintf(fp, "\tpoints = {\n");
+			if(ST_HAS_PARTS(shp->s_type)){
+				for(p = 0; p < shp->sn_parts; p++){
+					pf = shp->s_parts[p];
+					pl = (p == shp->sn_parts - 1) ? shp->sn_points : shp->s_parts[p+1];
+					fprintf(fp, "\t\tpart = %d {\n", p+1);
+					for(i = pf; i < pl; i++)
+						SHP_dump_point(fp, &shp->s_points[i], "\t\t\t", 0);
+					fprintf(fp, "\t\t}\n");
+				}
+			}else{
+				for(i = 0; i < shp->sn_points; i++)
+					SHP_dump_point(fp, &shp->s_points[i], "\t\t", 0);
 			}
-		}else{
-			for(i = 0; i < shp->sn_points; i++)
-				SHP_dump_point(fp, &shp->s_points[i], "\t\t", 0);
+			fprintf(fp, "\t}\n");
 		}
-		fprintf(fp, "\t}\n");
 	}
 	if(ST_HAS_ZDATA(shp->s_type)){
 		if(shp->s_type != ST_POINT_Z){
@@ -849,21 +851,23 @@ SHP_dump_shape(FILE *fp, SF_SHAPE_T *shp, int verbose)
 			fprintf(fp, "\t\tmin = %.15e\n", shp->s_zmin);
 			fprintf(fp, "\t\tmax = %.15e\n", shp->s_zmax);
 			fprintf(fp, "\t}\n");
-			fprintf(fp, "\tzvals = {\n");
-			if(ST_HAS_PARTS(shp->s_type)){
-				for(p = 0; p < shp->sn_parts; p++){
-					pf = shp->s_parts[p];
-					pl = (p == shp->sn_parts - 1) ? shp->sn_parts : shp->s_parts[p+1];
-					fprintf(fp, "\t\tpart = %d {\n", p+1);
-					for(i = pf; i < pl; i++)
-						fprintf(fp, "\t\t\t%.15e\n", shp->s_zvals[i]);
-					fprintf(fp, "\t\t}\n");
+			if(verbose > 1){
+				fprintf(fp, "\tzvals = {\n");
+				if(ST_HAS_PARTS(shp->s_type)){
+					for(p = 0; p < shp->sn_parts; p++){
+						pf = shp->s_parts[p];
+						pl = (p == shp->sn_parts - 1) ? shp->sn_parts : shp->s_parts[p+1];
+						fprintf(fp, "\t\tpart = %d {\n", p+1);
+						for(i = pf; i < pl; i++)
+							fprintf(fp, "\t\t\t%.15e\n", shp->s_zvals[i]);
+						fprintf(fp, "\t\t}\n");
+					}
+				}else{
+					for(i = 0; i < shp->sn_points; i++)
+						fprintf(fp, "\t\t%.15e\n", shp->s_zvals[i]);
 				}
-			}else{
-				for(i = 0; i < shp->sn_points; i++)
-					fprintf(fp, "\t\t%.15e\n", shp->s_zvals[i]);
+				fprintf(fp, "\t}\n");
 			}
-			fprintf(fp, "\t}\n");
 		}else
 			fprintf(fp, "\tzval = %.15e\n", shp->s_zvals[0]);
 	}
@@ -875,21 +879,23 @@ SHP_dump_shape(FILE *fp, SF_SHAPE_T *shp, int verbose)
 			fprintf(fp, "\t\tmin = %.15e\n", shp->s_mmin);
 			fprintf(fp, "\t\tmax = %.15e\n", shp->s_mmax);
 			fprintf(fp, "\t}\n");
-			fprintf(fp, "\tmvals = {\n");
-			if(ST_HAS_PARTS(shp->s_type)){
-				for(p = 0; p < shp->sn_parts; p++){
-					pf = shp->s_parts[p];
-					pl = (p == shp->sn_parts - 1) ? shp->sn_parts : shp->s_parts[p+1];
-					fprintf(fp, "\t\tpart = %d {\n", p+1);
-					for(i = pf; i < pl; i++)
-						fprintf(fp, "\t\t\t%.15e\n", shp->s_mvals[i]);
-					fprintf(fp, "\t\t}\n");
+			if(verbose > 1){
+				fprintf(fp, "\tmvals = {\n");
+				if(ST_HAS_PARTS(shp->s_type)){
+					for(p = 0; p < shp->sn_parts; p++){
+						pf = shp->s_parts[p];
+						pl = (p == shp->sn_parts - 1) ? shp->sn_parts : shp->s_parts[p+1];
+						fprintf(fp, "\t\tpart = %d {\n", p+1);
+						for(i = pf; i < pl; i++)
+							fprintf(fp, "\t\t\t%.15e\n", shp->s_mvals[i]);
+						fprintf(fp, "\t\t}\n");
+					}
+				}else{
+					for(i = 0; i < shp->sn_points; i++)
+						fprintf(fp, "\t\t%.15e\n", shp->s_mvals[i]);
 				}
-			}else{
-				for(i = 0; i < shp->sn_points; i++)
-					fprintf(fp, "\t\t%.15e\n", shp->s_mvals[i]);
+				fprintf(fp, "\t}\n");
 			}
-			fprintf(fp, "\t}\n");
 		}else
 			fprintf(fp, "\tmval = %.15e\n", shp->s_mvals[0]);
 
