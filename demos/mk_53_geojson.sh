@@ -57,7 +57,7 @@ select rnum, NAME || ', ' || statefp.STUSAB || '_' || PLACEFP as title from data
 _EOF_
 tail -n +2 $TMP_PFILE | awk '{ print $1 }'							> $TMP_RNFILE
 $WM_BIN/shp_to_geojson -sf $WA_DATA/cb_2016_53_place_500k -pf $TMP_PFILE -pk rnum $TMP_RNFILE	|\
-$WM_SCRIPTS/find_adjacent_polys.sh -fmt wrapped							|\
+$WM_SCRIPTS/find_adjacent_polys.sh -fmt wrapped -id title					|\
 $WM_SCRIPTS/rm_dup_islands.sh									|\
 if [ ! -z "$AFILE" ] ; then
 	tee $AFILE

@@ -53,7 +53,7 @@ echo "title" > $TMP_PFILE
 cat $CB_DATA/*.key | sort >> $TMP_PFILE
 tail -n +2 $TMP_PFILE > $TMP_TFILE
 $WM_BIN/shp_to_geojson -fmap $CB_DATA/cb_2016_place_500k.fmap -pf $TMP_PFILE -pk title	$TMP_TFILE	|\
-$WM_SCRIPTS/find_adjacent_polys.sh -fmt wrapped								|\
+$WM_SCRIPTS/find_adjacent_polys.sh -fmt wrapped -id title						|\
 $WM_SCRIPTS/rm_dup_islands.sh										|\
 if [ ! -z "$AFILE" ] ; then
 	tee $AFILE

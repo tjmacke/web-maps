@@ -2,9 +2,10 @@
 #
 . ~/etc/funcs.sh
 
-U_MSG="usage: $0 [ -help ] -mk merge-key file-1 file-2 [ file-3 ... ]"
+U_MSG="usage: $0 [ -help ] -mk merge-key -pfx file-1 file-2 [ file-3 ... ]"
 
 MKEY=
+PFX=
 FLIST=
 n_FLIST=0
 
@@ -22,6 +23,10 @@ while [ $# -gt 0 ] ; do
 			exit 1
 		fi
 		MKEY="$1"
+		shift
+		;;
+	-pfx)
+		PFX="yes"
 		shift
 		;;
 	-*)
@@ -54,6 +59,7 @@ fi
 
 awk -F'\t' 'BEGIN {
 	mkey = "'"$MKEY"'"
+	pfx = "'"$PFX"'" == "yes"
 }
 {
 	if(l_FILENAME != FILENAME){
@@ -78,11 +84,13 @@ awk -F'\t' 'BEGIN {
 		}
 	}else if(lnum == 1){	# hdr for file 2,...
 		if(fnum > 2){
-			if(n_recs != n_recs2){
-				printf("ERROR: main: num recs differ: file-1 %s, %d recs, file-%d %s, %d recs\n",
-					fname_1, n_recs, fnum - 1, l_FILENAME, n_recs2) > "/dev/stderr"
-				err = 1
-				exit err
+			if(!pfx){
+				if(n_recs != n_recs2){
+					printf("ERROR: main: num recs differ: file-1 %s, %d recs, file-%d %s, %d recs\n",
+						fname_1, n_recs, fnum - 1, l_FILENAME, n_recs2) > "/dev/stderr"
+					err = 1
+					exit err
+				}
 			}
 			for(k in have_data){
 				if(!have_data[k]){
@@ -120,15 +128,17 @@ END {
 	if(err)
 		exit err
 
-	if(n_recs != n_recs2){
-		printf("ERROR: main: num recs differ: file-1 %s, %d recs, file-%d %s, %d recs\n",
-			fname_1, n_recs, fnum, l_FILENAME, n_recs2) > "/dev/stderr"
-		err = 1
-		exit err
+	if(!pfx){
+		if(n_recs != n_recs2){
+			printf("ERROR: END: num recs differ: file-1 %s, %d recs, file-%d %s, %d recs\n",
+				fname_1, n_recs, fnum, l_FILENAME, n_recs2) > "/dev/stderr"
+			err = 1
+			exit err
+		}
 	}
 	for(k in have_data){
 		if(!have_data[k]){
-			printf("ERROR: main: file-%d, %s: no data for %s\n", fnum - 1, l_FILENAME, k) > "/dev/stderr"
+			printf("ERROR: END: file-%d, %s: no data for %s\n", fnum - 1, l_FILENAME, k) > "/dev/stderr"
 			err = 1
 			exit err
 		}

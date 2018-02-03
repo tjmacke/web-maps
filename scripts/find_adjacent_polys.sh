@@ -2,7 +2,7 @@
 #
 . ~/etc/funcs.sh
 
-U_MSG="usage: $0 [ -help ] [ -fmt { wrapped | bare } ] [ geojson-file ]"
+U_MSG="usage: $0 [ -help ] fmt { wrapped | bare } -id id-field [ geojson-file ]"
 
 JU_HOME=$HOME/json_utils
 JU_BIN=$JU_HOME/bin
@@ -24,8 +24,10 @@ fi
 
 TMP_ATFILE=/tmp/all.titles.$$
 TMP_EFILE=/tmp/edges.$$
+TMP_JG2_FILE=/tmp/jg_2.$$
 
 FMT=
+ID=
 FILE=
 
 while [ $# -gt 0 ] ; do
@@ -42,6 +44,16 @@ while [ $# -gt 0 ] ; do
 			exit 1
 		fi
 		FMT=$1
+		shift
+		;;
+	-id)
+		shift
+		if [ $# -eq 0 ] ; then
+			LOG ERROR "-id requires id-field argument"
+			echo "$U_MSG" 1>&2
+			exit 1
+		fi
+		ID="$1"
 		shift
 		;;
 	-*)
@@ -77,21 +89,29 @@ else
 	exit 1
 fi
 
-$JU_BIN/json_get -v=2 -g $JG $FILE 2> /dev/null	|\
-$JU_BIN/json_get -n -g '{properties}{title, LSAD}, {geometry}{type, coordinates}' 2> /dev/null	|\
+if [ -z "ID" ] ; then
+	LOG ERROR "missing -id id-field argument"
+	echo "$U_MSG" 1>&2
+	exit 1
+else
+	# Can't figure out how to escape this, so put in a file
+	echo "$ID" | awk '{ printf("{properties}{%s}, {geometry}{type, coordinates}", $1) }' > $TMP_JG2_FILE
+fi
+
+$JU_BIN/json_get -g $JG $FILE 2> /dev/null		|\
+$JU_BIN/json_get -n -g @$TMP_JG2_FILE 2> /tmp/err	|\
 awk -F'\t' 'BEGIN {
 	at_file = "'"$TMP_ATFILE"'"
 }
 {
 	all_titles[$1] = 1
-	nf = split($4, ary, "]")
+	nf = split($3, ary, "]")
 	n_polys = n_points = 0
 	for(i = 1; i < nf; i++){
 		if(index(ary[i], "[[")){
 			n_polys++
 			n_points++
 			titles[n_polys] = $1
-			lsad[n_polys] = $2
 			p_first[n_polys] = n_points;
 			p_count[n_polys] = 1
 			get_xy(ary[i], n_points, x, y)
@@ -287,4 +307,4 @@ END {
 
 }' $TMP_EFILE
 
-rm -f $TMP_ATFILE $TMP_EFILE
+rm -f $TMP_ATFILE $TMP_EFILE $TMP_JG2_FILE

@@ -111,7 +111,7 @@ NR > 1 {
 }
 END {
 	for(i = 1; i <= n_recs; i++){
-		titles[i] = title = mk_title(fnums, recs[i])
+		titles[i] = title = mk_title(fnums, hlev, recs[i])
 		if(title == "")
 			continue;
  		t_count[title]++
@@ -122,26 +122,29 @@ END {
 		if(title == "")
 			continue
 		nf = split(recs[i], ary)
-		if(t_count[title] > 1)
-			title = title "_" ary[fnums["OBJECTID"]]
+		if(t_count[title] > 1){
+			if(title !~ /\/$/)
+				title = title "_" ary[fnums["OBJECTID"]]
+		}
 		printf("%s\t%s\n", ary[fnums["OBJECTID"]], title)
 	}
 }
-function mk_title(fnums, rec,   nf, ary, i, title) {
+function mk_title(fnums, hlev, rec,   nf, ary, i, title) {
 
 	nf = split(rec, ary)
 	if(ary[fnums["L_HOOD"]] == "")
 		return ""
 	if(ary[fnums["L_HOOD"]] == "NO BROADER TERM")
 		title = ary[fnums["S_HOOD"]]
+	else if(hlev == 1)
+		title = sprintf("%s/", ary[fnums["L_HOOD"]])
 	else
 		title = sprintf("%s/%s", ary[fnums["L_HOOD"]], ary[fnums["S_HOOD"]])
 	return title
 }' > $TMP_PFILE
-
 tail -n +2 $TMP_PFILE | awk '{ print $1 }'						> $TMP_RNFILE
 $WM_BIN/shp_to_geojson -sf $SND_DATA/Neighborhoods -pf $TMP_PFILE -pk rnum $TMP_RNFILE	|\
-$WM_SCRIPTS/find_adjacent_polys.sh -fmt wrapped						|\
+$WM_SCRIPTS/find_adjacent_polys.sh -fmt wrapped -id title				|\
 $WM_SCRIPTS/rm_dup_islands.sh								|\
 if [ ! -z "$AFILE" ] ; then
 	tee $AFILE
