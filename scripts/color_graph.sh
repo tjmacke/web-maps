@@ -2,12 +2,13 @@
 #
 . ~/etc/funcs.sh
 
-U_MSG="usage: $0 [ -help ] [ -verbose ] [ ap-file ]"
+U_MSG="usage: $0 [ -help ] [ -v ] -id id-field [ ap-file ]"
 
 # ap-file format:
 #	node-num	node-name	edge-count	edge-list
 
 VERBOSE=
+ID=
 FILE=
 
 while [ $# -gt 0 ] ; do
@@ -16,8 +17,18 @@ while [ $# -gt 0 ] ; do
 		echo "$U_MSG"
 		exit 0
 		;;
-	-verbose)
+	-v)
 		VERBOSE="yes"
+		shift
+		;;
+	-id)
+		shift
+		if [ $# -eq 0 ] ; then
+			LOG ERROR "-id requires id-field argument"
+			echo "$U_MSG" 1>&2
+			exit 1
+		fi
+		ID="$1"
 		shift
 		;;
 	-*)
@@ -39,9 +50,16 @@ if [ $# -ne 0 ] ; then
 	exit 1
 fi
 
+if [ -z "ID" ] ; then
+	LOG ERROR "missing -id -id-field argument"
+	echo "$U_MSG" 1>&2
+	exit 1
+fi
+
 sort -t $'\t' -k 3rn,3 $FILE	|\
 awk -F'\t' ' BEGIN {
 	verbose = "'"$VERBOSE"'" == "yes"
+	id = "'"$ID"'"
 	colors["n_colors"] = 5
 	colors["colors", 1] = "red"
 	colors["colors", 2] = "orange"
@@ -99,7 +117,7 @@ END {
 		color_node(graf, node_stk["stk", i], name_index, colors)
 	}
 #	dump_graf("/dev/stdout", n_nodes, graf)
-	printf("%s\t%s\n", "title", "fill")
+	printf("%s\t%s\n", id, "fill")
 	for(i = 1; i <= n_nodes; i++)
 		printf("%s\t%s\n", graf[i, "name"], graf[i, "color"])
 

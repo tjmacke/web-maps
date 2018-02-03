@@ -59,7 +59,7 @@ while [ $# -gt 0 ] ; do
 		shift
 		;;
 	-*)
-		LOG_ERROR "unknown option $1"
+		LOG ERROR "unknown option $1"
 		echo "$U_MSG" 1>&2
 		exit 1
 		;;
@@ -75,6 +75,14 @@ if [ $HLEV -lt 0 ] || [ $HLEV -gt 2 ] ; then
 	LOG ERROR "bad hierarchy level $HLEV, must in [0, 2]"
 	echo "$U_MSG" 1>&2
 	exit 1
+elif [ $HLEV -gt 0 ] ; then
+	ID="id"
+	MK="id"
+	PFX="-pfx"
+else
+	ID="title"
+	MK="title"
+	PFX=
 fi
 
 if [ "$HDISP" != "none" ] && [ "$HDISP" != "lines" ] && [ "$HDISP" != "colors" ] ; then
@@ -111,12 +119,15 @@ NR > 1 {
 }
 END {
 	for(i = 1; i <= n_recs; i++){
-		titles[i] = title = mk_title(fnums, hlev, recs[i])
+		titles[i] = title = mk_title(fnums, recs[i])
 		if(title == "")
 			continue;
  		t_count[title]++
 	}
-	printf("%s\t%s\n", "rnum", "title")
+	printf("%s\t%s", "rnum", "title")
+	if(hlev > 0)
+		printf("\t%s", "id")
+	printf("\n")
 	for(i = 1; i <= n_recs; i++){
 		title = titles[i]
 		if(title == "")
@@ -126,33 +137,47 @@ END {
 			if(title !~ /\/$/)
 				title = title "_" ary[fnums["OBJECTID"]]
 		}
-		printf("%s\t%s\n", ary[fnums["OBJECTID"]], title)
+		printf("%s\t%s", ary[fnums["OBJECTID"]], title)
+		if(hlev > 0){
+			id = mk_id(fnums, recs[i])
+			printf("\t%s", id)
+		}
+		printf("\n")
 	}
 }
-function mk_title(fnums, hlev, rec,   nf, ary, i, title) {
+function mk_title(fnums, rec,   nf, ary, i, title) {
 
 	nf = split(rec, ary)
 	if(ary[fnums["L_HOOD"]] == "")
-		return ""
-	if(ary[fnums["L_HOOD"]] == "NO BROADER TERM")
+		title = ""
+	else if(ary[fnums["L_HOOD"]] == "NO BROADER TERM")
 		title = ary[fnums["S_HOOD"]]
-	else if(hlev == 1)
-		title = sprintf("%s/", ary[fnums["L_HOOD"]])
 	else
 		title = sprintf("%s/%s", ary[fnums["L_HOOD"]], ary[fnums["S_HOOD"]])
 	return title
+}
+function mk_id(fnums, rec,   nf, ary, i, id) {
+
+	nf = split(rec, ary)
+	if(ary[fnums["L_HOOD"]] == "")
+		id = ""
+	else if(ary[fnums["L_HOOD"]] == "NO BROADER TERM")
+		id = ary[fnums["S_HOOD"]] 
+	else
+		id = sprintf("%s/", ary[fnums["L_HOOD"]])
+	return id
 }' > $TMP_PFILE
 tail -n +2 $TMP_PFILE | awk '{ print $1 }'						> $TMP_RNFILE
 $WM_BIN/shp_to_geojson -sf $SND_DATA/Neighborhoods -pf $TMP_PFILE -pk rnum $TMP_RNFILE	|\
-$WM_SCRIPTS/find_adjacent_polys.sh -fmt wrapped -id title				|\
+$WM_SCRIPTS/find_adjacent_polys.sh -fmt wrapped -id $ID					|\
 $WM_SCRIPTS/rm_dup_islands.sh								|\
 if [ ! -z "$AFILE" ] ; then
 	tee $AFILE
 else
 	cat
 fi											|\
-$WM_SCRIPTS/color_graph.sh 								> $TMP_CFILE
-$WM_SCRIPTS/add_columns.sh -mk title $TMP_PFILE $TMP_CFILE 				> $TMP_PFILE_2
+$WM_SCRIPTS/color_graph.sh -id $ID 							> $TMP_CFILE
+$WM_SCRIPTS/add_columns.sh -mk $MK $PFX $TMP_PFILE $TMP_CFILE 				> $TMP_PFILE_2
 $WM_BIN/shp_to_geojson -sf $SND_DATA/Neighborhoods -pf $TMP_PFILE_2 -pk rnum $TMP_RNFILE
 
 rm -f $TMP_PFILE $TMP_RNFILE $TMP_CFILE $TMP_PFILE_2
