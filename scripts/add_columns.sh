@@ -2,7 +2,7 @@
 #
 . ~/etc/funcs.sh
 
-U_MSG="usage: $0 [ -help ] -mk merge-key -pfx file-1 file-2 [ file-3 ... ]"
+U_MSG="usage: $0 [ -help ] -mk merge-key [ -pfx target-field ] file-1 file-2 [ file-3 ... ]"
 
 MKEY=
 PFX=
@@ -26,7 +26,13 @@ while [ $# -gt 0 ] ; do
 		shift
 		;;
 	-pfx)
-		PFX="yes"
+		shift
+		if [ $# -eq 0 ] ; then
+			LOG ERROR "-pfx requires target-field argument"
+			echo "$U_MSG" 1>&2
+			exit 1
+		fi
+		PFX="$1"
 		shift
 		;;
 	-*)
@@ -59,7 +65,7 @@ fi
 
 awk -F'\t' 'BEGIN {
 	mkey = "'"$MKEY"'"
-	pfx = "'"$PFX"'" == "yes"
+	pfx = "'"$PFX"'"
 }
 {
 	if(l_FILENAME != FILENAME){
@@ -69,11 +75,19 @@ awk -F'\t' 'BEGIN {
 	lnum++
 	if(fnum == 1){
 		if(lnum == 1){	# hdr for file 1
-			f_mkey = fi_mkey(mkey)
+			f_mkey = fi_key(mkey)
 			if(f_mkey == 0){
 				printf("ERROR: main: no field named %s in file %s\n", mkey, FILENAME) > "/dev/stderr"
 				err = 1
 				exit err
+			}
+			if(pfx != ""){
+				f_pfx = fi_key(pfx)
+				if(f_pfx == 0){
+					printf("ERROR: main: no field named %s in file %s\n", key, FILENAME) > "/dev/stderr"
+					err = 1
+					exit err
+				}
 			}
 			fname_1 = FILENAME
 			hdr = $0
@@ -81,10 +95,14 @@ awk -F'\t' 'BEGIN {
 			n_recs++
 			r_idx[$f_mkey] = n_recs
 			recs[n_recs] = $0
+			if(f_pfx != 0){
+				if($f_mkey ~ /\/$/)
+					pfx_tgts[$f_mkey] = ($f_mkey in pfx_tgts) ? (pfx_tgts[$f_mkey] "|" $f_pfx) : $f_pfx
+			}
 		}
 	}else if(lnum == 1){	# hdr for file 2,...
 		if(fnum > 2){
-			if(!pfx){
+			if(pfx == ""){
 				if(n_recs != n_recs2){
 					printf("ERROR: main: num recs differ: file-1 %s, %d recs, file-%d %s, %d recs\n",
 						fname_1, n_recs, fnum - 1, l_FILENAME, n_recs2) > "/dev/stderr"
@@ -100,7 +118,7 @@ awk -F'\t' 'BEGIN {
 				}
 			}
 		}
-		f_mkey = fi_mkey(mkey)
+		f_mkey = fi_key(mkey)
 		if(f_mkey == 0){
 			printf("ERROR: main: no field named %s in file %s\n", mkey, FILENAME) > "/dev/stderr"
 			err = 1
@@ -150,15 +168,15 @@ END {
 
 	exit err
 }
-function fi_mkey(mkey,   f_mkey, i) {
+function fi_key(key,   f_key, i) {
 	
-	f_mkey = 0
+	f_key = 0
 	for(i = 1; i <= NF; i++){
-		if($i == mkey){
-			f_mkey = i
+		if($i == key){
+			f_key = i
 			break
 		}
 	}
-	return f_mkey
+	return f_key
 }' $FLIST
 

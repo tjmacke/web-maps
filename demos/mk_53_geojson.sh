@@ -64,7 +64,7 @@ if [ ! -z "$AFILE" ] ; then
 else
 	cat
 fi												|\
-$WM_SCRIPTS/color_graph.sh 									> $TMP_CFILE
+$WM_SCRIPTS/color_graph.sh -id title								> $TMP_CFILE
 $WM_SCRIPTS/add_columns.sh -mk title $TMP_PFILE $TMP_CFILE 					> $TMP_PFILE_2
 $WM_BIN/shp_to_geojson -sf $WA_DATA/cb_2016_53_place_500k -pf $TMP_PFILE_2 -pk rnum $TMP_RNFILE
 

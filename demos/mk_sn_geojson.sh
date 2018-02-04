@@ -78,7 +78,7 @@ if [ $HLEV -lt 0 ] || [ $HLEV -gt 2 ] ; then
 elif [ $HLEV -gt 0 ] ; then
 	ID="id"
 	MK="id"
-	PFX="-pfx"
+	PFX="-pfx title"
 else
 	ID="title"
 	MK="title"
@@ -177,7 +177,7 @@ else
 	cat
 fi											|\
 $WM_SCRIPTS/color_graph.sh -id $ID 							> $TMP_CFILE
-$WM_SCRIPTS/add_columns.sh -mk $MK $PFX $TMP_PFILE $TMP_CFILE 				> $TMP_PFILE_2
+$WM_SCRIPTS/add_columns.sh -mk $MK $PFX $TMP_PFILE $TMP_CFILE  				> $TMP_PFILE_2
 $WM_BIN/shp_to_geojson -sf $SND_DATA/Neighborhoods -pf $TMP_PFILE_2 -pk rnum $TMP_RNFILE
 
-rm -f $TMP_PFILE $TMP_RNFILE $TMP_CFILE $TMP_PFILE_2
+#rm -f $TMP_PFILE $TMP_RNFILE $TMP_CFILE $TMP_PFILE_2

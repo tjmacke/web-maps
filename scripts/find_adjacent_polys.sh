@@ -99,7 +99,7 @@ else
 fi
 
 $JU_BIN/json_get -g $JG $FILE 2> /dev/null		|\
-$JU_BIN/json_get -n -g @$TMP_JG2_FILE 2> /tmp/err	|\
+$JU_BIN/json_get -n -g @$TMP_JG2_FILE 2> /dev/null	|\
 awk -F'\t' 'BEGIN {
 	at_file = "'"$TMP_ATFILE"'"
 }
