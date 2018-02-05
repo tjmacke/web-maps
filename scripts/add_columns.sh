@@ -2,10 +2,10 @@
 #
 . ~/etc/funcs.sh
 
-U_MSG="usage: $0 [ -help ] -mk merge-key [ -pfx target-field ] file-1 file-2 [ file-3 ... ]"
+U_MSG="usage: $0 [ -help ] -mk merge-key [ -pfx_of target-field ] file-1 file-2 [ file-3 ... ]"
 
 MKEY=
-PFX=
+PFX_OF=
 FLIST=
 n_FLIST=0
 
@@ -25,14 +25,14 @@ while [ $# -gt 0 ] ; do
 		MKEY="$1"
 		shift
 		;;
-	-pfx)
+	-pfx_of)
 		shift
 		if [ $# -eq 0 ] ; then
-			LOG ERROR "-pfx requires target-field argument"
+			LOG ERROR "-pfx_of requires target-field argument"
 			echo "$U_MSG" 1>&2
 			exit 1
 		fi
-		PFX="$1"
+		PFX_OF="$1"
 		shift
 		;;
 	-*)
@@ -65,7 +65,7 @@ fi
 
 awk -F'\t' 'BEGIN {
 	mkey = "'"$MKEY"'"
-	pfx = "'"$PFX"'"
+	pfx_of = "'"$PFX_OF"'"
 }
 {
 	if(l_FILENAME != FILENAME){
@@ -81,10 +81,10 @@ awk -F'\t' 'BEGIN {
 				err = 1
 				exit err
 			}
-			if(pfx != ""){
-				f_pfx = fi_key(pfx)
-				if(f_pfx == 0){
-					printf("ERROR: main: no field named %s in file %s\n", key, FILENAME) > "/dev/stderr"
+			if(pfx_of != ""){
+				f_pfx_of = fi_key(pfx_of)
+				if(f_pfx_of == 0){
+					printf("ERROR: main: no field named %s in file %s\n", pfx_of, FILENAME) > "/dev/stderr"
 					err = 1
 					exit err
 				}
@@ -95,14 +95,23 @@ awk -F'\t' 'BEGIN {
 			n_recs++
 			r_idx[$f_mkey] = n_recs
 			recs[n_recs] = $0
-			if(f_pfx != 0){
-				if($f_mkey ~ /\/$/)
-					pfx_tgts[$f_mkey] = ($f_mkey in pfx_tgts) ? (pfx_tgts[$f_mkey] "|" $f_pfx) : $f_pfx
+			if(f_pfx_of != 0){
+				if($f_mkey ~ /\/$/){
+					r_idx_pfx_of[$f_pfx_of] = n_recs
+					if(!($f_mkey in p_idx)){
+						n_pfx++
+						p_idx[$f_mkey] = n_pfx
+						pfx_targets[n_pfx] = $f_pfx_of
+						pfx_was_set[n_pfx] = ""
+						pfx_values[n_pfx] = ""
+					}else	
+						pfx_targets[p_idx[$f_mkey]] = pfx_targets[p_idx[$f_mkey]] "|" $f_pfx_of
+				}
 			}
 		}
 	}else if(lnum == 1){	# hdr for file 2,...
 		if(fnum > 2){
-			if(pfx == ""){
+			if(pfx_of == ""){
 				if(n_recs != n_recs2){
 					printf("ERROR: main: num recs differ: file-1 %s, %d recs, file-%d %s, %d recs\n",
 						fname_1, n_recs, fnum - 1, l_FILENAME, n_recs2) > "/dev/stderr"
@@ -137,6 +146,11 @@ awk -F'\t' 'BEGIN {
 		for(i = 1; i <= NF; i++){
 			if(i != f_mkey){
 				recs[r_idx[$f_mkey]] = recs[r_idx[$f_mkey]] "\t" $i
+				if(f_pfx_of != 0 && $f_mkey ~ /\/$/){
+					nf = split(recs[r_idx[$f_mkey]], ary, "\t")
+					pfx_was_set[p_idx[$f_mkey]] = ary[f_pfx_of]
+					pfx_values[p_idx[$f_mkey]] = (pfx_values[p_idx[$f_mkey]] != "") ? (pfx_values[p_idx[$f_mkey]] "\t" $i) : $i
+				}
 			}
 		}
 	}
@@ -146,7 +160,9 @@ END {
 	if(err)
 		exit err
 
-	if(!pfx){
+#dump_pfx_info("/dev/stderr", p_idx, pfx_targets, pfx_was_set, pfx_values)
+
+	if(!pfx_of){
 		if(n_recs != n_recs2){
 			printf("ERROR: END: num recs differ: file-1 %s, %d recs, file-%d %s, %d recs\n",
 				fname_1, n_recs, fnum, l_FILENAME, n_recs2) > "/dev/stderr"
@@ -160,6 +176,10 @@ END {
 			err = 1
 			exit err
 		}
+	}
+
+	if(f_pfx_of != 0){
+		fill_pfx_values(p_idx, pfx_targets, pfx_was_set, pfx_values, r_idx_pfx_of, recs)
 	}
 
 	printf("%s\n", hdr)
@@ -178,5 +198,27 @@ function fi_key(key,   f_key, i) {
 		}
 	}
 	return f_key
+}
+function fill_pfx_values(p_idx, pfx_targets, pfx_was_set, pfx_values, r_idx_pfx_of, recs,   k, nt, t_ary, i, t_ws) {
+
+	for(k in p_idx){
+		ws = pfx_was_set[p_idx[k]]
+		t_v = pfx_values[p_idx[k]]
+		nt = split(pfx_targets[p_idx[k]], t_ary, "|")
+		for(t = 1; t <= nt; t++){
+			if(t_ary[t] != ws)
+				recs[r_idx_pfx_of[t_ary[t]]] = recs[r_idx_pfx_of[t_ary[t]]] "\t" t_v
+		}
+	}
+}
+function dump_pfx_info(file, p_idx, pfx_targets, pfx_was_set, pfx_values,   k, ary) {
+
+	for(k in p_idx){
+		printf("%s = {\n", k) > file
+		printf("\ttargets = %s\n", pfx_targets[p_idx[k]]) > file
+		printf("\twas_set = %s\n", pfx_was_set[p_idx[k]]) > file
+		printf("\tvalues  = %s\n", pfx_values[p_idx[k]]) > file
+		printf("}\n") > file
+	}
 }' $FLIST
 

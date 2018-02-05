@@ -2,7 +2,7 @@
 #
 . ~/etc/funcs.sh
 
-U_MSG="usage: $0 [ -help ] [ -sa adj-file ] [ -h N ] [ -d { none | lines | colors } ] (no arguments)"
+U_MSG="usage: $0 [ -help ] [ -sa adj-file ] [ -h [ -d { union | lines | colors } ] ] (no arguments)"
 
 if [ -z "$WM_HOME" ] ; then
 	LOG ERROR "WM_HOME not defined"
@@ -19,8 +19,8 @@ TMP_CFILE=/tmp/sn.colors.tsv.$$
 TMP_PFILE_2=/tmp/sn_2.tsv.$$
 
 AFILE=
-HLEV=0
-HDISP="none"
+HOPT=
+HDISP=
 
 while [ $# -gt 0 ] ; do
 	case $1 in
@@ -39,13 +39,7 @@ while [ $# -gt 0 ] ; do
 		shift
 		;;
 	-h)
-		shift
-		if [ $# -eq 0 ] ; then
-			LOG ERROR "-h requires hierarchy level argument"
-			echo "$U_MSG" 1>&2
-			exit 1
-		fi
-		HLEV=$1
+		HOPT="yes"
 		shift
 		;;
 	-d)
@@ -71,32 +65,25 @@ while [ $# -gt 0 ] ; do
 	esac
 done
 
-if [ $HLEV -lt 0 ] || [ $HLEV -gt 2 ] ; then
-	LOG ERROR "bad hierarchy level $HLEV, must in [0, 2]"
-	echo "$U_MSG" 1>&2
-	exit 1
-elif [ $HLEV -gt 0 ] ; then
+if [ "$HOPT" == "yes" ] ; then
 	ID="id"
 	MK="id"
-	PFX="-pfx title"
+	PFX="-pfx_of title"
+	if [ -z "$HDISP" ] ; then
+		HDISP="lines"
+	elif [ "$HDISP" != "union" ] && [ "$HDISP" != "lines" ] && [ "$HDISP" != "colors" ] ; then
+		LOG ERROR "bad hierarchy display type $HDISP, must none, lines or colors" 
+		echo "$U_MSG" 1>&2
+		exit 1
+	fi
+elif [ ! -z "$HDISP" ] ; then
+	LOG ERROR "-d option requires -h option"
+	echo "$U_MSG" 1>&2
+	exit 1
 else
 	ID="title"
 	MK="title"
 	PFX=
-fi
-
-if [ "$HDISP" != "none" ] && [ "$HDISP" != "lines" ] && [ "$HDISP" != "colors" ] ; then
-	LOG ERROR "bad hierarchy display type $HDISP, must none, lines or colors" 
-	echo "$U_MSG" 1>&2
-	exit 1
-fi
-
-if [ "$HDISP" == "lines" ] || [ "$HDISP" == "colors" ] ; then
-	if [ $HLEV -ne 2 ] ; then
-		LOG ERROR "hierarchy display type $HDISP requires hierarchy level 2"
-		echo "$U_MSG" 1>&2
-		exit 1
-	fi
 fi
 
 # 1. select the neighborhoods. Currenty neighborhoods w/L_HOOD = "" are skipped
@@ -106,7 +93,7 @@ sqlite3 $SND_DATA/Neighborhoods.db <<_EOF_ |
 select OBJECTID, L_HOOD, S_HOOD from data order by L_HOOD, S_HOOD ;
 _EOF_
 awk -F'\t' 'BEGIN {
-	hlev = "'"$HLEV"'" + 0
+	hopt = "'"$HOPT"'" == "yes"
 	hdisp = "'"$HDISP"'"
 }
 NR == 1 {
@@ -123,9 +110,13 @@ END {
 		if(title == "")
 			continue;
  		t_count[title]++
+		if(hopt){
+			ids[i] = id = mk_id(fnums, recs[i])
+			i_count[id]++
+		}
 	}
 	printf("%s\t%s", "rnum", "title")
-	if(hlev > 0)
+	if(hopt)
 		printf("\t%s", "id")
 	printf("\n")
 	for(i = 1; i <= n_recs; i++){
@@ -138,8 +129,12 @@ END {
 				title = title "_" ary[fnums["OBJECTID"]]
 		}
 		printf("%s\t%s", ary[fnums["OBJECTID"]], title)
-		if(hlev > 0){
+		if(hopt){
 			id = mk_id(fnums, recs[i])
+			if(i_count[id] > 1){
+				if(id !~ /\/$/)
+					id = id "_" ary[fnums["OBJECTID"]]
+			}
 			printf("\t%s", id)
 		}
 		printf("\n")
@@ -180,4 +175,4 @@ $WM_SCRIPTS/color_graph.sh -id $ID 							> $TMP_CFILE
 $WM_SCRIPTS/add_columns.sh -mk $MK $PFX $TMP_PFILE $TMP_CFILE  				> $TMP_PFILE_2
 $WM_BIN/shp_to_geojson -sf $SND_DATA/Neighborhoods -pf $TMP_PFILE_2 -pk rnum $TMP_RNFILE
 
-#rm -f $TMP_PFILE $TMP_RNFILE $TMP_CFILE $TMP_PFILE_2
+rm -f $TMP_PFILE $TMP_RNFILE $TMP_CFILE $TMP_PFILE_2
