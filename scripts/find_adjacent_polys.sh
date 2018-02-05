@@ -2,7 +2,7 @@
 #
 . ~/etc/funcs.sh
 
-U_MSG="usage: $0 [ -help ] fmt { wrapped | bare } -id id-field [ geojson-file ]"
+U_MSG="usage: $0 [ -help ] -fmt { wrapped | bare } -id id-field [ geojson-file ]"
 
 JU_HOME=$HOME/json_utils
 JU_BIN=$JU_HOME/bin

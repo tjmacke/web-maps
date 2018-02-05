@@ -2,12 +2,13 @@
 #
 . ~/etc/funcs.sh
 
-U_MSG="usage: $0 [ -help ] [ -v ] -id id-field [ ap-file ]"
+U_MSG="usage: $0 [ -help ] [ -v ] [ -bc { pink | gold | green | blue | purple } ] -id id-field [ ap-file ]"
 
 # ap-file format:
 #	node-num	node-name	edge-count	edge-list
 
 VERBOSE=
+BCOLOR=
 ID=
 FILE=
 
@@ -19,6 +20,16 @@ while [ $# -gt 0 ] ; do
 		;;
 	-v)
 		VERBOSE="yes"
+		shift
+		;;
+	-bc)
+		shift
+		if [ $# -eq 0 ] ; then
+			LOG ERROR "-bc requires base-color argument"
+			echo "$U_MSG" 1>&2
+			exit 1
+		fi
+		BCOLOR=$1
 		shift
 		;;
 	-id)
@@ -50,6 +61,14 @@ if [ $# -ne 0 ] ; then
 	exit 1
 fi
 
+if [ ! -z "$BCOLOR" ] ; then
+	if [ "$BCOLOR" != "pink" ] && [ "$BCOLOR" != "gold" ] && [ "$BCOLOR" != "green" ] && [ "$BCOLOR" != "blue" ] && [ "$BCOLOR" != "purple" ] ; then
+		LOG ERROR "bad base color $BCOLOR, must be pink, gold, green, blue or purple"
+		echo "$U_MSG" 1>&2
+		exit 1
+	fi
+fi
+
 if [ -z "ID" ] ; then
 	LOG ERROR "missing -id -id-field argument"
 	echo "$U_MSG" 1>&2
@@ -59,18 +78,25 @@ fi
 sort -t $'\t' -k 3rn,3 $FILE	|\
 awk -F'\t' ' BEGIN {
 	verbose = "'"$VERBOSE"'" == "yes"
+	bcolor = "'"$BCOLOR"'"
 	id = "'"$ID"'"
+	pink = "#ff6290"
+	gold = "#ffbf00"
+	green = "#028900"
+	blue = "#7ba4dd"
+	purple = "#f3b4ff"
 	colors["n_colors"] = 5
-	colors["colors", 1] = "red"
-	colors["colors", 2] = "orange"
-	colors["colors", 3] = "yellow"
-	colors["colors", 4] = "green"
-	colors["colors", 5] = "cyan"
-	colors["colors", "red"] = 1
-	colors["colors", "orange"] = 2
-	colors["colors", "yellow"] = 3
-	colors["colors", "green"] = 4
-	colors["colors", "cyan"] = 5
+	# TODO: if bcolor != "", then 1,2,3,4,5 begome bcolor, bcolor+1, bcolor+2, bcolor-2, bcolor-1
+	colors["colors", 1] = pink
+	colors["colors", 2] = gold
+	colors["colors", 3] = green
+	colors["colors", 4] = blue
+	colors["colors", 5] = purple
+	colors["colors", pink] = 1
+	colors["colors", gold] = 2
+	colors["colors", green] = 3
+	colors["colors", blue] = 4
+	colors["colors", purple] = 5
 	colors["used", 1] = 0
 	colors["used", 2] = 0
 	colors["used", 3] = 0
