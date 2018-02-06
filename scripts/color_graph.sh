@@ -76,7 +76,7 @@ if [ -z "ID" ] ; then
 fi
 
 sort -t $'\t' -k 3rn,3 $FILE	|\
-awk -F'\t' ' BEGIN {
+awk -F'\t' 'BEGIN {
 	verbose = "'"$VERBOSE"'" == "yes"
 	bcolor = ("'"$BCOLOR"'" != "") ? "'"$BCOLOR"'" : "_NO_BCOLOR_"
 	id = "'"$ID"'"
@@ -125,25 +125,19 @@ awk -F'\t' ' BEGIN {
 	all_colors["purple",      3] = "#f3b4ff"
 	all_colors["purple",      4] = "#ed8fff"
 	all_colors["purple",      5] = "#e24cff"
+
+	# assign names to the _NO_BCOLOR_ values
+	cval_to_cname["#ff6290"] = "pink"
+	cval_to_cname["#ffbf00"] = "gold"
+	cval_to_cname["#028900"] = "green"
+	cval_to_cname["#7ba4dd"] = "blue"
+	cval_to_cname["#f3b4ff"] = "purple"
+
 	#
 	## END color defs
 
 	colors["n_colors"] = 5
 
-## BEGIN: orig
-#	colors["colors", 1] = pink
-#	colors["colors", 2] = gold
-#	colors["colors", 3] = green
-#	colors["colors", 4] = blue
-#	colors["colors", 5] = purple
-#	colors["colors", pink] = 1
-#	colors["colors", gold] = 2
-#	colors["colors", green] = 3
-#	colors["colors", blue] = 4
-#	colors["colors", purple] = 5
-## END: orig
-
-## BEGIN: new
 	colors["colors", 1] = c1 = all_colors[bcolor, 1]
 	colors["colors", 2] = c2 = all_colors[bcolor, 2]
 	colors["colors", 3] = c3 = all_colors[bcolor, 3]
@@ -154,7 +148,6 @@ awk -F'\t' ' BEGIN {
 	colors["colors", c3] = 3
 	colors["colors", c4] = 4
 	colors["colors", c5] = 5
-## END: new
 
 	colors["used", 1] = 0
 	colors["used", 2] = 0
