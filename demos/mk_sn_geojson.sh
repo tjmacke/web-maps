@@ -161,7 +161,7 @@ function mk_id(fnums, rec,   nf, ary, i, id) {
 	else
 		id = sprintf("%s/", ary[fnums["L_HOOD"]])
 	return id
-}' | tee sn.h.tsv > $TMP_PFILE
+}' > $TMP_PFILE
 tail -n +2 $TMP_PFILE | awk '{ print $1 }'						> $TMP_RNFILE
 $WM_BIN/shp_to_geojson -sf $SND_DATA/Neighborhoods -pf $TMP_PFILE -pk rnum $TMP_RNFILE	|\
 $WM_SCRIPTS/find_adjacent_polys.sh -fmt wrapped -id $ID					|\
@@ -172,7 +172,7 @@ else
 	cat
 fi											|\
 $WM_SCRIPTS/color_graph.sh -id $ID 							> $TMP_CFILE
-$WM_SCRIPTS/add_columns.sh -mk $MK $PFX $TMP_PFILE $TMP_CFILE  				| tee sn_2.h.tsv > $TMP_PFILE_2
+$WM_SCRIPTS/add_columns.sh -mk $MK $PFX $TMP_PFILE $TMP_CFILE  				> $TMP_PFILE_2
 $WM_BIN/shp_to_geojson -sf $SND_DATA/Neighborhoods -pf $TMP_PFILE_2 -pk rnum $TMP_RNFILE
 
 rm -f $TMP_PFILE $TMP_RNFILE $TMP_CFILE $TMP_PFILE_2
