@@ -144,7 +144,8 @@ NR > 1 {
 END {
 	if(err)
 		exit err
-	printf("%s\n", b_hdr)
+	printf("%s\n", b_hdr) > bfile
 	for(i = 1; i <= nb_tab; i++)
-		printf("%s\n", b_tab[i])
+		printf("%s\n", b_tab[i]) > bfile
+	close(bfile)
 }' $FILE
