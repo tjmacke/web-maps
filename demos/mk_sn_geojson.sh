@@ -72,7 +72,7 @@ if [ "$HOPT" == "yes" ] ; then
 	if [ -z "$HDISP" ] ; then
 		HDISP="lines"
 	elif [ "$HDISP" != "union" ] && [ "$HDISP" != "lines" ] && [ "$HDISP" != "colors" ] ; then
-		LOG ERROR "bad hierarchy display type $HDISP, must none, lines or colors" 
+		LOG ERROR "bad hierarchy display type $HDISP, must union, lines or colors"
 		echo "$U_MSG" 1>&2
 		exit 1
 	fi
@@ -172,7 +172,7 @@ else
 	cat
 fi											|\
 $WM_SCRIPTS/color_graph.sh -id $ID 							> $TMP_CFILE
-$WM_SCRIPTS/add_columns.sh -mk $MK $PFX $TMP_PFILE $TMP_CFILE  				> $TMP_PFILE_2
+$WM_SCRIPTS/add_columns.sh -mk $MK $PFX $TMP_PFILE $TMP_CFILE	  			> $TMP_PFILE_2
 $WM_BIN/shp_to_geojson -sf $SND_DATA/Neighborhoods -pf $TMP_PFILE_2 -pk rnum $TMP_RNFILE
 
 rm -f $TMP_PFILE $TMP_RNFILE $TMP_CFILE $TMP_PFILE_2

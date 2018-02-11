@@ -2,7 +2,7 @@
 #
 . ~/etc/funcs.sh
 
-U_MSG="usage: $0 [ -help ] -fmt { wrapped | bare } -id id-field [ geojson-file ]"
+U_MSG="usage: $0 [ -help ] [ -trace ] -fmt { wrapped | bare } -id id-field [ geojson-file ]"
 
 JU_HOME=$HOME/json_utils
 JU_BIN=$JU_HOME/bin
@@ -26,6 +26,7 @@ TMP_ATFILE=/tmp/all.titles.$$
 TMP_EFILE=/tmp/edges.$$
 TMP_JG2_FILE=/tmp/jg_2.$$
 
+TRACE=
 FMT=
 ID=
 FILE=
@@ -35,6 +36,10 @@ while [ $# -gt 0 ] ; do
 	-help)
 		echo "$U_MSG"
 		exit 0
+		;;
+	-trace)
+		TRACE="yes"
+		shift
 		;;
 	-fmt)
 		shift
@@ -89,7 +94,7 @@ else
 	exit 1
 fi
 
-if [ -z "ID" ] ; then
+if [ -z "$ID" ] ; then
 	LOG ERROR "missing -id id-field argument"
 	echo "$U_MSG" 1>&2
 	exit 1
@@ -101,9 +106,16 @@ fi
 $JU_BIN/json_get -g $JG $FILE 2> /dev/null		|\
 $JU_BIN/json_get -n -g @$TMP_JG2_FILE 2> /dev/null	|\
 awk -F'\t' 'BEGIN {
+	trace = "'"$TRACE"'" == "yes"
+	if(trace)
+		trace_f = 1
 	at_file = "'"$TMP_ATFILE"'"
 }
 {
+	if(trace_f){
+		trace_f = 0
+		printf("TRACE: BEGIN: process json into line segments\n") > "/dev/stderr"
+	}
 	all_titles[$1] = 1
 	nf = split($3, ary, "]")
 	n_polys = n_points = 0
@@ -146,6 +158,8 @@ END {
 	for(t in all_titles)
 		printf("%s\n", t) > at_file
 	close(at_file)
+	if(trace)
+		printf("TRACE: END: processed json into line segments\n") > "/dev/stderr"
 }
 function get_xy(str, n_points, x, y,   work, idx, x_str, y_str) {
 	work = str
@@ -162,11 +176,18 @@ function abs(x) {
 }'					|\
 sort -t $'\t' -k 3,3 -k 4g,5 -k 5g,5	|\
 awk -F'\t' 'BEGIN {
+	trace = "'"$TRACE"'" == "yes"
+	if(trace)
+		trace_f = 1
 	l_key[1] = ""
 	l_key[2] = ""
 	l_key[3] = ""
 }
 {
+	if(trace_f){
+		trace_f = 0
+		printf("TRACE: BEGIN: select overlapping line segments candidates\n")  > "/dev/stderr"
+	}
 	key[1] = $3
 	key[2] = $4
 	key[3] = $5
@@ -193,6 +214,8 @@ END {
 		delete edges
 		n_edges = 0
 	}
+	if(trace)
+		printf("TRACE: END: selected overlapping line segment candidates\n")  > "/dev/stderr"
 }
 function keys_equal(k1, k2) {
 
@@ -207,6 +230,9 @@ function key_assign(kd, ks) {
 	kd[3] = ks[3]
 }' 					> $TMP_EFILE	# required so that TMP_ATFILE is written before this part starts
 awk -F'\t' 'BEGIN {
+	trace = "'"$TRACE"'"
+	if(trace)
+		printf("TRACE: BEGIN: find overlapping line segments\n") > "/dev/stderr"
 	at_file = "'"$TMP_ATFILE"'"
 	for(n_all_titles = 0; (getline < at_file) > 0; ){
 		n_all_titles++
@@ -305,6 +331,8 @@ END {
 		printf("%d\t%s\t%d\t\n", i, t, 0)
 	}
 
+	if(trace)
+		printf("TRACE: END: found overlapping line segments\n") > "/dev/stderr"
 }' $TMP_EFILE
 
 rm -f $TMP_ATFILE $TMP_EFILE $TMP_JG2_FILE

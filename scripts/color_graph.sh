@@ -2,7 +2,7 @@
 #
 . ~/etc/funcs.sh
 
-U_MSG="usage: $0 [ -help ] [ -v ] [ -bc { pink | gold | green | blue | purple } ] -id id-field [ ap-file ]"
+U_MSG="usage: $0 [ -help ] [ -trace ] [ -v ] [ -bc { pink | gold | green | blue | purple } ] -id id-field [ ap-file ]"
 
 WM_SCRIPTS=$WM_HOME/scripts
 
@@ -22,6 +22,7 @@ fi
 # ap-file format:
 #	node-num	node-name	edge-count	edge-list
 
+TRACE=
 VERBOSE=
 BCOLOR=
 ID=
@@ -32,6 +33,10 @@ while [ $# -gt 0 ] ; do
 	-help)
 		echo "$U_MSG"
 		exit 0
+		;;
+	-trace)
+		TRACE="yes"
+		shift
 		;;
 	-v)
 		VERBOSE="yes"
@@ -94,6 +99,9 @@ sort -t $'\t' -k 3rn,3 $FILE	|\
 $AWK -F'\t' '
 @include '"$COLOR_DATA"'
 BEGIN {
+	trace = "'"$TRACE"'" == "yes"
+	if(trace)
+		trace_f = 1
 	verbose = "'"$VERBOSE"'" == "yes"
 	bcolor = ("'"$BCOLOR"'" != "") ? "'"$BCOLOR"'" : "_NO_BCOLOR_"
 	id = "'"$ID"'"
@@ -119,6 +127,10 @@ BEGIN {
 	colors["next"] = 1
 }
 {
+	if(trace_f){
+		trace_f = 0
+		printf("TRACE: BEGIN: color graph\n") > "/dev/stderr"
+	}
 	# deal with "islands" separately
 	if($3 == 0){
 		n_islands++
@@ -167,6 +179,9 @@ END {
 	for(i = 1; i <= n_islands; i++){
 		printf("%s\t%s\n", islands[i, "name"], get_color(colors));
 	}
+
+	if(trace)
+		printf("TRACE: END: color graph\n") > "/dev/stderr"
 }
 function remove_node(graf, n, name_index, node_stk,    nf, ary, i, ni) {
 	nf = split(graf[n, "neighbors"], ary, "|")

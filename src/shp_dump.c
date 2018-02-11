@@ -152,9 +152,8 @@ main(int argc, char *argv[])
 		}
 		c = getc(fp);
 		if(c == EOF){
-			LOG_ERROR("%s: missing eof char", args->a_files[0]);
+			LOG_WARN("%s: missing eof char", args->a_files[0]);
 			err = 1;
-			goto CLEAN_UP;
 		}else if(c != DBF_EOF){
 			LOG_ERROR("%s: bad eof char: 0x%02x, need 0x%02x", args->a_files[0], c & 0xff, DBF_EOF);
 			err = 1;

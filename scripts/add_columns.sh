@@ -2,8 +2,9 @@
 #
 . ~/etc/funcs.sh
 
-U_MSG="usage: $0 [ -help ] -mk merge-key [ -pfx_of target-field ] file-1 file-2 [ file-3 ... ]"
+U_MSG="usage: $0 [ -help ] [ -trace ] -mk merge-key [ -pfx_of target-field ] file-1 file-2 [ file-3 ... ]"
 
+TRACE=
 MKEY=
 PFX_OF=
 FLIST=
@@ -14,6 +15,10 @@ while [ $# -gt 0 ] ; do
 	-help)
 		echo "$U_MSG"
 		exit 0
+		;;
+	-trace)
+		TRACE="yes"
+		shift
 		;;
 	-mk)
 		shift
@@ -64,6 +69,9 @@ if [ $n_FLIST -lt 2 ] ; then
 fi
 
 awk -F'\t' 'BEGIN {
+	trace = "'"$TRACE"'" = "yes"
+	if(trace)
+		printf("TRACE: BEGIN: add columns\n") > "/dev/stderr"
 	mkey = "'"$MKEY"'"
 	pfx_of = "'"$PFX_OF"'"
 }
@@ -157,8 +165,11 @@ awk -F'\t' 'BEGIN {
 	l_FILENAME = FILENAME
 }
 END {
-	if(err)
+	if(err){
+		if(trace)
+			printf("TRACE: END: add columns had error(s)\n") > "/dev/stderr"
 		exit err
+	}
 
 #dump_pfx_info("/dev/stderr", p_idx, pfx_targets, pfx_was_set, pfx_values)
 
@@ -185,6 +196,9 @@ END {
 	printf("%s\n", hdr)
 	for(i = 1; i <= n_recs; i++)
 		printf("%s\n", recs[i])
+
+	if(trace)
+		printf("TRACE: END: add columns\n") > "/dev/stderr"
 
 	exit err
 }
