@@ -150,14 +150,30 @@ BEGIN {
 	}
 }
 END {
+	if(err)
+		exit err
+
 	node_stk["stkp"] = 0
 	for(done = 0; !done; ){
 		n_rm = 0
+		need_r2 = 1
 		for(i = 1; i <= n_nodes; i++){
-			if(graf[i, "c_neighbors"] == 0)
+			if(graf[i, "c_neighbors"] == 0){
 				n_rm++
-			else if(graf[i, "c_neighbors"] <= 4)
+				need_r2 = 0
+			}else if(graf[i, "c_neighbors"] <= 4){
 				remove_node(graf, i, name_index, node_stk)
+				need_r2 = 0
+			}
+		}
+		if(need_r2){
+			printf("ERROR: need rule 2!\n") > "/dev/stderr"
+			dump_graf("/dev/stderr", n_nodes, graf)
+			if(trace){
+				printf("TRACE: END: FAILED: color graph needs rule 2\n") > "/dev/stderr"
+				err = 1
+				exit 1
+			}
 		}
 		if(verbose)
 			dump_graf("/dev/stderr", n_nodes, graf)

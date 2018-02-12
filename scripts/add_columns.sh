@@ -69,7 +69,7 @@ if [ $n_FLIST -lt 2 ] ; then
 fi
 
 awk -F'\t' 'BEGIN {
-	trace = "'"$TRACE"'" = "yes"
+	trace = "'"$TRACE"'" == "yes"
 	if(trace)
 		printf("TRACE: BEGIN: add columns\n") > "/dev/stderr"
 	mkey = "'"$MKEY"'"
