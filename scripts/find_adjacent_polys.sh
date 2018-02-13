@@ -301,6 +301,7 @@ END {
 			else if(p21 < p12){
 				graph[t1, t2] = 1
 				graph[t2, t1] = 1
+# e_count is wrong, double counting somewhere, but the adjacency matrix is correct
 				e_count[t1]++
 				e_count[t2]++
 				if(t1 in all_titles)
@@ -313,19 +314,18 @@ END {
 	}
 
 	for(i = 1; i <= n_titles; i++){
-		printf("%d\t%s\t%d\t", i, t_index[i], e_count[t_index[i]])
+		printf("%d\t%s", i, t_index[i])
 		e_cnt = 0
 		for(j = 1; j <= n_titles; j++){
 			if(j == i)
 				continue
 			if(graph[t_index[i], t_index[j]]){
 				e_cnt++
-				printf("%s%s", e_cnt > 1 ? "|" : "", t_index[j])
+				e_str = (e_cnt > 1) ? (e_str "|" t_index[j]) : t_index[j]
 			}
-		} 
-		printf("\n")
+		}
+		printf("\t%d\t%s\n", e_cnt, e_str)
 	}
-
 	
 	for(t in all_titles){
 		printf("%d\t%s\t%d\t\n", i, t, 0)

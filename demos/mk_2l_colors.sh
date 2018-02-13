@@ -2,12 +2,13 @@
 #
 . ~/etc/funcs.sh
 
-U_MSG="usage: $0 [ -help ] -id id-field-name prop-tsv-file"
+U_MSG="usage: $0 [ -help ] -sf shape-file -id id-field-name prop-tsv-file"
 
 TMP_BFILE=/tmp/2l.base.$$
 TMP_NFILE=/tmp/2l.nabes.$$
 TMP_CFILE=/tmp/2l.colors.$$
 
+SFILE=
 ID=
 FILE=
 
@@ -16,6 +17,16 @@ while [ $# -gt 0 ] ; do
 	-help)
 		echo "$U_MSG"
 		exit 0
+		;;
+	-sf)
+		shift
+		if [ $# -eq 0 ] ; then
+			LOG ERROR "-sf requries shape-file argument"
+			echo "$U_MSG" 1>&2
+			exit 1
+		fi
+		SFILE=$1
+		shift
 		;;
 	-id)
 		shift
@@ -42,6 +53,12 @@ done
 
 if [ $# -ne 0 ] ; then
 	LOG ERROR "extra arguments $*"
+	echo "$U_MSG" 1>&2
+	exit 1
+fi
+
+if [ -z "$SFILE" ] ; then
+	LOG ERROR "missing -sf shape-file argument"
 	echo "$U_MSG" 1>&2
 	exit 1
 fi
@@ -90,6 +107,9 @@ END {
 		printf("%s\n", id_tab[i])
 }' $TMP_BFILE	|\
 while read line ; do
+
+LOG DEBUG "line = $line"
+
 	awk -F'\t' 'BEGIN {
 		id = "'"$ID"'"
 		this_id = "'"$line"'"
@@ -108,14 +128,15 @@ while read line ; do
 		if($f_id == this_id)
 			print $0
 	}' $TMP_BFILE	> $TMP_NFILE
+# -sf was hardwired to "-sf ../data/Seattle_Neighborhoods/WGS84/Neighborhoods"
 	bcolor="$(../scripts/cval_to_cname.sh "$(tail -1 $TMP_NFILE | awk -F'\t' '{ print $NF }')")"
 	tail -n +2 $TMP_NFILE	|\
-	../bin/shp_to_geojson -sf ../data/Seattle_Neighborhoods/WGS84/Neighborhoods -pf $TMP_NFILE -pk rnum 	|\
+	../bin/shp_to_geojson -sf $SFILE -pf $TMP_NFILE -pk rnum 	|\
 	../scripts/find_adjacent_polys.sh -fmt wrapped -id title 						|\
 	../scripts/color_graph.sh -bc $bcolor -id title								> $TMP_CFILE 
 	../scripts/upd_column_values.sh -mk title -b $TMP_BFILE $TMP_CFILE 
 done
 tail -n +2 $TMP_BFILE	|\
-../bin/shp_to_geojson -sf ../data/Seattle_Neighborhoods/WGS84/Neighborhoods -pf $TMP_BFILE -pk rnum
+../bin/shp_to_geojson -sf $SFILE -pf $TMP_BFILE -pk rnum
 
-rm -f $TMP_BFILE $TMP_IDFILE $TMP_NFILE $TMP_CFILE
+#rm -f $TMP_BFILE $TMP_IDFILE $TMP_NFILE $TMP_CFILE

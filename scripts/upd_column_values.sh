@@ -103,7 +103,7 @@ NR == 1 {
 			f_mkey = i
 	}
 	if(f_mkey == 0){
-		printf("ERROR: main: merge-key field %s not in update file %s\n", FILENAME == "" ? "__stdin__" : FILENAME)
+		printf("ERROR: main: merge-key field %s not in update file %s\n", mkey, FILENAME == "" ? "__stdin__" : FILENAME) > "/dev/stderr"
 		err = 1
 		exit err
 	}

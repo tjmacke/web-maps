@@ -153,41 +153,42 @@ END {
 	if(err)
 		exit err
 
-	node_stk["stkp"] = 0
-	for(done = 0; !done; ){
-		n_rm = 0
-		need_r2 = 1
-		for(i = 1; i <= n_nodes; i++){
-			if(graf[i, "c_neighbors"] == 0){
-				n_rm++
-				need_r2 = 0
-			}else if(graf[i, "c_neighbors"] <= 4){
-				remove_node(graf, i, name_index, node_stk)
-				need_r2 = 0
-			}
-		}
-		if(need_r2){
-			printf("ERROR: need rule 2!\n") > "/dev/stderr"
-			dump_graf("/dev/stderr", n_nodes, graf)
-			if(trace){
-				printf("TRACE: END: FAILED: color graph needs rule 2\n") > "/dev/stderr"
-				err = 1
-				exit 1
-			}
-		}
-		if(verbose)
-			dump_graf("/dev/stderr", n_nodes, graf)
-		done = n_rm == n_nodes
-	}
-	for(i = node_stk["stkp"]; i >= 1; i--){
-		if(verbose)
-			printf("DEBUG: END: %s\n", node_stk["stk", i]) > "/dev/stderr"
-		color_node(graf, node_stk["stk", i], name_index, colors)
-	}
-#	dump_graf("/dev/stdout", n_nodes, graf)
 	printf("%s\t%s\n", id, "fill")
-	for(i = 1; i <= n_nodes; i++)
-		printf("%s\t%s\n", graf[i, "name"], graf[i, "color"])
+	if(n_nodes > 0){
+		node_stk["stkp"] = 0
+		for(done = 0; !done; ){
+			n_rm = 0
+			need_r2 = 1
+			for(i = 1; i <= n_nodes; i++){
+				if(graf[i, "c_neighbors"] == 0){
+					n_rm++
+					need_r2 = 0
+				}else if(graf[i, "c_neighbors"] <= 4){
+					remove_node(graf, i, name_index, node_stk)
+					need_r2 = 0
+				}
+			}
+			if(need_r2){
+				err = 1
+				printf("ERROR: need rule 2!\n") > "/dev/stderr"
+				dump_graf("/dev/stderr", n_nodes, graf)
+				if(trace)
+					printf("TRACE: END: FAILED: color graph needs rule 2\n") > "/dev/stderr"
+				exit err
+			}
+			if(verbose)
+				dump_graf("/dev/stderr", n_nodes, graf)
+			done = n_rm == n_nodes
+		}
+		for(i = node_stk["stkp"]; i >= 1; i--){
+			if(verbose)
+				printf("DEBUG: END: %s\n", node_stk["stk", i]) > "/dev/stderr"
+			color_node(graf, node_stk["stk", i], name_index, colors)
+		}
+#		dump_graf("/dev/stdout", n_nodes, graf)
+		for(i = 1; i <= n_nodes; i++)
+			printf("%s\t%s\n", graf[i, "name"], graf[i, "color"])
+	}
 
 	# color the islands
 	for(i = 1; i <= colors["n_colors"]; i++)
