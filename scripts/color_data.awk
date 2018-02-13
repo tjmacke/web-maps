@@ -12,7 +12,7 @@ BEGIN {
 	# Princess Pink, 6653
 	all_colors["pink",        1] = "#ffc2cd"
 	all_colors["pink",        2] = "#ff93ac"
-	all_colors["pink",        3] = "#ff6289"
+	all_colors["pink",        3] = "#ff6290"
 	all_colors["pink",        4] = "#fc3468"
 	all_colors["pink",        5] = "#ff084a"
 	
