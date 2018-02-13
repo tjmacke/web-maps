@@ -8,7 +8,6 @@ if [ -z "$WM_HOME" ] ; then
 	LOG ERROR "WM_HOME not defined"
 	exit 1
 fi
-
 WM_BIN=$WM_HOME/bin
 WM_DATA=$WM_HOME/data
 WM_INDEXED=$WM_DATA/indexed

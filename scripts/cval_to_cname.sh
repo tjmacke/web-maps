@@ -4,6 +4,10 @@
 
 U_MSG="usage: $0: [ -help ] color-value"
 
+if [ -z "$WM_HOME" ] ; then
+	LOG ERROR "WM_HOME not defined"
+	ext 1
+fi
 WM_SCRIPTS=$WM_HOME/scripts
 
 # awk v3 does not support includes

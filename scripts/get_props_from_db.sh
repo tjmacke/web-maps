@@ -70,4 +70,4 @@ if [ ! -z "$QUERY" ] ; then
 else
 	cat "$QFILE"
 fi	|\
-sqlite3 -separator '	' -cmd '.headers on' $DBASE
+sqlite3 -separator $'\t' -cmd '.headers on' $DBASE

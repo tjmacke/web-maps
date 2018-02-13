@@ -7,6 +7,10 @@ U_MSG="usage: $0 [ -help ] [ -trace ] -fmt { wrapped | bare } -id id-field [ geo
 JU_HOME=$HOME/json_utils
 JU_BIN=$JU_HOME/bin
 
+if [ -z "$DM_HOME" ] ; then
+	LOG ERROR "DM_HOME not defined"
+	exit 1
+fi
 DM_LIB=$DM_HOME/lib
 
 # awk v3 does not support include

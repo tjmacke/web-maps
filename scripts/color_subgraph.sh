@@ -4,6 +4,13 @@
 
 U_MSG="usage: $0 [ -help ] -sf shape-file -id id-field-name prop-tsv-file"
 
+if [ -z "$WM_HOME" ] ;then
+	LOG ERROR "WM_HOME not defined"
+	exit 1
+fi
+WM_BIN=$WM_HOME/bin
+WM_SCRIPTS=$WM_HOME/scripts
+
 TMP_BFILE=/tmp/2l.base.$$
 TMP_NFILE=/tmp/2l.nabes.$$
 TMP_CFILE=/tmp/2l.colors.$$
@@ -125,14 +132,14 @@ while read line ; do
 		if($f_id == this_id)
 			print $0
 	}' $TMP_BFILE	> $TMP_NFILE
-	bcolor="$(../scripts/cval_to_cname.sh "$(tail -1 $TMP_NFILE | awk -F'\t' '{ print $NF }')")"
+	bcolor="$($WM_SCRIPTS/cval_to_cname.sh "$(tail -1 $TMP_NFILE | awk -F'\t' '{ print $NF }')")"
 	tail -n +2 $TMP_NFILE							|\
-	../bin/shp_to_geojson -sf $SFILE -pf $TMP_NFILE -pk rnum 		|\
-	../scripts/find_adjacent_polys.sh -fmt wrapped -id title 		|\
-	../scripts/color_graph.sh -bc $bcolor -id title				> $TMP_CFILE 
-	../scripts/upd_column_values.sh -mk title -b $TMP_BFILE $TMP_CFILE 
+	$WM_BIN/shp_to_geojson -sf $SFILE -pf $TMP_NFILE -pk rnum 		|\
+	$WM_SCRIPTS/find_adjacent_polys.sh -fmt wrapped -id title 		|\
+	$WM_SCRIPTS/color_graph.sh -bc $bcolor -id title			> $TMP_CFILE 
+	$WM_SCRIPTS/upd_column_values.sh -mk title -b $TMP_BFILE $TMP_CFILE 
 done
 tail -n +2 $TMP_BFILE	|\
-../bin/shp_to_geojson -sf $SFILE -pf $TMP_BFILE -pk rnum
+$WM_BIN/shp_to_geojson -sf $SFILE -pf $TMP_BFILE -pk rnum
 
 rm -f $TMP_BFILE $TMP_NFILE $TMP_CFILE

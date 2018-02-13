@@ -8,7 +8,6 @@ if [ -z "$WM_HOME" ] ; then
 	LOG ERROR "WM_HOME not defined"
 	exit 1
 fi
-
 WM_DATA=$WM_HOME/data
 WM_ZIPS=$WM_DATA/zips
 

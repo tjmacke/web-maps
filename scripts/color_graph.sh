@@ -4,6 +4,10 @@
 
 U_MSG="usage: $0 [ -help ] [ -trace ] [ -v ] [ -bc { pink | gold | green | blue | purple } ] -id id-field [ ap-file ]"
 
+if [ -z "$WM_HOME" ] ; then
+	LOG ERROR "WM_HOME not defined"
+	exit 1
+fi
 WM_SCRIPTS=$WM_HOME/scripts
 
 # awk v3 does not support includes
@@ -19,8 +23,10 @@ else
 	exit 1
 fi
 
-# ap-file format:
+# adjacency file format:
 #	node-num	node-name	edge-count	edge-list
+#
+# edge-list is a pipe (|) separated list of node-names.  node-num is carried along and may be used by other programs
 
 TRACE=
 VERBOSE=
