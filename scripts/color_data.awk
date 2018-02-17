@@ -1,13 +1,5 @@
 BEGIN {
-	## BEGIN color defs
 	# I got the palettes from www.color-hex.com/color-palette/
-
-	# No bcolor [(uses pink, gold, green, blue, purple), 3]
-	all_colors["_NO_BCOLOR_", 1] = "#ff6290"
-	all_colors["_NO_BCOLOR_", 2] = "#ffbf00"
-	all_colors["_NO_BCOLOR_", 3] = "#028900"
-	all_colors["_NO_BCOLOR_", 4] = "#7ba4dd"
-	all_colors["_NO_BCOLOR_", 5] = "#f3b4ff"
 
 	# Princess Pink, 6653
 	all_colors["pink",        1] = "#ffc2cd"
@@ -44,13 +36,17 @@ BEGIN {
 	all_colors["purple",      4] = "#ed8fff"
 	all_colors["purple",      5] = "#e24cff"
 
-	# assign names to the _NO_BCOLOR_ values
-	cval_to_cname["#ff6290"] = "pink"
-	cval_to_cname["#ffbf00"] = "gold"
-	cval_to_cname["#028900"] = "green"
-	cval_to_cname["#7ba4dd"] = "blue"
-	cval_to_cname["#f3b4ff"] = "purple"
+	# No bcolor: Uses [(pink, gold, green, blue, purple), 3]
+	all_colors["_NO_BCOLOR_", 1] = all_colors["pink",   3]
+	all_colors["_NO_BCOLOR_", 2] = all_colors["gold",   3]
+	all_colors["_NO_BCOLOR_", 3] = all_colors["green",  3]
+	all_colors["_NO_BCOLOR_", 4] = all_colors["blue",   3]
+	all_colors["_NO_BCOLOR_", 5] = all_colors["purple", 3]
 
-	#
-	## END color defs
+	# assign names to the _NO_BCOLOR_ values
+	cval_to_cname[all_colors["pink",   3]] = "pink"
+	cval_to_cname[all_colors["gold",   3]] = "gold"
+	cval_to_cname[all_colors["green",  3]] = "green"
+	cval_to_cname[all_colors["blue",   3]] = "blue"
+	cval_to_cname[all_colors["purple", 3]] = "purple"
 }

@@ -2,7 +2,7 @@
 #
 . ~/etc/funcs.sh
 
-U_MSG="usage: $0 [ -help ] [ -trace ] [ -v ] [ -bc { pink | gold | green | blue | purple } ] -id id-field [ ap-file ]"
+U_MSG="usage: $0 [ -help ] [ -trace ] [ -v ] [ -cd color-def-file ] [ -bc { pink | gold | green | blue | purple } ] -id id-field [ ap-file ]"
 
 if [ -z "$WM_HOME" ] ; then
 	LOG ERROR "WM_HOME not defined"
@@ -11,13 +11,15 @@ fi
 WM_SCRIPTS=$WM_HOME/scripts
 
 # awk v3 does not support includes
+USE_AWK4=
 AWK_VERSION="$(awk --version | awk '{ nf = split($3, ary, /[,.]/) ; print ary[1] ; exit 0 }')"
 if [ "$AWK_VERSION" == "3" ] ; then
 	AWK="igawk --re-interval"
-	COLOR_DATA="$WM_SCRIPTS/color_data.awk"
+#	COLOR_DATA="$WM_SCRIPTS/color_data.awk"
 elif [ "$AWK_VERSION" == "4" ] ; then
 	AWK=awk
-	COLOR_DATA="\"$WM_SCRIPTS/color_data.awk\""
+	USE_AWK4="yes"
+#	COLOR_DATA="\"$WM_SCRIPTS/color_data.awk\""
 else
 	LOG ERROR "unsupported awk version: \"$AWK_VERSION\": must be 3 or 4"
 	exit 1
@@ -30,6 +32,7 @@ fi
 
 TRACE=
 VERBOSE=
+COLOR_DATA="$WM_SCRIPTS/color_data.awk"
 BCOLOR=
 ID=
 FILE=
@@ -46,6 +49,16 @@ while [ $# -gt 0 ] ; do
 		;;
 	-v)
 		VERBOSE="yes"
+		shift
+		;;
+	-cd)
+		shift
+		if [ $# -eq 0 ] ; then
+			LOG ERROR "-cd requires color-def-file argument"
+			echo "$U_MSG" 1>&2
+			exit 1
+		fi
+		COLOR_DATA=$1
 		shift
 		;;
 	-bc)
@@ -85,6 +98,10 @@ if [ $# -ne 0 ] ; then
 	LOG ERROR "extra arguments $*"
 	echo "$U_MSG" 1>&2
 	exit 1
+fi
+
+if [ "$USE_AWK4" == "yes" ] ; then
+	COLOR_DATA="\"$COLOR_DATA\""
 fi
 
 if [ ! -z "$BCOLOR" ] ; then
