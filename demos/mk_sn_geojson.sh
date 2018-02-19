@@ -69,9 +69,15 @@ if [ "$HOPT" == "yes" ] ; then
 	ID="id"
 	MK="id"
 	PFX="-pfx_of title"
+	SAVE_BC=
 	if [ -z "$HDISP" ] ; then
 		HDISP="lines"
-	elif [ "$HDISP" != "union" ] && [ "$HDISP" != "lines" ] && [ "$HDISP" != "colors" ] ; then
+	elif [ "$HDISP" == "union" ] ; then
+		LOG ERROR "-d union not yet implemented, use lines or colors"
+		exit 1
+	elif [ "$HDISP" == "colors" ] ; then
+		SAVE_BC="yes"
+	elif [ "$HDISP" != "lines" ] ; then
 		LOG ERROR "bad hierarchy display type $HDISP, must union, lines or colors"
 		echo "$U_MSG" 1>&2
 		exit 1
@@ -172,7 +178,11 @@ else
 	cat
 fi											|\
 $WM_SCRIPTS/color_graph.sh -id $ID 							> $TMP_CFILE
-$WM_SCRIPTS/add_columns.sh -mk $MK $PFX $TMP_PFILE $TMP_CFILE	  			> $TMP_PFILE_2
-$WM_BIN/shp_to_geojson -sf $SND_DATA/Neighborhoods -pf $TMP_PFILE_2 -pk rnum $TMP_RNFILE
+if [ -z "$SAVE_BC" ] ; then
+	$WM_SCRIPTS/add_columns.sh -mk $MK $PFX $TMP_PFILE $TMP_CFILE 			> $TMP_PFILE_2
+	$WM_BIN/shp_to_geojson -sf $SND_DATA/Neighborhoods -pf $TMP_PFILE_2 -pk rnum $TMP_RNFILE
+else
+	$WM_SCRIPTS/add_columns.sh -mk $MK $PFX $TMP_PFILE $TMP_CFILE | tee sn_2.colors.tsv 	> $TMP_PFILE_2
+fi
 
 rm -f $TMP_PFILE $TMP_RNFILE $TMP_CFILE $TMP_PFILE_2
