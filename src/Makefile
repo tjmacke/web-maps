@@ -12,16 +12,20 @@ GPC_LIBS=../third-party/gpc.o
 
 PROGRAMS=	\
 	dbase_to_sqlite	\
-	get_shp_recs	\
-	gpc_driver	\
-	index_shp_file	\
-	shp_dump	\
+	find_addrs_in_rect	\
+	get_shp_recs		\
+	gpc_driver		\
+	index_shp_file		\
+	shp_dump		\
 	shp_to_geojson
 
 all:	$(PROGRAMS)
 
 dbase_to_sqlite:	dbase_to_sqlite.o log.o args.o dbase.o
 	$(CC) $(CFLAGS) -o dbase_to_sqlite dbase_to_sqlite.o log.o args.o dbase.o
+
+find_addrs_in_rect:	find_addrs_in_rect.o log.o args.o adata.o
+	$(CC) $(CFLAGS) -o find_addrs_in_rect find_addrs_in_rect.o log.o args.o adata.o
 
 get_shp_recs:	get_shp_recs.o log.o args.o file_io.o shape.o
 	$(CC) $(CFLAGS) -o get_shp_recs get_shp_recs.o log.o args.o file_io.o shape.o
@@ -39,6 +43,8 @@ shp_to_geojson:	shp_to_geojson.o log.o args.o file_io.o shape.o props.o fmap.o s
 	$(CC) $(CFLAGS) -o shp_to_geojson shp_to_geojson.o log.o args.o file_io.o shape.o props.o fmap.o split.o $(LIBS)
 
 dbase_to_sqlite.o:	log.h args.h dbase.h
+
+find_addrs_in_rect.o:	log.h args.h adata.h
 
 get_shp_recs.o:	log.h args.h shape.h
 
