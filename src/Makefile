@@ -44,7 +44,7 @@ shp_to_geojson:	shp_to_geojson.o log.o args.o file_io.o shape.o props.o fmap.o s
 
 dbase_to_sqlite.o:	log.h args.h dbase.h
 
-find_addrs_in_rect.o:	log.h args.h adata.h
+find_addrs_in_rect.o:	log.h args.h shape.h adata.h
 
 get_shp_recs.o:	log.h args.h shape.h
 

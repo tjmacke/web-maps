@@ -1,10 +1,24 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <math.h>
 
 #include "log.h"
 #include "args.h"
+#include "shape.h"
 #include "adata.h"
+
+// BEGIN: rectangle about a point stuff
+#define	PI	3.14159265
+#define	D2R	(2.0*PI/360.0)
+#define	R2D	(360.0/(2.0*PI))
+#define	FPM	3.2808		// feet/meter
+
+#define	R_MAJOR	6378137.0	// in meters
+#define	R_MINOR	6356752.3	// in meters
+#define	R_AVG_FT	(FPM*0.5*(R_MAJOR+R_MINOR))
+#define	DPF_EQ	(1.0/(2.0*PI*R_AVG_FT/360.0))
+// END: rectangle about a point stuff
 
 static	ARGS_T	*args;
 static	FLAG_T	flags[] = {
@@ -13,6 +27,9 @@ static	FLAG_T	flags[] = {
 	{"-a",    0, AVK_REQ,  AVT_STR,  NULL, "Use -a AF file to use the sorted addresses in AF."}
 };
 static	int	n_flags = sizeof(flags)/sizeof(flags[0]);
+
+static	int
+mk_rect(const SF_POINT_T *, double, SF_POINT_T []);
 
 int
 main(int argc, char *argv[])
@@ -23,6 +40,9 @@ main(int argc, char *argv[])
 	const char	*afname = NULL;
 	FILE	*fp = NULL;
 	ADATA_T	*adata = NULL;
+	SF_POINT_T	ctr;
+	SF_POINT_T	box[4];
+	int	i;
 	int	err = 0;
 
 	a_stat = TJM_get_args(argc, argv, n_flags, flags, 0, 1, &args);
@@ -63,6 +83,13 @@ main(int argc, char *argv[])
 	if(verbose)
 		AD_dump_adata(stderr, adata, verbose);
 
+	ctr.s_x = -122.320414;
+	ctr.s_y = 47.615923000000002;
+	printf("%s\t%s\t%s\t%.15e\t%.15e\t%s\n", ".", "ctr", ".", ctr.s_x, ctr.s_y, ".");
+	mk_rect(&ctr, 600.0, box);
+	for(i = 0; i < 4; i++)
+		printf("%s\tbox[%d]\t%s\t%.15e\t%.15e\t%s\n", ".", i, ".", box[i].s_x, box[i].s_y, ".");
+
 CLEAN_UP : ;
 
 	if(adata != NULL)
@@ -74,4 +101,33 @@ CLEAN_UP : ;
 	TJM_free_args(args);
 
 	exit(err);
+}
+
+static	int
+mk_rect(const SF_POINT_T *ctr, double size, SF_POINT_T box[])
+{
+	double	dpf_lat, lng_adj, lat_adj;
+	int	err = 0;
+
+	dpf_lat = DPF_EQ / cos(D2R * ctr->s_y);
+	lat_adj = size * DPF_EQ;
+	lng_adj = size * dpf_lat;
+
+	// lower left
+	box[0].s_x = ctr->s_x - lng_adj;
+	box[0].s_y = ctr->s_y - lat_adj;
+
+	// upper left
+	box[1].s_x = ctr->s_x -lng_adj;
+	box[1].s_y = ctr->s_y + lat_adj; 
+
+	// upper right
+	box[2].s_x = ctr->s_x + lng_adj;
+	box[2].s_y = ctr->s_y + lat_adj;
+
+	// lower right
+	box[3].s_x = ctr->s_x + lng_adj;
+	box[3].s_y = ctr->s_y - lat_adj; 
+
+	return err;
 }
