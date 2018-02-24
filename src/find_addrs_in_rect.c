@@ -20,16 +20,25 @@
 #define	DPF_EQ	(1.0/(2.0*PI*R_AVG_FT/360.0))
 // END: rectangle about a point stuff
 
+#define	DEF_DIST	600
+
 static	ARGS_T	*args;
 static	FLAG_T	flags[] = {
 	{"-help", 1, AVK_NONE, AVT_BOOL, "0",  "Use -help to print this message."},
 	{"-v",    1, AVK_OPT,  AVT_UINT, "0",  "Use -v to set the verbosity to 1; use -v=N to set it to N."},
-	{"-a",    0, AVK_REQ,  AVT_STR,  NULL, "Use -a AF file to use the sorted addresses in AF."}
+	{"-a",    0, AVK_REQ,  AVT_STR,  NULL, "Use -a AF file to use the sorted addresses in AF."},
+	{"-d",    1, AVK_REQ,  AVT_REAL, ARGS_n2s(DEF_DIST),  "Use -d D to set the box size 2*D feet."}
 };
 static	int	n_flags = sizeof(flags)/sizeof(flags[0]);
 
 static	int
-mk_rect(const SF_POINT_T *, double, SF_POINT_T []);
+find_addrs_in_box(const ADATA_T *, const ADDR_T *, double);
+
+static	int
+mk_box(const SF_POINT_T *, double, SF_POINT_T []);
+
+static	void
+fi_addr_bounds(double, const ADATA_T *, int *, int *);
 
 int
 main(int argc, char *argv[])
@@ -38,11 +47,19 @@ main(int argc, char *argv[])
 	const ARG_VAL_T	*a_val;
 	int	verbose = 0;
 	const char	*afname = NULL;
+	double	dist = DEF_DIST;
 	FILE	*fp = NULL;
 	ADATA_T	*adata = NULL;
+	char	*line = NULL;
+	size_t	s_line = 0;
+	ssize_t	l_line;
+	int	lnum;
+	ADDR_T	*ap = NULL;
+/*
 	SF_POINT_T	ctr;
 	SF_POINT_T	box[4];
-	int	i;
+*/
+	int	i, i_le, i_ge;
 	int	err = 0;
 
 	a_stat = TJM_get_args(argc, argv, n_flags, flags, 0, 1, &args);
@@ -56,6 +73,9 @@ main(int argc, char *argv[])
 
 	a_val = TJM_get_flag_value(args, "-a", AVT_STR);
 	afname = a_val->av_value.v_str;
+
+	a_val = TJM_get_flag_value(args, "-d", AVT_REAL);
+	dist = a_val->av_value.v_double;
 
 	if(verbose > 1)
 		TJM_dump_args(stderr, args);
@@ -83,14 +103,50 @@ main(int argc, char *argv[])
 	if(verbose)
 		AD_dump_adata(stderr, adata, verbose);
 
-	ctr.s_x = -122.320414;
-	ctr.s_y = 47.615923000000002;
-	printf("%s\t%s\t%s\t%.15e\t%.15e\t%s\n", ".", "ctr", ".", ctr.s_x, ctr.s_y, ".");
-	mk_rect(&ctr, 600.0, box);
-	for(i = 0; i < 4; i++)
-		printf("%s\tbox[%d]\t%s\t%.15e\t%.15e\t%s\n", ".", i, ".", box[i].s_x, box[i].s_y, ".");
+	for(lnum = 0; (l_line = getline(&line, &s_line, fp)) > 0; ){
+		lnum++;
+		if(line[l_line - 1] == '\n'){
+			line[l_line - 1] = '\0';
+			l_line--;
+			if(l_line == 0){
+				LOG_WARN("line %7d: empty line", lnum);
+				continue;
+			}
+		}
+		ap = AD_new_addr(line, lnum);
+		if(ap == NULL){
+			LOG_ERROR("line %7d: AD_new_addr failed", lnum);
+			err = 1;
+			goto CLEAN_UP;
+		}
+/*
+		ctr.s_x = ap->a_lng;
+		ctr.s_y = ap->a_lat;
+		mk_box(&ctr, dist, box);
+
+		// find the lowest lat
+		fi_addr_bounds(box[0].s_y, adata, &i_le, &i_ge);
+LOG_DEBUG("look up        %.15e", box[0].s_y);
+LOG_DEBUG("i_le    %5d, %.15e", i_le, i_le >= 0 ? adata->a_atab[i_le]->a_lat : adata->a_atab[0]->a_lat);
+LOG_DEBUG("i_ge    %5d, %.15e", i_ge, i_ge < adata->an_atab ? adata->a_atab[i_ge]->a_lat : adata->a_atab[adata->an_atab-1]->a_lat);
+
+		// find the highest lat
+		fi_addr_bounds(box[1].s_y, adata, &i_le, &i_ge);
+LOG_DEBUG("look up        %.15e", box[1].s_y);
+LOG_DEBUG("i_le    %5d, %.15e", i_le, i_le >= 0 ? adata->a_atab[i_le]->a_lat : adata->a_atab[0]->a_lat);
+LOG_DEBUG("i_ge    %5d, %.15e", i_ge, i_ge < adata->an_atab ? adata->a_atab[i_ge]->a_lat : adata->a_atab[adata->an_atab-1]->a_lat);
+*/
+
+		find_addrs_in_box(adata, ap, dist);
+
+		AD_delete_addr(ap);
+		ap = NULL;
+	}
 
 CLEAN_UP : ;
+
+	if(ap != NULL)
+		AD_delete_addr(ap);
 
 	if(adata != NULL)
 		AD_delete_adata(adata);
@@ -103,8 +159,69 @@ CLEAN_UP : ;
 	exit(err);
 }
 
+// TODO: fix to remove linear search on lng
 static	int
-mk_rect(const SF_POINT_T *ctr, double size, SF_POINT_T box[])
+find_addrs_in_box(const ADATA_T *adp, const ADDR_T *ap, double size)
+{
+	SF_POINT_T	ctr;
+	SF_POINT_T	box[4];
+	int	bl_le, bl_ge;
+	int	bh_le, bh_ge;
+	int	pr_ap;
+	int	i, i_first, i_last;
+	const ADDR_T	*ap1;
+	int	err = 0;
+
+	ctr.s_x = ap->a_lng;
+	ctr.s_y = ap->a_lat;
+	mk_box(&ctr, size, box);
+
+	// check the lowest lat of the box
+	fi_addr_bounds(box[0].s_y, adp, &bl_le, &bl_ge);
+	if(bl_ge == adp->an_atab){	// [t t] [b b]
+		LOG_WARN("box is above the highest address");
+		err = 1;
+		goto CLEAN_UP;
+	}
+
+	// check the highest lat of the box
+	fi_addr_bounds(box[1].s_y, adp, &bh_le, &bh_ge);
+	if(bh_le == -1){		// [b b] [t t]
+		LOG_WARN("box is below the lowest address");
+		err = 1;
+		goto CLEAN_UP;
+	}
+
+	// box and table overlap, deal w/ box.low < table.low and box.high > table.high
+	i_first = bl_ge == -1 ? 0 : bl_ge;
+	i_last = bh_le == adp->an_atab ? adp->an_atab - 1 : bh_le;
+
+/*
+LOG_DEBUG("box[0]         %.15e", box[0].s_y);
+LOG_DEBUG("i_first %5d, %.15e", i_first, adp->a_atab[i_first]->a_lat);
+LOG_DEBUG("i_last  %5d, %.15e", i_last, adp->a_atab[i_last]->a_lat);
+LOG_DEBUG("box[1]         %.15e", box[1].s_y);
+fprintf(stderr, "\n");
+*/
+
+	for(pr_ap = 1, i = i_first; i <= i_last; i++){
+		ap1 = adp->a_atab[i];
+		if(ap1->a_lng < box[0].s_x || ap1->a_lng > box[3].s_x)
+			continue;
+		if(pr_ap){
+			pr_ap = 0;
+			printf("%s\n", ap->a_line);
+		}
+		printf("%s\n", ap1->a_line);
+	}
+	
+CLEAN_UP : ;
+
+	return err;
+}
+
+static	int
+mk_box(const SF_POINT_T *ctr, double size, SF_POINT_T box[])
 {
 	double	dpf_lat, lng_adj, lat_adj;
 	int	err = 0;
@@ -130,4 +247,27 @@ mk_rect(const SF_POINT_T *ctr, double size, SF_POINT_T box[])
 	box[3].s_y = ctr->s_y - lat_adj; 
 
 	return err;
+}
+
+// TODO: fix this to explicit index, sort of like an rtree.
+static	void
+fi_addr_bounds(double lat, const ADATA_T *adp, int *i_le, int *i_ge)
+{
+	int	i, j, k;
+	const ADDR_T	*ap;
+
+	for(i = 0, j = adp->an_atab - 1; i <= j; ){
+		k = (i + j) / 2;
+		ap = adp->a_atab[k];
+		if(ap->a_lat < lat)
+			i = k + 1;
+		else if(ap->a_lat > lat)
+			j = k - 1;
+		else{	// Found!  Use i == j to indicate the element was in the table
+			i = j = k;
+			break;
+		}
+	}
+	*i_le = j;
+	*i_ge = i;
 }

@@ -140,7 +140,7 @@ AD_read_adata(ADATA_T *adp, int verbose)
 			err = 1;
 			goto CLEAN_UP;
 		}
-		ap = AD_new_addr(lng, lat, line);
+		ap = AD_new_addr(line, lnum);
 		if(ap == NULL){
 			LOG_ERROR("line %7d: AD_new_addr failed", lnum);
 			err = 1;
@@ -208,9 +208,10 @@ AD_dump_adata(FILE *fp, const ADATA_T *adp, int verbose)
 		for(i = 0; i < adp->an_atab; i++){
 			ap = adp->a_atab[i];
 			if(verbose == 1)
-				fprintf(fp, "\t\t%.15e\t%15e\t%s\n", ap->a_lng, ap->a_lat, ap->a_line);
+				fprintf(fp, "\t\t%d\t%.15e\t%15e\t%s\n", ap->a_lnum, ap->a_lng, ap->a_lat, ap->a_line);
 			else{
 				fprintf(fp, "\t\tline = %d {\n", i + 1);
+				fprintf(fp, "\t\t\tlnum = %d\n", ap->a_lnum);
 				fprintf(fp, "\t\t\tlng  = %.15e\n", ap->a_lng);
 				fprintf(fp, "\t\t\tlat  = %.15e\n", ap->a_lat);
 				fprintf(fp, "\t\t\tline = %s\n", ap->a_line);
@@ -223,13 +224,32 @@ AD_dump_adata(FILE *fp, const ADATA_T *adp, int verbose)
 }
 
 ADDR_T	*
-AD_new_addr(double lng, double lat, const char *line)
+AD_new_addr(const char *line, int lnum)
 {
+	const char	*s_fp, *e_fp;
+	double	lng, lat;
+	int	fnum;
 	ADDR_T	*ap = NULL;
 	int	err = 0;
 
 	if(line == NULL || *line == '\0'){
 		LOG_ERROR("line is NULL or empty");
+		err = 1;
+		goto CLEAN_UP;
+	}
+
+	for(fnum = 0, e_fp = s_fp = line; *s_fp; ){
+		fnum++;
+		if((e_fp = strchr(s_fp, '\t')) == NULL)
+			e_fp = s_fp + strlen(s_fp);
+		if(fnum == 4)
+			lng = strtod(s_fp, NULL);
+		else if(fnum == 5)
+			lat = strtod(s_fp, NULL);
+		s_fp = *e_fp ? e_fp + 1 : e_fp;
+	}
+	if(fnum != 6){
+		LOG_ERROR("line %7d: wrong number of fields %d, need %d", lnum, fnum, 6);
 		err = 1;
 		goto CLEAN_UP;
 	}
@@ -241,6 +261,7 @@ AD_new_addr(double lng, double lat, const char *line)
 		goto CLEAN_UP;
 	}
 
+	ap->a_lnum = lnum;
 	ap->a_lng = lng;
 	ap->a_lat = lat;
 	ap->a_line = strdup(line);

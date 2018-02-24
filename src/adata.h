@@ -2,6 +2,7 @@
 #define	_ADDRS_H_
 
 typedef	struct	addr_t	{
+	int	a_lnum;
 	double	a_lng;
 	double	a_lat;
 	char	*a_line;
@@ -28,7 +29,7 @@ void
 AD_dump_adata(FILE *, const ADATA_T *, int);
 
 ADDR_T	*
-AD_new_addr(double, double, const char *);
+AD_new_addr(const char *, int);
 
 void
 AD_delete_addr(ADDR_T *);
