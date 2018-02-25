@@ -55,10 +55,6 @@ main(int argc, char *argv[])
 	ssize_t	l_line;
 	int	lnum;
 	ADDR_T	*ap = NULL;
-/*
-	SF_POINT_T	ctr;
-	SF_POINT_T	box[4];
-*/
 	int	i, i_le, i_ge;
 	int	err = 0;
 
@@ -119,26 +115,7 @@ main(int argc, char *argv[])
 			err = 1;
 			goto CLEAN_UP;
 		}
-/*
-		ctr.s_x = ap->a_lng;
-		ctr.s_y = ap->a_lat;
-		mk_box(&ctr, dist, box);
-
-		// find the lowest lat
-		fi_addr_bounds(box[0].s_y, adata, &i_le, &i_ge);
-LOG_DEBUG("look up        %.15e", box[0].s_y);
-LOG_DEBUG("i_le    %5d, %.15e", i_le, i_le >= 0 ? adata->a_atab[i_le]->a_lat : adata->a_atab[0]->a_lat);
-LOG_DEBUG("i_ge    %5d, %.15e", i_ge, i_ge < adata->an_atab ? adata->a_atab[i_ge]->a_lat : adata->a_atab[adata->an_atab-1]->a_lat);
-
-		// find the highest lat
-		fi_addr_bounds(box[1].s_y, adata, &i_le, &i_ge);
-LOG_DEBUG("look up        %.15e", box[1].s_y);
-LOG_DEBUG("i_le    %5d, %.15e", i_le, i_le >= 0 ? adata->a_atab[i_le]->a_lat : adata->a_atab[0]->a_lat);
-LOG_DEBUG("i_ge    %5d, %.15e", i_ge, i_ge < adata->an_atab ? adata->a_atab[i_ge]->a_lat : adata->a_atab[adata->an_atab-1]->a_lat);
-*/
-
 		find_addrs_in_box(adata, ap, dist);
-
 		AD_delete_addr(ap);
 		ap = NULL;
 	}
@@ -195,15 +172,6 @@ find_addrs_in_box(const ADATA_T *adp, const ADDR_T *ap, double size)
 	// box and table overlap, deal w/ box.low < table.low and box.high > table.high
 	i_first = bl_ge == -1 ? 0 : bl_ge;
 	i_last = bh_le == adp->an_atab ? adp->an_atab - 1 : bh_le;
-
-/*
-LOG_DEBUG("box[0]         %.15e", box[0].s_y);
-LOG_DEBUG("i_first %5d, %.15e", i_first, adp->a_atab[i_first]->a_lat);
-LOG_DEBUG("i_last  %5d, %.15e", i_last, adp->a_atab[i_last]->a_lat);
-LOG_DEBUG("box[1]         %.15e", box[1].s_y);
-fprintf(stderr, "\n");
-*/
-
 	for(pr_ap = 1, i = i_first; i <= i_last; i++){
 		ap1 = adp->a_atab[i];
 		if(ap1->a_lng < box[0].s_x || ap1->a_lng > box[3].s_x)
