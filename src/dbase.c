@@ -200,7 +200,7 @@ DBF_dump_fhdr(FILE *fp, DBF_FHDR_T *fhdr, const char *indent)
 	fprintf(fp, "%sfhdr = {\n", indent ? indent : "");
 	fprintf(fp, "%s\tversion     = %d\n", indent ? indent : "", fhdr->d_version);
 	fprintf(fp, "%s\tdate        = %s\n", indent ? indent : "", fhdr->d_date);
-	fprintf(fp, "%s\tn recs      = %d\n", indent ? indent : "", fhdr->dn_recs);
+	fprintf(fp, "%s\tn_recs      = %d\n", indent ? indent : "", fhdr->dn_recs);
 	fprintf(fp, "%s\tl_hdr       = %d\n", indent ? indent : "", fhdr->dl_hdr);
 	fprintf(fp, "%s\tl_rec       = %d\n", indent ? indent : "", fhdr->dl_rec);
 	fprintf(fp, "%s\tencrypted   = %d\n", indent ? indent : "", fhdr->d_encrypted);
