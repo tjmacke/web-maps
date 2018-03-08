@@ -16,6 +16,7 @@ PROGRAMS=	\
 	get_shp_recs		\
 	gpc_driver		\
 	index_shp_file		\
+	make_shx_from_shp_file	\
 	shp_dump		\
 	shp_to_geojson
 
@@ -36,6 +37,9 @@ gpc_driver:	gpc_driver.o log.o args.o
 index_shp_file:	index_shp_file.o log.o args.o shape.o
 	$(CC) $(CFLAGS) -o index_shp_file index_shp_file.o log.o args.o file_io.o shape.o
 
+make_shx_from_shp_file:	make_shx_from_shp_file.o log.o args.o shape.o file_io.o
+	$(CC) $(CFLAGS) -o make_shx_from_shp_file make_shx_from_shp_file.o log.o args.o shape.o file_io.o
+
 shp_dump:	shp_dump.o log.o args.o file_io.o shape.o dbase.o
 	$(CC) $(CFLAGS) -o shp_dump shp_dump.o log.o args.o file_io.o shape.o dbase.o
 
@@ -51,6 +55,8 @@ get_shp_recs.o:	log.h args.h shape.h
 gpc_driver.o:	log.h args.h
 
 index_shp_file.o:	log.h args.h index.h shape.h
+
+make_shx_from_shp_file.o:	log.h args.h shape.h file_io.h
 
 shp_dump.o:	log.h args.h shape.h dbase.h
 

@@ -129,6 +129,9 @@ SF_FHDR_T	*
 SHP_new_fhdr(const char *);
 
 void
+SHP_write_fhdr(FILE *, const SF_FHDR_T *);
+
+void
 SHP_delete_fhdr(SF_FHDR_T *);
 
 SF_FHDR_T	*
@@ -141,6 +144,9 @@ int
 SHP_read_bbox(FILE *, SF_BBOX_T *);
 
 void
+SHP_write_bbox(FILE *, const SF_BBOX_T *);
+
+void
 SHP_dump_bbox(FILE *, const SF_BBOX_T *, const char *);
 
 int
@@ -151,6 +157,9 @@ SHP_dump_point(FILE *, const SF_POINT_T *, const char *, int);
 
 int
 SHP_read_ridx(FILE *, SF_RIDX_T *);
+
+void
+SHP_write_ridx(FILE *, const SF_RIDX_T *);
 
 void
 SHP_dump_fhdr(FILE *, SF_FHDR_T *);
@@ -170,8 +179,8 @@ SHP_delete_shape(SF_SHAPE_T *);
 void
 SHP_dump_shape(FILE *, SF_SHAPE_T *, int);
 
-void
-SHP_write_geojson_prolog(FILE *, const char *);
+int
+SHP_write_geojson_prolog(FILE *, const char *, const char *);
 
 int
 SHP_write_geojson(FILE *, const SF_SHAPE_T *, int, const char *);

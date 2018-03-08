@@ -27,6 +27,18 @@ CLEAN_UP : ;
 	return err;
 }
 
+void
+FIO_write_be_int4(FILE *fp, int ival)
+{
+	uint32_t	uval;
+
+	uval = ival;
+	fputc(((uval & 0xff000000) >> 24), fp);
+	fputc(((uval & 0x00ff0000) >> 16), fp);
+	fputc(((uval & 0x0000ff00) >>  8), fp);
+	fputc( (uval & 0x000000ff),        fp);
+}
+
 int
 FIO_read_le_int4(FILE *fp, int *ival)
 {
@@ -48,6 +60,17 @@ CLEAN_UP : ;
 		*ival = 0;
 
 	return err;
+}
+
+void FIO_write_le_int4(FILE *fp, int ival)
+{
+	uint32_t	uval;
+	uval = ival;
+	fputc( (uval & 0x000000ff),        fp);
+	fputc(((uval & 0x0000ff00) >>  8), fp);
+	fputc(((uval & 0x00ff0000) >> 16), fp);
+	fputc(((uval & 0xff000000) >> 24), fp);
+
 }
 
 int
@@ -78,4 +101,18 @@ CLEAN_UP : ;
 		*dval = 0;
 
 	return err;
+}
+
+void
+FIO_write_le_double(FILE *fp, double dval)
+{
+	int	i, c;
+	union {
+		char	v_str[8];
+		double	v_double;
+	} c2d;
+
+	c2d.v_double = dval;
+	for(i = 0; i < 8; i++)
+		fputc(c2d.v_str[i] &0xff, fp);
 }

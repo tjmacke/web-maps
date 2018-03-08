@@ -82,7 +82,7 @@ main(int argc, char *argv[])
 				ungetc(c, fhdr->s_fp);
 				shp = SHP_read_shape(fhdr->s_fp);
 				if(shp == NULL){
-					LOG_ERROR("SHP_read_shape failed for record %d", i+1);
+					LOG_ERROR("SHP_read_shape failed for record %d", n_recs+1);
 					err = 1;
 					goto CLEAN_UP;
 				}

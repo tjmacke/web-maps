@@ -19,6 +19,7 @@ static	ARGS_T	*args;
 static	FLAG_T	flags[] = {
 	{"-help", 1, AVK_NONE, AVT_BOOL, "0",  "Use -help to print this message."},
 	{"-v",    1, AVK_OPT,  AVT_UINT, "0",  "Use -v to set the verbosity to 1; use -v=N to set it to N."},
+	{"-sc",   1, AVK_REQ,  AVT_STR,  NULL, "Use -sc SC to add the json in SC to as \"scaleConfig\" to object holding the geojson."},
 	{"-pf",   1, AVK_REQ,  AVT_STR,  NULL, "Use -pf P to to add properties to the geojson."},
 	{"-pk",   1, AVK_REQ,  AVT_STR,  NULL, "Use -pk K to set the primary key to K."},
 	{"-fmt",  1, AVK_REQ,  AVT_STR,  "wrap*|plain|list",  "Use -fmt F, F in {wrap, plain, list} to control the format of the json output."},
@@ -37,6 +38,7 @@ main(int argc, char *argv[])
 	int	a_stat = AS_OK;
 	const ARG_VAL_T	*a_val;
 	int	verbose = 0;
+	const char	*scfname = NULL;
 	const char	*pfname = NULL;
 	const char	*pkey = NULL;
 	const char	*fmt = NULL;
@@ -100,6 +102,9 @@ main(int argc, char *argv[])
 	a_val = TJM_get_flag_value(args, "-v", AVT_UINT);
 	verbose = a_val->av_value.v_int;
 
+	a_val = TJM_get_flag_value(args, "-sc", AVT_STR);
+	scfname = a_val->av_value.v_str;
+
 	a_val = TJM_get_flag_value(args, "-pf", AVT_STR);
 	pfname = a_val->av_value.v_str;
 
@@ -108,6 +113,14 @@ main(int argc, char *argv[])
 
 	a_val = TJM_get_flag_value(args, "-fmt", AVT_STR);
 	fmt = a_val->av_value.v_str;
+
+	if(strcmp(fmt, "wrap")){
+		if(scfname != NULL){
+			LOG_ERROR("-sc SC option requires -fmt wrap");
+			err = 1;
+			goto CLEAN_UP;
+		}
+	}
 
 	a_val = TJM_get_flag_value(args, "-sf", AVT_STR);
 	sf = a_val->av_value.v_str;
@@ -326,7 +339,11 @@ main(int argc, char *argv[])
 			SHP_dump_shape(stderr, shp, verbose);
 		if(a_prlg){
 			a_prlg = 0;
-			SHP_write_geojson_prolog(stdout, fmt);
+			if(SHP_write_geojson_prolog(stdout, fmt, scfname)){
+				LOG_ERROR("SHP_write_geojson_prolog failed");
+				err = 1;
+				goto CLEAN_UP;
+			}
 		}
 		p_value = NULL;
 		if(props != NULL){

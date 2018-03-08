@@ -202,6 +202,26 @@ CLEAN_UP : ;
 }
 
 void
+SHP_write_fhdr(FILE *fp, const SF_FHDR_T *fhdr)
+{
+
+	FIO_write_be_int4(fp, fhdr->s_magic);
+	FIO_write_be_int4(fp, 0);
+	FIO_write_be_int4(fp, 0);
+	FIO_write_be_int4(fp, 0);
+	FIO_write_be_int4(fp, 0);
+	FIO_write_be_int4(fp, 0);
+	FIO_write_be_int4(fp, fhdr->sl_file);
+	FIO_write_le_int4(fp, fhdr->s_version);
+	FIO_write_le_int4(fp, fhdr->s_type);
+	SHP_write_bbox(fp, &fhdr->s_bbox);
+	FIO_write_le_double(fp, fhdr->s_zmin);
+	FIO_write_le_double(fp, fhdr->s_zmax);
+	FIO_write_le_double(fp, fhdr->s_mmin);
+	FIO_write_le_double(fp, fhdr->s_mmax);
+}
+
+void
 SHP_delete_fhdr(SF_FHDR_T *fhdr)
 {
 
@@ -390,6 +410,16 @@ CLEAN_UP : ;
 }
 
 void
+SHP_write_bbox(FILE *fp, const SF_BBOX_T *bbox)
+{
+
+	FIO_write_le_double(fp, bbox->s_xmin);
+	FIO_write_le_double(fp, bbox->s_ymin);
+	FIO_write_le_double(fp, bbox->s_xmax);
+	FIO_write_le_double(fp, bbox->s_ymax);
+}
+
+void
 SHP_dump_bbox(FILE *fp, const SF_BBOX_T *bbox, const char *indent)
 {
 
@@ -461,6 +491,14 @@ SHP_read_ridx(FILE *fp, SF_RIDX_T *ridx)
 CLEAN_UP : ;
 
 	return err;
+}
+
+void
+SHP_write_ridx(FILE *fp, const SF_RIDX_T *ridx)
+{
+
+	FIO_write_be_int4(fp, ridx->s_offset);
+	FIO_write_be_int4(fp, ridx->s_length);
 }
 
 void
@@ -903,9 +941,37 @@ SHP_dump_shape(FILE *fp, SF_SHAPE_T *shp, int verbose)
 	fprintf(fp, "}\n");
 }
 
-void
-SHP_write_geojson_prolog(FILE *fp, const char *fmt)
+int
+SHP_write_geojson_prolog(FILE *fp, const char *fmt, const char *scfname)
 {
+	int	err = 0;
+
+	if(scfname != NULL){
+		FILE	*scfp = NULL;
+		char	*line = NULL;
+		size_t	s_line = 0;
+		ssize_t	l_line;
+		int	lcnt;
+
+		if((scfp = fopen(scfname, "r")) == NULL){
+			LOG_ERROR("can't read scale config file %s", scfname);
+			err = 1;
+			goto CLEAN_UP;
+		}
+		fprintf(fp, "\"scaleConfig\": ");
+		for(lcnt = 0; (l_line = getline(&line, &s_line, scfp)) > 0; ){
+			lcnt++;
+			if(line[l_line - 1] == '\n'){
+				line[l_line - 1] = '\0';
+				l_line--;
+			}
+			fprintf(fp, "%s%s", lcnt > 1 ? "\n" : "", line);
+		}
+		fprintf(fp, ",\n");
+		if(line != NULL)
+			free(line);
+		fclose(scfp);
+	}
 
 	if(!strcmp(fmt, "wrap")){
 		fprintf(fp, "{\n\"geojson\": ");
@@ -915,6 +981,10 @@ SHP_write_geojson_prolog(FILE *fp, const char *fmt)
 		fprintf(fp, "  \"type\": \"FeatureCollection\",\n");
 		fprintf(fp, "  \"features\":[");
 	}
+
+CLEAN_UP : ;
+
+	return err;
 }
 
 int
