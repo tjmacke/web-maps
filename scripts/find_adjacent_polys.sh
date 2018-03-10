@@ -4,27 +4,9 @@
 
 U_MSG="usage: $0 [ -help ] [ -trace ] -fmt { wrapped | bare } -id id-field [ geojson-file ]"
 
+# require JU_HOME to be defined?
 JU_HOME=$HOME/json_utils
 JU_BIN=$JU_HOME/bin
-
-if [ -z "$DM_HOME" ] ; then
-	LOG ERROR "DM_HOME not defined"
-	exit 1
-fi
-DM_LIB=$DM_HOME/lib
-
-# awk v3 does not support include
-AWK_VERSION="$(awk --version | awk '{ nf = split($3, ary, /[,.]/) ; print ary[1] ; exit 0 }')"
-if [ "$AWK_VERSION" == "3" ] ; then
-	AWK="igawk --re-interval"
-	GEO_UTILS="$DM_LIB/geo_utils.awk"
-elif [ "$AWK_VERSION" == "4" ] ; then
-	AWK=awk
-	GEO_UTILS="\"$DM_LIB/geo_utils.awk\""
-else
-	LOG ERROR "unsupported awk version: \"$AWK_VERSION\": must be 3 or 4"
-	exit 1
-fi
 
 TMP_ATFILE=/tmp/all.titles.$$
 TMP_EFILE=/tmp/edges.$$

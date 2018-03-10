@@ -15,7 +15,25 @@ if [ -z "$DM_HOME" ] ; then
 	LOG ERROR "DM_HOME not defined"
 	exit 1
 fi
+DM_LIB=$DM_HOME/lib
 DM_SCRIPTS=$DM_HOME/scripts
+
+# awk v3 does not support include
+AWK_VERSION="$(awk --version | awk '{ nf = split($3, ary, /[,.]/) ; print ary[1] ; exit 0 }')"
+if [ "$AWK_VERSION" == "3" ] ; then
+	AWK="igawk --re-interval"
+	CFG_UTILS="$DM_LIB/cfg_utils.awk"
+	INTERP_UTILS="$DM_LIB/interp_utils.awk"
+	COLOR_UTILS="$DM_LIB/color_utils.awk"
+elif [ "$AWK_VERSION" == "4" ] ; then
+	AWK=awk
+	CFG_UTILS="\"$DM_LIB/cfg_utils.awk\""
+	INTERP_UTILS="\"$DM_LIB/interp_utils.awk\""
+	COLOR_UTILS="\"$DM_LIB/color_utils.awk\""
+else
+	LOG ERROR "unsupported awk version: \"$AWK_VERSION\": must be 3 or 4"
+	exit 1
+fi
 
 # very simple config, unlikely to ever change, so just create it in line
 TMP_FP_CFILE=/tmp/fp_cfile.$$
@@ -109,9 +127,9 @@ fi
 if [ $n_OFILE -ne 0 ] ; then
 	$WM_BIN/find_addrs_in_rect -a $WM_DATA/sps_sorted.tsv $TMP_OFILE > $TMP_PFILE
 	awk -F'\t' '
-	@include "/Users/tom/work/dd_maps/lib/cfg_utils.awk"
-	@include "/Users/tom/work/dd_maps/lib/interp_utils.awk"
-	@include "/Users/tom/work/dd_maps/lib/color_utils.awk"
+	@include '"$CFG_UTILS"'
+	@include '"$INTERP_UTILS"'
+	@include '"$COLOR_UTILS"'
 	BEGIN {
 		cfile = "'"$TMP_FP_CFILE"'"
 		CFG_read(cfile, config)
