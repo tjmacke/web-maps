@@ -2,13 +2,15 @@
 #
 . ~/etc/funcs.sh
 
-U_MSG="usage: $0 [ -help ] [ -trace ] -mk merge-key [ -pfx_of target-field ] [ -mv missing-values ] file-1 file-2 [ file-3 ... ]"
+U_MSG="usage: $0 [ -help ] [ -trace ] -mk merge-key [ -pfx_of target-field ] [ -mv missing-values ] [ -ign_extra ] file-1 file-2"
 
 TRACE=
 MKEY=
 PFX_OF=
 MISSING=
-FLIST=
+IGN_EXTRA=
+FILE_1=
+FILE_2=
 n_FLIST=0
 
 while [ $# -gt 0 ] ; do
@@ -51,21 +53,33 @@ while [ $# -gt 0 ] ; do
 		MISSING="$1"
 		shift
 		;;
+	-ign_extra)
+		IGN_EXTRA="yes"
+		shift
+		;;
 	-*)
 		LOG ERROR "unknown argument $1"
 		echo "$U_MSG" 1>&2
 		exit 1
 		;;
 	*)
-		if [ ! -z "$FLIST" ] ; then
-			FLIST="$FLIST "
+		if [ -z "$FILE_1" ] ; then
+			FILE_1=$1
+			shift
+		elif [ -z "$FILE_2" ] ; then
+			FILE_2=$1
+			shift
+			break
 		fi
-		FLIST="$FLIST$1"
-		n_FLIST=$((n_FLIST + 1))
-		shift
 		;;
 	esac
 done
+
+if [ $# -ne 0 ] ; then
+	LOG ERROR "extra arguments $*"
+	echo "$U_MSG" 1>&2
+	exit 1
+fi
 
 if [ -z "$MKEY" ] ; then
 	LOG ERROR "missing -mk merge-key argument"
@@ -73,8 +87,12 @@ if [ -z "$MKEY" ] ; then
 	exit 1
 fi
 
-if [ $n_FLIST -lt 2 ] ; then
-	LOG ERROR "not enough files: $n_FLIST, need at least 2"
+if [ -z "$FILE_1" ] ; then
+	LOG ERROR "no files: need 2"
+	echo "$U_MSG" 1>&2
+	exit 1
+elif [ -z "$FILE_2" ] ; then
+	LOG ERROR "missing file-1"
 	echo "$U_MSG" 1>&2
 	exit 1
 fi
@@ -86,6 +104,7 @@ awk -F'\t' 'BEGIN {
 	mkey = "'"$MKEY"'"
 	pfx_of = "'"$PFX_OF"'"
 	missing = "'"$MISSING"'"
+	ign_extra = "'"$IGN_EXTRA"'" == "yes"
 	if(missing != ""){
 		nm_ary = split(missing, m_ary)
 		for(i = 1; i <= nm_ary; i++)
@@ -99,6 +118,7 @@ awk -F'\t' 'BEGIN {
 	}
 	lnum++
 	if(fnum == 1){
+		FILENAME_1 = FILENAME
 		if(lnum == 1){	# hdr for file 1
 			f_mkey = fi_key(mkey)
 			if(f_mkey == 0){
@@ -134,32 +154,10 @@ awk -F'\t' 'BEGIN {
 				}
 			}
 		}
-	}else if(lnum == 1){	# hdr for file 2,...
-		if(fnum > 2){
-			if(pfx_of == ""){
-				if(n_recs2 > n_recs){
-					printf("ERROR: main: %d extra recs in file-%d, %s\n", n_recs2 - n_recs, fnum - 1, l_FILENAME) > "/dev/stderr"
-					err = 1
-					exit err
-				}else if(n_recs > n_recs2){
-					if(missing == ""){
-						printf("ERROR: END: missing recs in file-%d, %s, requires -mv missing values argument\n", fnum - 1, l_FILENAME) > "/dev/stderr"
-						err = 1
-						goto CLEAN_UP
-					}
-				}
-			}
-			for(k in have_data){
-				if(!have_data[k]){
-					printf("ERROR: main: file-%d, %s: no data for %s\n", fnum - 1, l_FILENAME, k) > "/dev/stderr"
-					err = 1
-					exit err
-				}
-			}
-		}
+	}else if(lnum == 1){	# hdr for file 2
 		f_mkey = fi_key(mkey)
 		if(f_mkey == 0){
-			printf("ERROR: main: no field named %s in file %s\n", mkey, FILENAME) > "/dev/stderr"
+			printf("ERROR: main: no field named %s in file-2 %s\n", mkey, FILENAME) > "/dev/stderr"
 			err = 1
 			exit err
 		}
@@ -172,7 +170,16 @@ awk -F'\t' 'BEGIN {
 		}
 	}else{			# data for file 2,...
 		n_recs2++
-		have_data[$f_mkey] = 1
+		if($f_mkey in have_data)
+			have_data[$f_mkey] = 1
+		else if(ign_extra){
+			printf("WARN: main: no key %s in file-1 %s, ignoring record\n", $f_mkey, FILENAME_1) > "/dev/stderr" 
+			next
+		}else{
+			printf("ERROR: main: no key %s in file-1 %s\n", $f_mkey, FILENAME_1) > "/dev/stderr" 
+			err = 1
+			exit err
+		}
 		for(i = 1; i <= NF; i++){
 			if(i != f_mkey){
 				recs[r_idx[$f_mkey]] = recs[r_idx[$f_mkey]] "\t" $i
@@ -197,9 +204,12 @@ END {
 
 	if(!pfx_of){
 		if(n_recs2 > n_recs){
-			printf("ERROR: END: %d extra recs in file-%d, %s\n", n_recs2 - n_recs, fnum - 1, l_FILENAME) > "/dev/stderr"
-			err = 1
-			exit err
+			# caught above, but belt+suspenders
+			if(!ign_extra){
+				printf("ERROR: END: %d extra recs in file-%d, %s\n", n_recs2 - n_recs, fnum - 1, l_FILENAME) > "/dev/stderr"
+				err = 1
+				exit err
+			}
 		}else if(n_recs > n_recs2){
 			if(missing == ""){
 				printf("ERROR: END: missing recs in file-%d, %s, requires -mv missing values argument\n", fnum - 1, l_FILENAME) > "/dev/stderr"
@@ -209,10 +219,26 @@ END {
 		}
 	}
 	for(k in have_data){
+		# check for individual missing values
 		if(!have_data[k]){
-			printf("ERROR: END: file-%d, %s: no data for %s\n", fnum, l_FILENAME, k) > "/dev/stderr"
-			err = 1
-			exit err
+			if(missing == ""){
+				printf("ERROR: END: file-%d, %s: no data for %s\n", fnum, l_FILENAME, k) > "/dev/stderr"
+				err = 1
+				exit err
+			}
+
+			# add missing values from m_ary
+			for(i = 1; i <= NF; i++){
+				if(i != f_mkey){
+					recs[r_idx[$f_mkey]] = recs[r_idx[$f_mkey]] "\t" m_ary[i]
+					if(f_pfx_of != 0 && $f_mkey ~ /\/$/){
+						nf = split(recs[r_idx[$f_mkey]], ary, "\t")
+						pfx_was_set[p_idx[$f_mkey]] = ary[f_pfx_of]
+						pfx_values[p_idx[$f_mkey]] = (pfx_values[p_idx[$f_mkey]] != "") ? (pfx_values[p_idx[$f_mkey]] "\t" m_ary[i]) : m_ary[i]
+					}
+				}
+			}
+
 		}
 	}
 
@@ -260,5 +286,4 @@ function dump_pfx_info(file, p_idx, pfx_targets, pfx_was_set, pfx_values,   k, a
 		printf("\tvalues  = %s\n", pfx_values[p_idx[k]]) > file
 		printf("}\n") > file
 	}
-}' $FLIST
-
+}' $FILE_1 $FILE_2
