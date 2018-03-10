@@ -137,12 +137,6 @@ awk -F'\t' 'BEGIN {
 	}else if(lnum == 1){	# hdr for file 2,...
 		if(fnum > 2){
 			if(pfx_of == ""){
-#				if(n_recs != n_recs2){
-#					printf("ERROR: main: num recs differ: file-1 %s, %d recs, file-%d %s, %d recs\n",
-#						fname_1, n_recs, fnum - 1, l_FILENAME, n_recs2) > "/dev/stderr"
-#					err = 1
-#					exit err
-#				}
 				if(n_recs2 > n_recs){
 					printf("ERROR: main: %d extra recs in file-%d, %s\n", n_recs2 - n_recs, fnum - 1, l_FILENAME) > "/dev/stderr"
 					err = 1
@@ -202,12 +196,6 @@ END {
 	#dump_pfx_info("/dev/stderr", p_idx, pfx_targets, pfx_was_set, pfx_values)
 
 	if(!pfx_of){
-#		if(n_recs != n_recs2){
-#			printf("ERROR: END: num recs differ: file-1 %s, %d recs, file-%d %s, %d recs\n",
-#				fname_1, n_recs, fnum, l_FILENAME, n_recs2) > "/dev/stderr"
-#			err = 1
-#			exit err
-#		}
 		if(n_recs2 > n_recs){
 			printf("ERROR: END: %d extra recs in file-%d, %s\n", n_recs2 - n_recs, fnum - 1, l_FILENAME) > "/dev/stderr"
 			err = 1
@@ -228,9 +216,8 @@ END {
 		}
 	}
 
-	if(f_pfx_of != 0){
+	if(f_pfx_of != 0)
 		fill_pfx_values(p_idx, pfx_targets, pfx_was_set, pfx_values, r_idx_pfx_of, recs)
-	}
 
 	printf("%s\n", hdr)
 	for(i = 1; i <= n_recs; i++)
