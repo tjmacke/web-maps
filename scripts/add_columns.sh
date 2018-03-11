@@ -2,12 +2,12 @@
 #
 . ~/etc/funcs.sh
 
-U_MSG="usage: $0 [ -help ] [ -trace ] -mk merge-key [ -pfx_of target-field ] [ -mv missing-values ] [ -ign_extra ] file-1 file-2"
+U_MSG="usage: $0 [ -help ] [ -trace ] -mk merge-key [ -pfx_of target-field ] [ -mv missing-values-file ] [ -ign_extra ] file-1 file-2"
 
 TRACE=
 MKEY=
 PFX_OF=
-MISSING=
+MV_FILE=
 IGN_EXTRA=
 FILE_1=
 FILE_2=
@@ -50,7 +50,7 @@ while [ $# -gt 0 ] ; do
 			echo "$U_MSG" 1>&2
 			exit 1
 		fi
-		MISSING="$1"
+		MV_FILE="$1"
 		shift
 		;;
 	-ign_extra)
@@ -103,10 +103,26 @@ awk -F'\t' 'BEGIN {
 		printf("TRACE: BEGIN: add columns\n") > "/dev/stderr"
 	mkey = "'"$MKEY"'"
 	pfx_of = "'"$PFX_OF"'"
-	missing = "'"$MISSING"'"
+	mv_file = "'"$MV_FILE"'"
 	ign_extra = "'"$IGN_EXTRA"'" == "yes"
-	if(missing != "")
-		nm_ary = split(missing, m_ary)
+	if(mv_file != ""){
+		for(n_mv_tab = 0; (getline < mv_file) > 0; ){
+			n_mv_tab++
+			mv_tab[n_mv_tab] = $0
+		}
+		close(mv_file)
+		if(n_mv_tab == 0){
+			printf("ERROR: BEGIN: mv_file %s is empty\n", mv_file) > "/dev/stderr"
+			err = 1
+			exit err
+		}else if(n_mv_tab > 1){
+			printf("ERROR: BEGIN: mv_file %s is has > 1 line\n", mv_file) > "/dev/stderr"
+			err = 1
+			exit err
+		}
+		nm_ary = split(mv_tab[1], m_ary)
+		delete mv_tab
+	}
 }
 {
 	if(l_FILENAME != FILENAME){
@@ -208,7 +224,7 @@ END {
 				exit err
 			}
 		}else if(n_recs > n_recs2){
-			if(missing == ""){
+			if(mv_file == ""){
 				printf("ERROR: END: missing recs in file-%d, %s, requires -mv missing values argument\n", fnum - 1, l_FILENAME) > "/dev/stderr"
 				err = 1
 				goto CLEAN_UP
@@ -218,7 +234,7 @@ END {
 	for(k in have_data){
 		# check for individual missing values
 		if(!have_data[k]){
-			if(missing == ""){
+			if(mv_file == ""){
 				printf("ERROR: END: file-%d, %s: no data for %s\n", fnum, l_FILENAME, k) > "/dev/stderr"
 				err = 1
 				exit err

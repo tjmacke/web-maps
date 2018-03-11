@@ -126,7 +126,7 @@ if [ $n_EFILE -ne 0 ] ; then
 fi
 if [ $n_OFILE -ne 0 ] ; then
 	$WM_BIN/find_addrs_in_rect -a $WM_DATA/sps_sorted.tsv $TMP_OFILE > $TMP_PFILE
-	awk -F'\t' '
+	$AWK -F'\t' '
 	@include '"$CFG_UTILS"'
 	@include '"$INTERP_UTILS"'
 	@include '"$COLOR_UTILS"'
