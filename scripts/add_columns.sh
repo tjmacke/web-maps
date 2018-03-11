@@ -105,11 +105,8 @@ awk -F'\t' 'BEGIN {
 	pfx_of = "'"$PFX_OF"'"
 	missing = "'"$MISSING"'"
 	ign_extra = "'"$IGN_EXTRA"'" == "yes"
-	if(missing != ""){
+	if(missing != "")
 		nm_ary = split(missing, m_ary)
-		for(i = 1; i <= nm_ary; i++)
-			printf("m_ary[%d] = \"%s\"\n", i, m_ary[i]) > "/dev/stderr"
-	}
 }
 {
 	if(l_FILENAME != FILENAME){
@@ -173,10 +170,10 @@ awk -F'\t' 'BEGIN {
 		if($f_mkey in have_data)
 			have_data[$f_mkey] = 1
 		else if(ign_extra){
-			printf("WARN: main: no key %s in file-1 %s, ignoring record\n", $f_mkey, FILENAME_1) > "/dev/stderr" 
+			printf("WARN: main: no record with key \"%s\" from file-2 %s, in file-1 %s, ignoring record\n", $f_mkey, FILENAME, FILENAME_1) > "/dev/stderr" 
 			next
 		}else{
-			printf("ERROR: main: no key %s in file-1 %s\n", $f_mkey, FILENAME_1) > "/dev/stderr" 
+			printf("ERROR: main: no key \"%s\" in file-1 %s\n", $f_mkey, FILENAME_1) > "/dev/stderr" 
 			err = 1
 			exit err
 		}
@@ -226,15 +223,15 @@ END {
 				err = 1
 				exit err
 			}
-
 			# add missing values from m_ary
 			for(i = 1; i <= NF; i++){
 				if(i != f_mkey){
-					recs[r_idx[$f_mkey]] = recs[r_idx[$f_mkey]] "\t" m_ary[i]
-					if(f_pfx_of != 0 && $f_mkey ~ /\/$/){
-						nf = split(recs[r_idx[$f_mkey]], ary, "\t")
-						pfx_was_set[p_idx[$f_mkey]] = ary[f_pfx_of]
-						pfx_values[p_idx[$f_mkey]] = (pfx_values[p_idx[$f_mkey]] != "") ? (pfx_values[p_idx[$f_mkey]] "\t" m_ary[i]) : m_ary[i]
+					printf("WARN: END: add missing values for key = \"%s\"\n", k) > "/dev/stderr"
+					recs[r_idx[k]] = recs[r_idx[k]] "\t" m_ary[i]
+					if(f_pfx_of != 0 && k ~ /\/$/){
+						nf = split(recs[r_idx[k]], ary, "\t")
+						pfx_was_set[p_idx[k]] = ary[f_pfx_of]
+						pfx_values[p_idx[k]] = (pfx_values[p_idx[k]] != "") ? (pfx_values[p_idx[k]] "\t" m_ary[i]) : m_ary[i]
 					}
 				}
 			}
