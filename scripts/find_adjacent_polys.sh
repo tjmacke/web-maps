@@ -282,7 +282,7 @@ END {
 			}
 		}
 		if(!graph[t1, t2]){
-			if(p22 < p12)
+			if(p22 < p11)
 				continue
 			else if(p21 < p12){
 				graph[t1, t2] = 1
