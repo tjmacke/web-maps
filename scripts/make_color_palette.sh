@@ -3,7 +3,7 @@
 . ~/etc/funcs.sh
 export LC_ALL=C
 
-U_MSG="usage: $0 [ -help ] -fmt { cfg | html } -hs N -he N [ -s S ] [ -v V ] n_colors"
+U_MSG="usage: $0 [ -help ] -fmt { cfg | html } [ -grad ] -hs N -he N [ -s S ] [ -v V ] n_colors"
 
 if [ -z "$DM_HOME" ] ; then
 	LOG ERROR "DM_HOME is not defined"
@@ -25,6 +25,7 @@ else
 fi
 
 FMT=
+GRAD=
 H_START=
 H_END=
 S="0.7"
@@ -45,6 +46,10 @@ while [ $# -gt 0 ] ; do
 			exit 1
 		fi
 		FMT=$1
+		shift
+		;;
+	-grad)
+		GRAD="yes"
 		shift
 		;;
 	-hs)
@@ -138,6 +143,8 @@ $AWK '
 @include '"$COLOR_UTILS"'
 BEGIN {
 	fmt = "'"$FMT"'"
+
+	grad = "'"$GRAD"'" == "yes"
 
 	h_start = "'"$H_START"'" + 0
 	h_end = "'"$H_END"'" + 0
@@ -253,14 +260,15 @@ END {
 		printf("</body>\n")
 		printf("</html>\n")
 	}else{
-#		printf("main.scale_type = log\n")
 		printf("main.values = ")
-		for(i = 1; i < n_colors; i++)
-			printf("%s%s:%s", i > 1 ? " | " : "", rgb_strs[i], rgb_strs[i+1])
+		if(grad){
+			for(i = 1; i < n_colors; i++)
+				printf("%s%s:%s", i > 1 ? " | " : "", rgb_strs[i], rgb_strs[i+1])
+		}else{
+			for(i = 1; i <= n_colors; i++)
+				printf("%s%s", i > 1 ? " | " : "", rgb_strs[i])
+		}
 		printf("\n")
-#		printf("main.breaks = ")
-#		printf("10 | 50 | 100 | 500 | 1000 | 5000 | 10000 | 50000")
-#		printf("\n")
 
 	}
 	exit err

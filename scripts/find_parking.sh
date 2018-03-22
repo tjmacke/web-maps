@@ -2,7 +2,7 @@
 #
 . ~/etc/funcs.sh
 
-U_MSG="usage: $0 [ -help ] [ -geo geocoder ] { -a address | [ address-file ] }"
+U_MSG="usage: $0 [ -help ] [ -v ] { -a address | [ address-file ] }"
 
 if [ -z "$WM_HOME" ] ; then
 	LOG ERROR "WM_HOME not defined"
@@ -51,7 +51,9 @@ TMP_PFILE=/tmp/pspots.$$
 TMP_CFILE=/tmp/cfile.$$
 TMP_SC_FILE=/tmp/sc_file.$$
 
-GEO=
+GEO=geo
+GEO_2=ocd
+VERBOSE=
 ADDR=
 FILE=
 
@@ -61,14 +63,8 @@ while [ $# -gt 0 ] ; do
 		echo "$U_MSG"
 		exit 0
 		;;
-	-geo)
-		shift
-		if [ $# -eq 0 ] ; then
-			LOG ERROR "-geo requires geocoder argument"
-			echo "$U_MSG" 1>&2
-			exit 1
-		fi
-		GEO=$1
+	-v)
+		VERBOSE="yes"
 		shift
 		;;
 	-a)
@@ -100,10 +96,6 @@ if [ $# -ne 0 ] ; then
 	exit 1
 fi
 
-if [ ! -z "$GEO" ] ; then
-	GEO="-geo $GEO"
-fi
-
 if [ ! -z "$ADDR" ] ; then
 	if [ ! -z "$FILE" ] ; then
 		LOG ERROR "-a address not allowed with address-file"
@@ -115,14 +107,22 @@ else
 	AOPT=""
 fi
 
-$DM_SCRIPTS/get_geo_for_addrs.sh $GEO $AOPT "$ADDR" > $TMP_OFILE 2> $TMP_EFILE
-
+# try geocoder $GEO
+$DM_SCRIPTS/get_geo_for_addrs.sh -geo $GEO $AOPT "$ADDR" > $TMP_OFILE 2> $TMP_EFILE
 n_OFILE=$(cat $TMP_OFILE | wc -l)
 n_EFILE=$(grep ERROR: $TMP_EFILE | wc -l)
 n_ADDRS=$((n_OFILE + n_EFILE))
 if [ $n_EFILE -ne 0 ] ; then
-	LOG ERROR "$n_OFILE/$n_ADDRS found"
-	cat $TMP_EFILE 1>&2
+	$DM_SCRIPTS/get_geo_for_addrs.sh -geo $GEO_2 $AOPT "$ADDR" > $TMP_OFILE 2> $TMP_EFILE
+	n_OFILE=$(cat $TMP_OFILE | wc -l)
+	n_EFILE=$(grep ERROR: $TMP_EFILE | wc -l)
+	n_ADDRS=$((n_OFILE + n_EFILE))
+	if [ $n_EFILE -ne 0 ] ; then
+		LOG ERROR "$n_OFILE/$n_ADDRS found"
+		if [ "$VERBOSE" != "" ] ; then
+			cat $TMP_EFILE 1>&2
+		fi
+	fi
 fi
 if [ $n_OFILE -ne 0 ] ; then
 	$WM_BIN/find_addrs_in_rect -a $WM_DATA/sps_sorted.tsv $TMP_OFILE > $TMP_PFILE
