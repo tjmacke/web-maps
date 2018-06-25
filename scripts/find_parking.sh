@@ -2,7 +2,7 @@
 #
 . ~/etc/funcs.sh
 
-U_MSG="usage: $0 [ -help ] [ -v ] { -a address | [ address-file ] }"
+U_MSG="usage: $0 [ -help ] [ -v ] [ -d D ] { -a address | [ address-file ] }"
 
 if [ -z "$WM_HOME" ] ; then
 	LOG ERROR "WM_HOME not defined"
@@ -54,6 +54,7 @@ TMP_SC_FILE=/tmp/sc_file.$$
 GEO=geo
 GEO_2=ocd
 VERBOSE=
+DIST=
 ADDR=
 FILE=
 
@@ -65,6 +66,16 @@ while [ $# -gt 0 ] ; do
 		;;
 	-v)
 		VERBOSE="yes"
+		shift
+		;;
+	-d)
+		shift
+		if [ $# -eq 0 ] ; then
+			LOG ERROR "-d requires distance arg (in feet)"
+			echo "$U_MSG" 1>&2
+			exit 1
+		fi
+		DIST=$1
 		shift
 		;;
 	-a)
@@ -96,6 +107,10 @@ if [ $# -ne 0 ] ; then
 	exit 1
 fi
 
+if [ ! -z "$DIST" ] ; then
+	DIST="-d $DIST"
+fi
+
 if [ ! -z "$ADDR" ] ; then
 	if [ ! -z "$FILE" ] ; then
 		LOG ERROR "-a address not allowed with address-file"
@@ -125,7 +140,7 @@ if [ $n_EFILE -ne 0 ] ; then
 	fi
 fi
 if [ $n_OFILE -ne 0 ] ; then
-	$WM_BIN/find_addrs_in_rect -a $WM_DATA/sps_sorted.tsv $TMP_OFILE > $TMP_PFILE
+	$WM_BIN/find_addrs_in_rect $DIST -a $WM_DATA/sps_sorted.tsv $TMP_OFILE > $TMP_PFILE
 	$AWK -F'\t' '
 	@include '"$CFG_UTILS"'
 	@include '"$INTERP_UTILS"'

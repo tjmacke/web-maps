@@ -252,9 +252,18 @@ END {
 		printf("</head>\n")
 		printf("<body>\n")
 		printf("<table>\n")
-		for(i = 1; i <= n_colors; i++){
-			cstr = CU_rgb_to_24bit_color(rgb_strs[i])
-			printf("<tr><td style=\"background-color: #%s;\">#%s, %s, %s</td></tr>\n", cstr, cstr, rgb_strs[i], hsv_strs[i])
+		if(grad){
+			for(i = 1; i < n_colors; i++){
+				cstr = CU_rgb_to_24bit_color(rgb_strs[i])
+				cstr1 = CU_rgb_to_24bit_color(rgb_strs[i+1])
+				printf("<tr><td style=\"background: linear-gradient(to bottom, #%s, #%s);\">%s, %s</td></tr>\n",
+					cstr, cstr1, rgb_strs[i], rgb_strs[i+1])
+			}
+		}else{
+			for(i = 1; i <= n_colors; i++){
+				cstr = CU_rgb_to_24bit_color(rgb_strs[i])
+				printf("<tr><td style=\"background-color: #%s;\">#%s, %s, %s</td></tr>\n", cstr, cstr, rgb_strs[i], hsv_strs[i])
+			}
 		}
 		printf("</table>\n")
 		printf("</body>\n")
