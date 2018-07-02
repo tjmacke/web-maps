@@ -1,4 +1,4 @@
-#! /bin/bash
+#  /bin/bash
 #
 . ~/etc/funcs.sh
 
@@ -35,18 +35,13 @@ else
 	exit 1
 fi
 
-# very simple config, unlikely to ever change, so just create it in line
-TMP_FP_CFILE=/tmp/fp_cfile.$$
-cat > $TMP_FP_CFILE <<_EOF_
-main.scale_type = factor
-main.values = 0.90,0.90,0.90 | 0.94,0.94,0.5 | 0.94,0.75,0.5 | 0.94,0.5,0.5
-main.keys = PPL | PLU | PCVL | PTRKL
-main.def_value = 0.63,0.63,0.94
-main.def_key_text = dest
-_EOF_
 
+TMP_AFILE=/tmp/addrs.$$
+TMP_AFILE_2=/tmp/addrs_2.$$	# addrs for 2d geo coder
 TMP_OFILE=/tmp/out.$$
+TMP_OFILE_2=/tmp/out_2.$$
 TMP_EFILE=/tmp/err.$$
+TMP_FP_CFILE=/tmp/fp_cfile.$$
 TMP_PFILE=/tmp/pspots.$$
 TMP_CFILE=/tmp/cfile.$$
 TMP_SC_FILE=/tmp/sc_file.$$
@@ -120,6 +115,7 @@ if [ ! -z "$ADDR" ] ; then
 	AOPT="-a"
 else
 	AOPT=""
+	ADDR=$FILE
 fi
 
 # try geocoder $GEO
@@ -128,18 +124,47 @@ n_OFILE=$(cat $TMP_OFILE | wc -l)
 n_EFILE=$(grep ERROR: $TMP_EFILE | wc -l)
 n_ADDRS=$((n_OFILE + n_EFILE))
 if [ $n_EFILE -ne 0 ] ; then
-	$DM_SCRIPTS/get_geo_for_addrs.sh -geo $GEO_2 $AOPT "$ADDR" > $TMP_OFILE 2> $TMP_EFILE
-	n_OFILE=$(cat $TMP_OFILE | wc -l)
+	LOG ERROR "geocoder $GEO found $n_OFILE/$n_ADDRS addresses"
+	LOG DEBUG "trying backup geocoder $GEO_2"
+	grep '^ERROR' $TMP_EFILE | awk -F':' '{ print $4 }' > $TMP_AFILE_2
+	n_ADDRS_2=$(cat $TMP_AFILE_2 | wc -l)
+	$DM_SCRIPTS/get_geo_for_addrs.sh -geo $GEO_2 $TMP_AFILE_2 > $TMP_OFILE_2 2> $TMP_EFILE
+	n_OFILE_2=$(cat $TMP_OFILE_2 | wc -l)
 	n_EFILE=$(grep ERROR: $TMP_EFILE | wc -l)
-	n_ADDRS=$((n_OFILE + n_EFILE))
 	if [ $n_EFILE -ne 0 ] ; then
-		LOG ERROR "$n_OFILE/$n_ADDRS found"
+		LOG ERROR "backup geocoder $GEO_2 found an addtional $n_OFILE_2/$n_ADDRS_2 addresses"
 		if [ "$VERBOSE" != "" ] ; then
 			cat $TMP_EFILE 1>&2
 		fi
 	fi
+	cat $TMP_OFILE_2 >> $TMP_OFILE
+	n_OFILE=$(cat $TMP_OFILE | wc -l)
 fi
+
+# map address (if any)
 if [ $n_OFILE -ne 0 ] ; then
+
+# very simple config, changes rarely, so create inline
+#tm cat > $TMP_FP_CFILE <<_EOF_
+#tm main.scale_type = factor
+#tm main.values = 0.90,0.90,0.90 | 0.94,0.94,0.5 | 0.94,0.75,0.5 | 0.94,0.5,0.5
+#tm main.keys = PPL | PLU | PCVL | PTRKL
+#tm main.def_value = 0.63,0.63,0.94
+#tm main.def_key_text = dest
+#tm _EOF_
+
+# very simple config, changes rarely, so create it on the fly
+awk 'BEGIN {
+	n_addrs = "'"$n_OFILE"'" + 0
+}
+END {
+	printf("main.scale_type = factor\n")
+	printf("main.values = 0.90,0.90,0.90 | 0.94,0.94,0.5 | 0.94,0.75,0.5 | 0.94,0.5,0.5%s\n",
+		n_addrs > 1 ? " | 0.63,0.63,0.94" : "")
+	printf("main.keys = PPL | PLU | PCVL | PTRKL%s\n", n_addrs > 1 ? " | rest" : "")
+	printf("main.def_value = %s\n", n_addrs > 1 ? "0.7,0.9,0.7" : "0.63,0.63,0.63")
+	printf("main.def_key_text = dest\n")
+}' < /dev/null > $TMP_FP_CFILE
 	$WM_BIN/find_addrs_in_rect $DIST -a $WM_DATA/sps_sorted.tsv $TMP_OFILE > $TMP_PFILE
 	$AWK -F'\t' '
 	@include '"$CFG_UTILS"'
@@ -163,4 +188,4 @@ if [ $n_OFILE -ne 0 ] ; then
 	$DM_SCRIPTS/map_addrs.sh -sc $TMP_SC_FILE -cf $TMP_CFILE -at src $TMP_PFILE
 fi
 
-rm -f $TMP_FP_CFILE $TMP_OFILE $TMP_EFILE $TMP_PFILE $TMP_CFILE $TMP_SC_FILE
+rm -f $TMP_AFILE $TMP_AFILE_2 $TMP_FP_CFILE $TMP_OFILE $TMP_OFILE_2 $TMP_EFILE $TMP_PFILE $TMP_CFILE $TMP_SC_FILE
