@@ -144,27 +144,21 @@ fi
 # map address (if any)
 if [ $n_OFILE -ne 0 ] ; then
 
-# very simple config, changes rarely, so create inline
-#tm cat > $TMP_FP_CFILE <<_EOF_
-#tm main.scale_type = factor
-#tm main.values = 0.90,0.90,0.90 | 0.94,0.94,0.5 | 0.94,0.75,0.5 | 0.94,0.5,0.5
-#tm main.keys = PPL | PLU | PCVL | PTRKL
-#tm main.def_value = 0.63,0.63,0.94
-#tm main.def_key_text = dest
-#tm _EOF_
+	# TODO: ensure that addresses must be rest [, dest]*
 
-# very simple config, changes rarely, so create it on the fly
-awk 'BEGIN {
-	n_addrs = "'"$n_OFILE"'" + 0
-}
-END {
-	printf("main.scale_type = factor\n")
-	printf("main.values = 0.90,0.90,0.90 | 0.94,0.94,0.5 | 0.94,0.75,0.5 | 0.94,0.5,0.5%s\n",
-		n_addrs > 1 ? " | 0.63,0.63,0.94" : "")
-	printf("main.keys = PPL | PLU | PCVL | PTRKL%s\n", n_addrs > 1 ? " | rest" : "")
-	printf("main.def_value = %s\n", n_addrs > 1 ? "0.7,0.9,0.7" : "0.63,0.63,0.63")
-	printf("main.def_key_text = dest\n")
-}' < /dev/null > $TMP_FP_CFILE
+	# very simple config that depends on number of addresses
+	awk 'BEGIN {
+		n_addrs = "'"$n_OFILE"'" + 0
+	}
+	END {
+		printf("main.scale_type = factor\n")
+		printf("main.values = 0.90,0.90,0.90 | 0.94,0.94,0.5 | 0.94,0.75,0.5 | 0.94,0.5,0.5%s\n",
+			n_addrs > 1 ? " | 0.63,0.63,0.94" : "")
+		printf("main.keys = PPL | PLU | PCVL | PTRKL%s\n", n_addrs > 1 ? " | rest" : "")
+		printf("main.def_value = %s\n", n_addrs > 1 ? "0.7,0.9,0.7" : "0.63,0.63,0.63")
+		printf("main.def_key_text = dest\n")
+	}' < /dev/null > $TMP_FP_CFILE
+
 	$WM_BIN/find_addrs_in_rect $DIST -a $WM_DATA/sps_sorted.tsv $TMP_OFILE > $TMP_PFILE
 	$AWK -F'\t' '
 	@include '"$CFG_UTILS"'
@@ -181,7 +175,10 @@ END {
 		}
 	}
 	{
+		comma = index($NF, ",")
+		key = comma > 0 ? substr($NF, 1, comma - 1) : $NF
 		iv = IU_interpolate(color, $NF)
+		#iv = IU_interpolate(color, key)
 		printf("#%s\n", CU_rgb_to_24bit_color(iv))
 	}' $TMP_PFILE > $TMP_CFILE
 	$DM_SCRIPTS/cfg_to_json.sh $TMP_FP_CFILE > $TMP_SC_FILE
