@@ -10,6 +10,7 @@ if [ -z "$WM_HOME" ] ; then
 fi
 WM_BIN=$WM_HOME/bin
 WM_DATA=$WM_HOME/data/Seattle_Parking
+WM_SRC=$WM_HOME/src
 
 if [ -z "$DM_HOME" ] ; then
 	LOG ERROR "DM_HOME not defined"
@@ -177,8 +178,9 @@ if [ $n_OFILE -ne 0 ] ; then
 	{
 		comma = index($NF, ",")
 		key = comma > 0 ? substr($NF, 1, comma - 1) : $NF
-		iv = IU_interpolate(color, $NF)
-		#iv = IU_interpolate(color, key)
+		printf("key = \"%s\"\n", key) > "/tmp/debug.file"
+		#iv = IU_interpolate(color, $NF)
+		iv = IU_interpolate(color, key)
 		printf("#%s\n", CU_rgb_to_24bit_color(iv))
 	}' $TMP_PFILE > $TMP_CFILE
 	$DM_SCRIPTS/cfg_to_json.sh $TMP_FP_CFILE > $TMP_SC_FILE

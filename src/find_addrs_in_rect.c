@@ -109,7 +109,7 @@ main(int argc, char *argv[])
 				continue;
 			}
 		}
-		ap = AD_new_addr(line, lnum);
+		ap = AD_new_addr(line, lnum, 0);
 		if(ap == NULL){
 			LOG_ERROR("line %7d: AD_new_addr failed", lnum);
 			err = 1;
@@ -170,20 +170,17 @@ find_addrs_in_box(const ADATA_T *adp, const ADDR_T *ap, double size)
 	}
 
 	// box and table overlap, deal w/ box.low < table.low and box.high > table.high
-	printf("%s\n", ap->a_line);
+	AD_print_addr(stdout, ap);
 	i_first = bl_ge == -1 ? 0 : bl_ge;
 	i_last = bh_le == adp->an_atab ? adp->an_atab - 1 : bh_le;
 	for(pr_ap = 1, i = i_first; i <= i_last; i++){
 		ap1 = adp->a_atab[i];
 		if(ap1->a_lng < box[0].s_x || ap1->a_lng > box[3].s_x)
 			continue;
-/*
-		if(pr_ap){
-			pr_ap = 0;
-			printf("%s\n", ap->a_line);
-		}
-*/
+		/*
 		printf("%s\n", ap1->a_line);
+		*/
+		AD_print_addr(stdout, ap1);
 	}
 	
 CLEAN_UP : ;

@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <ctype.h>
 #include <string.h>
 #include <stdlib.h>
 
@@ -140,7 +141,7 @@ AD_read_adata(ADATA_T *adp, int verbose)
 			err = 1;
 			goto CLEAN_UP;
 		}
-		ap = AD_new_addr(line, lnum);
+		ap = AD_new_addr(line, lnum, 1);
 		if(ap == NULL){
 			LOG_ERROR("line %7d: AD_new_addr failed", lnum);
 			err = 1;
@@ -208,13 +209,15 @@ AD_dump_adata(FILE *fp, const ADATA_T *adp, int verbose)
 		for(i = 0; i < adp->an_atab; i++){
 			ap = adp->a_atab[i];
 			if(verbose == 1)
-				fprintf(fp, "\t\t%d\t%.15e\t%15e\t%s\n", ap->a_lnum, ap->a_lng, ap->a_lat, ap->a_line);
+				fprintf(fp, "\t\t%d\t%d\t%.15e\t%15e\t%s\n", ap->a_sign, ap->a_lnum, ap->a_lng, ap->a_lat, ap->a_line);
 			else{
 				fprintf(fp, "\t\tline = %d {\n", i + 1);
+				fprintf(fp, "\t\t\tsing = %d\n", ap->a_sign);
 				fprintf(fp, "\t\t\tlnum = %d\n", ap->a_lnum);
+				fprintf(fp, "\t\t\tqry  = %s\n", ap->a_qry ? ap->a_qry : "NULL");
 				fprintf(fp, "\t\t\tlng  = %.15e\n", ap->a_lng);
 				fprintf(fp, "\t\t\tlat  = %.15e\n", ap->a_lat);
-				fprintf(fp, "\t\t\tline = %s\n", ap->a_line);
+				fprintf(fp, "\t\t\trply = %s\n", ap->a_rply);
 				fprintf(fp, "\t\t}\n");
 			}
 		}
@@ -224,10 +227,12 @@ AD_dump_adata(FILE *fp, const ADATA_T *adp, int verbose)
 }
 
 ADDR_T	*
-AD_new_addr(const char *line, int lnum)
+AD_new_addr(const char *line, int lnum, int sign)
 {
 	const char	*s_fp, *e_fp;
+	char	*qry = NULL;
 	double	lng, lat;
+	char	*rply = NULL;
 	int	fnum;
 	ADDR_T	*ap = NULL;
 	int	err = 0;
@@ -242,10 +247,25 @@ AD_new_addr(const char *line, int lnum)
 		fnum++;
 		if((e_fp = strchr(s_fp, '\t')) == NULL)
 			e_fp = s_fp + strlen(s_fp);
-		if(fnum == 4)
+		if(fnum == 2){
+			qry = strndup(s_fp, e_fp - s_fp);
+			if(qry == NULL){
+				LOG_ERROR("line %7d: can't strndup qry", lnum);
+				err = 1;
+				goto CLEAN_UP;
+			}
+		}else if(fnum == 4)
 			lng = strtod(s_fp, NULL);
 		else if(fnum == 5)
 			lat = strtod(s_fp, NULL);
+		else if(fnum == 6){
+			rply = strndup(s_fp, e_fp - s_fp);
+			if(rply == NULL){
+				LOG_ERROR("line %7d: can't strndup rply", lnum);
+				err = 1;
+				goto CLEAN_UP;
+			}
+		}
 		s_fp = *e_fp ? e_fp + 1 : e_fp;
 	}
 	if(fnum != 6){
@@ -261,17 +281,27 @@ AD_new_addr(const char *line, int lnum)
 		goto CLEAN_UP;
 	}
 
+	ap->a_sign = sign;
 	ap->a_lnum = lnum;
-	ap->a_lng = lng;
-	ap->a_lat = lat;
 	ap->a_line = strdup(line);
 	if(ap->a_line == NULL){
 		LOG_ERROR("can't strdup line");
 		err = 1;
 		goto CLEAN_UP;
 	}
+	ap->a_qry = qry;
+	qry = NULL;
+	ap->a_lng = lng;
+	ap->a_lat = lat;
+	ap->a_rply = rply;
+	rply = NULL;
 
 CLEAN_UP : ;
+
+	if(rply != NULL)
+		free(rply);
+	if(qry != NULL)
+		free(qry);
 
 	if(err){
 		if(ap != NULL){
@@ -292,6 +322,55 @@ AD_delete_addr(ADDR_T *ap)
 
 	if(ap->a_line != NULL)
 		free(ap->a_line);
+	if(ap->a_qry != NULL)
+		free(ap->a_qry);
+	if(ap->a_rply != NULL)
+		free(ap->a_rply);
 
 	free(ap);
+}
+
+void
+AD_print_addr(FILE *fp, const ADDR_T *ap)
+{
+	const char *q1, *e_q1;
+	const char *r1, *e_r1;
+	int	f;
+	char	*s_fp, *e_fp;;
+
+	if(ap->a_sign){
+		fprintf(fp, "%s\n", ap->a_line);
+		return;
+	}
+
+	for(q1 = ap->a_qry; isspace(*q1); q1++)
+		;
+	e_q1 = strchr(q1, ',');
+	for(--e_q1; isspace(*e_q1); e_q1--)
+		;
+
+	for(r1 = ap->a_rply; isspace(*r1); r1++)
+		;
+	e_r1 = strchr(r1, ',');
+	for(--e_r1; isspace(*e_r1); e_r1--)
+		;
+
+	// qry & rply are the same, nothing to do
+	if(!strncmp(q1, r1, e_q1 - q1)){
+		fprintf(fp, "%s\n", ap->a_line);
+		return;
+	}
+
+	for(f = 0, s_fp = ap->a_line; *s_fp; ){
+		f++;
+		if(f == 6)
+			break;
+		if((e_fp = strchr(s_fp, '\t')) == NULL)
+			e_fp = s_fp + strlen(s_fp);
+		s_fp = *e_fp ? e_fp + 1 : e_fp;
+	}
+
+	// LOG_DEBUG("%.*s\t%.*s, %s", (int)(s_fp - ap->a_line), ap->a_line, (int)(e_q1 - q1 + 1), q1, s_fp);
+
+	fprintf(fp, "%.*s%.*s, %s\n", (int)(s_fp - ap->a_line), ap->a_line, (int)(e_q1 - q1 + 1), q1, s_fp);
 }

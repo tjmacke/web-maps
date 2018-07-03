@@ -2,10 +2,15 @@
 #define	_ADDRS_H_
 
 typedef	struct	addr_t	{
+	int	a_sign;
 	int	a_lnum;
+	char	*a_line;
+	// the parsed query
+	char	*a_date;
+	char	*a_qry;
 	double	a_lng;
 	double	a_lat;
-	char	*a_line;
+	char	*a_rply;
 } ADDR_T;
 
 typedef	struct	adata_t	{
@@ -29,9 +34,12 @@ void
 AD_dump_adata(FILE *, const ADATA_T *, int);
 
 ADDR_T	*
-AD_new_addr(const char *, int);
+AD_new_addr(const char *, int, int);
 
 void
 AD_delete_addr(ADDR_T *);
+
+void
+AD_print_addr(FILE *, const ADDR_T *);
 
 #endif
