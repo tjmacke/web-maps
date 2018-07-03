@@ -154,9 +154,9 @@ if [ $n_OFILE -ne 0 ] ; then
 	END {
 		printf("main.scale_type = factor\n")
 		printf("main.values = 0.90,0.90,0.90 | 0.94,0.94,0.5 | 0.94,0.75,0.5 | 0.94,0.5,0.5%s\n",
-			n_addrs > 1 ? " | 0.63,0.63,0.94" : "")
+			n_addrs > 1 ? " | 0.7,0.9,0.7" : "")
 		printf("main.keys = PPL | PLU | PCVL | PTRKL%s\n", n_addrs > 1 ? " | rest" : "")
-		printf("main.def_value = %s\n", n_addrs > 1 ? "0.7,0.9,0.7" : "0.63,0.63,0.63")
+		printf("main.def_value = %s\n", n_addrs > 1 ? "0.63,0.63,0.63" : "0.7,0.9,0.7")
 		printf("main.def_key_text = dest\n")
 	}' < /dev/null > $TMP_FP_CFILE
 
