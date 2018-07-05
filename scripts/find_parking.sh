@@ -37,15 +37,15 @@ else
 fi
 
 
-TMP_AFILE=/tmp/addrs.$$
-TMP_AFILE_2=/tmp/addrs_2.$$	# addrs for 2d geo coder
-TMP_OFILE=/tmp/out.$$
-TMP_OFILE_2=/tmp/out_2.$$
-TMP_EFILE=/tmp/err.$$
-TMP_FP_CFILE=/tmp/fp_cfile.$$
-TMP_PFILE=/tmp/pspots.$$
-TMP_CFILE=/tmp/cfile.$$
-TMP_SC_FILE=/tmp/sc_file.$$
+TMP_AFILE=/tmp/addrs.$$		# addrs for 1st geocoder
+TMP_AFILE_2=/tmp/addrs_2.$$	# addrs for 2nd geocoder
+TMP_OFILE=/tmp/out.$$		# output of 1st geocoder
+TMP_OFILE_2=/tmp/out_2.$$	# output of 2nd geocoder, eventually appended to TMP_OFILE
+TMP_EFILE=/tmp/err.$$		# errs for 1st, 2nd geocoder.  2nd overwrites 1st
+TMP_FP_CFILE=/tmp/fp_cfile.$$	# find parking color/legend config (as key=value
+TMP_PFILE=/tmp/pspots.$$	# resolved addrs + sign cooords
+TMP_CFILE=/tmp/cfile.$$		#
+TMP_FP_CFILE_JSON=/tmp/json_file.$$	#
 
 GEO=geo
 GEO_2=ocd
@@ -145,8 +145,6 @@ fi
 # map address (if any)
 if [ $n_OFILE -ne 0 ] ; then
 
-	# TODO: ensure that addresses must be rest [, dest]*
-
 	# very simple config that depends on number of addresses
 	awk 'BEGIN {
 		n_addrs = "'"$n_OFILE"'" + 0
@@ -156,7 +154,6 @@ if [ $n_OFILE -ne 0 ] ; then
 		printf("main.values = 0.90,0.90,0.90 | 0.94,0.94,0.5 | 0.94,0.75,0.5 | 0.94,0.5,0.5%s\n",
 			n_addrs > 1 ? " | 0.7,0.9,0.7" : "")
 		printf("main.keys = PPL | PLU | PCVL | PTRKL%s\n", n_addrs > 1 ? " | rest" : "")
-#		printf("main.def_value = %s\n", n_addrs > 1 ? "0.63,0.63,0.94" : "0.7,0.9,0.7")
 		printf("main.def_value = %s\n", "0.63,0.63,0.94")
 		printf("main.def_key_text = dest\n")
 	}' < /dev/null > $TMP_FP_CFILE
@@ -179,13 +176,11 @@ if [ $n_OFILE -ne 0 ] ; then
 	{
 		comma = index($NF, ",")
 		key = comma > 0 ? substr($NF, 1, comma - 1) : $NF
-		printf("key = \"%s\"\n", key) > "/tmp/debug.file"
-		#iv = IU_interpolate(color, $NF)
 		iv = IU_interpolate(color, key)
 		printf("#%s\n", CU_rgb_to_24bit_color(iv))
 	}' $TMP_PFILE > $TMP_CFILE
-	$DM_SCRIPTS/cfg_to_json.sh $TMP_FP_CFILE > $TMP_SC_FILE
-	$DM_SCRIPTS/map_addrs.sh -sc $TMP_SC_FILE -cf $TMP_CFILE -at src $TMP_PFILE
+	$DM_SCRIPTS/cfg_to_json.sh $TMP_FP_CFILE > $TMP_FP_CFILE_JSON
+	$DM_SCRIPTS/map_addrs.sh -sc $TMP_FP_CFILE_JSON -cf $TMP_CFILE -at src $TMP_PFILE
 fi
 
-rm -f $TMP_AFILE $TMP_AFILE_2 $TMP_FP_CFILE $TMP_OFILE $TMP_OFILE_2 $TMP_EFILE $TMP_PFILE $TMP_CFILE $TMP_SC_FILE
+rm -f $TMP_AFILE $TMP_AFILE_2 $TMP_FP_CFILE $TMP_OFILE $TMP_OFILE_2 $TMP_EFILE $TMP_PFILE $TMP_CFILE $TMP_FP_CFILE_JSON
