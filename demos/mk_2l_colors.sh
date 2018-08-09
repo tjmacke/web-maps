@@ -1,8 +1,21 @@
 #! /bin/bash
 #
+# input file:
+#	header:	rnum, title, id, fill, all tab separated.
+#
+#	rnum:	shapefile record num
+#	title:	shape name. For shapes belonging to a containing shape,
+#		name is outer/inner.  For shapes without subshapes, name
+#		is just outer without any slash
+#	id:	name of of title's containing shape, which is outer/ if 
+#		title conttain subshapes or just title if it doesn't. An
+#		ending / indicates id contains subshapes
+#	fill:	The fill value for this poly, or containing poly for
+#		shapes with subshapes as #rrggbb
+#
 . ~/etc/funcs.sh
 
-U_MSG="usage: $0 [ -help ] -sf shape-file -id id-field-name prop-tsv-file"
+U_MSG="usage: $0 [ -help ] -sf shape-file -id id-field-name [ prop-tsv-file ]"
 
 TMP_BFILE=/tmp/2l.base.$$
 TMP_NFILE=/tmp/2l.nabes.$$
@@ -69,13 +82,9 @@ if [ -z "$ID" ] ; then
 	exit 1
 fi
 
-if [ -z "$FILE" ] ; then
-	LOG ERROR "missing prop-tsv-file argument"
-	echo "$U_MSG" 1>&2
-	exit 1
-fi
-
-cp $FILE $TMP_BFILE
+# The contents of the input will be used multiple times, so copy to temp to deal with stdin
+cat $FILE > $TMP_BFILE
+# 1. collect all outer level shapes, ie those with id ending with /
 awk -F'\t' 'BEGIN {
 	id = "'"$ID"'"
 }
@@ -106,6 +115,9 @@ END {
 	for(i = 1; i <= n; i++)
 		printf("%s\n", id_tab[i])
 }' $TMP_BFILE	|\
+# 2. collect all inner shapes contained in outer shape $line,
+#    extract them from the shape file
+#    color them use a varieties of base color
 while read line ; do
 	awk -F'\t' 'BEGIN {
 		id = "'"$ID"'"
@@ -130,8 +142,10 @@ while read line ; do
 	../bin/shp_to_geojson -sf $SFILE -pf $TMP_NFILE -pk rnum 		|\
 	../scripts/find_adjacent_polys.sh -fmt wrapped -id title 		|\
 	../scripts/color_graph.sh -bc $bcolor -id title				> $TMP_CFILE 
+# 3. update the original colors
 	../scripts/upd_column_values.sh -mk title -b $TMP_BFILE $TMP_CFILE 
 done
+# 4. create the geojson w/new colors
 tail -n +2 $TMP_BFILE	|\
 ../bin/shp_to_geojson -sf $SFILE -pf $TMP_BFILE -pk rnum
 

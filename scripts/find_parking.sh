@@ -120,7 +120,7 @@ else
 fi
 
 # try geocoder $GEO
-$DM_SCRIPTS/get_geo_for_addrs.sh -geo $GEO $AOPT "$ADDR" > $TMP_OFILE 2> $TMP_EFILE
+$DM_SCRIPTS/get_geo_for_addrs.sh -d 0 -geo $GEO $AOPT "$ADDR" > $TMP_OFILE 2> $TMP_EFILE
 n_OFILE=$(cat $TMP_OFILE | wc -l)
 n_EFILE=$(grep ERROR: $TMP_EFILE | wc -l)
 n_ADDRS=$((n_OFILE + n_EFILE))

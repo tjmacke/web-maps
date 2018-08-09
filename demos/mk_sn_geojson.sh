@@ -11,6 +11,7 @@ fi
 WM_BIN=$WM_HOME/bin
 WM_DATA=$WM_HOME/data
 WM_SCRIPTS=$WM_HOME/scripts
+WM_DEMOS=$WM_HOME/demos
 SND_DATA=$WM_DATA/Seattle_Neighborhoods/WGS84
 
 TMP_PFILE=/tmp/sn.tsv.$$
@@ -182,7 +183,8 @@ if [ -z "$SAVE_BC" ] ; then
 	$WM_SCRIPTS/add_columns.sh -mk $MK $PFX $TMP_PFILE $TMP_CFILE 			> $TMP_PFILE_2
 	$WM_BIN/shp_to_geojson -sf $SND_DATA/Neighborhoods -pf $TMP_PFILE_2 -pk rnum $TMP_RNFILE
 else
-	$WM_SCRIPTS/add_columns.sh -mk $MK $PFX $TMP_PFILE $TMP_CFILE | tee sn_2.colors.tsv 	> $TMP_PFILE_2
+	$WM_SCRIPTS/add_columns.sh -mk $MK $PFX $TMP_PFILE $TMP_CFILE	|\
+	$WM_DEMOS/mk_2l_colors.sh -sf $SND_DATA/Neighborhoods -id id
 fi
 
 rm -f $TMP_PFILE $TMP_RNFILE $TMP_CFILE $TMP_PFILE_2
