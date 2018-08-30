@@ -126,7 +126,6 @@ n_EFILE=$(grep ERROR: $TMP_EFILE | wc -l)
 n_ADDRS=$((n_OFILE + n_EFILE))
 if [ $n_EFILE -ne 0 ] ; then
 	LOG ERROR "geocoder $GEO found $n_OFILE/$n_ADDRS addresses"
-	LOG DEBUG "trying backup geocoder $GEO_2"
 	grep '^ERROR' $TMP_EFILE | awk -F':' '{ print $4 }' > $TMP_AFILE_2
 	n_ADDRS_2=$(cat $TMP_AFILE_2 | wc -l)
 	$DM_SCRIPTS/get_geo_for_addrs.sh -geo $GEO_2 $TMP_AFILE_2 > $TMP_OFILE_2 2> $TMP_EFILE
