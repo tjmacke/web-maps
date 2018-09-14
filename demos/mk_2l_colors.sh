@@ -15,12 +15,13 @@
 #
 . ~/etc/funcs.sh
 
-U_MSG="usage: $0 [ -help ] -sf shape-file -id id-field-name [ prop-tsv-file ]"
+U_MSG="usage: $0 [ -help ] [ -fmt F ] -sf shape-file -id id-field-name [ prop-tsv-file ]"
 
 TMP_BFILE=/tmp/2l.base.$$
 TMP_NFILE=/tmp/2l.nabes.$$
 TMP_CFILE=/tmp/2l.colors.$$
 
+FMT=
 SFILE=
 ID=
 FILE=
@@ -30,6 +31,16 @@ while [ $# -gt 0 ] ; do
 	-help)
 		echo "$U_MSG"
 		exit 0
+		;;
+	-fmt)
+		shift
+		if [ $# -eq 0 ] ; then
+			LOG ERROR "-fmt requires format argument, one of wrap, plain, list"
+			echo "$U_MSG" 1>&2
+			exit 1
+		fi
+		FMT=$1
+		shift
 		;;
 	-sf)
 		shift
@@ -68,6 +79,10 @@ if [ $# -ne 0 ] ; then
 	LOG ERROR "extra arguments $*"
 	echo "$U_MSG" 1>&2
 	exit 1
+fi
+
+if [ ! -z "$FMT" ] ; then
+	FMT="-fmt $FMT"
 fi
 
 if [ -z "$SFILE" ] ; then
@@ -147,6 +162,6 @@ while read line ; do
 done
 # 4. create the geojson w/new colors
 tail -n +2 $TMP_BFILE	|\
-../bin/shp_to_geojson -sf $SFILE -pf $TMP_BFILE -pk rnum
+../bin/shp_to_geojson $FMT -sf $SFILE -pf $TMP_BFILE -pk rnum
 
 rm -f $TMP_BFILE $TMP_NFILE $TMP_CFILE

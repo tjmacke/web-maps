@@ -2,7 +2,7 @@
 #
 . ~/etc/funcs.sh
 
-U_MSG="usage: $0 [ -help ] [ -sa adj-file ] [ -h [ -d { union | lines | colors } ] ] (no arguments)"
+U_MSG="usage: $0 [ -help ] [ -sa adj-file ] [ -fmt F ] [ -h [ -d { union | lines | colors } ] ] (no arguments)"
 
 if [ -z "$WM_HOME" ] ; then
 	LOG ERROR "WM_HOME not defined"
@@ -20,6 +20,7 @@ TMP_CFILE=/tmp/sn.colors.tsv.$$
 TMP_PFILE_2=/tmp/sn_2.tsv.$$
 
 AFILE=
+FMT=
 HOPT=
 HDISP=
 
@@ -37,6 +38,16 @@ while [ $# -gt 0 ] ; do
 			exit 1
 		fi
 		AFILE=$1
+		shift
+		;;
+	-fmt)
+		shift
+		if [ $# -eq 0 ] ; then
+			LOG ERROR "-fmt requires format arg, one of wrap, plain, list"
+			echo "$U_MSG" 1>&2
+			exit 1
+		fi
+		FMT=$1
 		shift
 		;;
 	-h)
@@ -65,6 +76,10 @@ while [ $# -gt 0 ] ; do
 		;;
 	esac
 done
+
+if [ ! -z "$FMT" ] ;
+	FMT="-fmt $FMT"
+fi
 
 if [ "$HOPT" == "yes" ] ; then
 	ID="id"
@@ -181,10 +196,10 @@ fi											|\
 $WM_SCRIPTS/color_graph.sh -id $ID 							> $TMP_CFILE
 if [ -z "$SAVE_BC" ] ; then
 	$WM_SCRIPTS/add_columns.sh -mk $MK $PFX $TMP_PFILE $TMP_CFILE 			> $TMP_PFILE_2
-	$WM_BIN/shp_to_geojson -sf $SND_DATA/Neighborhoods -pf $TMP_PFILE_2 -pk rnum $TMP_RNFILE
+	$WM_BIN/shp_to_geojson -sf $SND_DATA/Neighborhoods -pf $TMP_PFILE_2 -pk rnum $FMT $TMP_RNFILE
 else
 	$WM_SCRIPTS/add_columns.sh -mk $MK $PFX $TMP_PFILE $TMP_CFILE	|\
-	$WM_DEMOS/mk_2l_colors.sh -sf $SND_DATA/Neighborhoods -id id
+	$WM_DEMOS/mk_2l_colors.sh $FMT -sf $SND_DATA/Neighborhoods -id id
 fi
 
 rm -f $TMP_PFILE $TMP_RNFILE $TMP_CFILE $TMP_PFILE_2
