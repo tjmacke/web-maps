@@ -126,21 +126,6 @@ AD_read_adata(ADATA_T *adp, int verbose)
 				goto CLEAN_UP;
 			}
 		}
-		for(fnum = 0, e_fp = s_fp = line; *s_fp; ){
-			fnum++;
-			if((e_fp = strchr(s_fp, '\t')) == NULL)
-				e_fp = s_fp + strlen(s_fp);
-			if(fnum == 4)
-				lng = strtod(s_fp, NULL);
-			else if(fnum == 5)
-				lat = strtod(s_fp, NULL);
-			s_fp = *e_fp ? e_fp + 1 : e_fp;
-		}
-		if(fnum != 6){
-			LOG_ERROR("line %7d: wrong number of fields %d, need %d", lnum, fnum, 6);
-			err = 1;
-			goto CLEAN_UP;
-		}
 		ap = AD_new_addr(line, lnum, 1);
 		if(ap == NULL){
 			LOG_ERROR("line %7d: AD_new_addr failed", lnum);
@@ -150,12 +135,13 @@ AD_read_adata(ADATA_T *adp, int verbose)
 		if(adp->an_atab >= adp->as_atab){
 			void	*s_tab;
 			int	s_size;
+			int	i;
 
 			s_tab = adp->a_atab;
 			s_size = adp->as_atab;
-			
+
 			adp->as_atab *= 1.5;
-			adp->a_atab = realloc(adp->a_atab, adp->as_atab);
+			adp->a_atab = realloc(adp->a_atab, adp->as_atab * sizeof(ADDR_T *));
 			if(adp->a_atab == NULL){
 				LOG_ERROR("line %7d: can't realloc a_atab", lnum);
 				err = 1;
@@ -163,6 +149,9 @@ AD_read_adata(ADATA_T *adp, int verbose)
 				adp->a_atab = s_tab;
 				goto CLEAN_UP;
 			}
+			// zero the new part!
+			for(i = adp->an_atab; i < adp->as_atab; i++)
+				adp->a_atab[i] = NULL;
 		}
 		adp->a_atab[adp->an_atab] = ap;
 		adp->an_atab++;
@@ -212,7 +201,7 @@ AD_dump_adata(FILE *fp, const ADATA_T *adp, int verbose)
 				fprintf(fp, "\t\t%d\t%d\t%.15e\t%15e\t%s\n", ap->a_sign, ap->a_lnum, ap->a_lng, ap->a_lat, ap->a_line);
 			else{
 				fprintf(fp, "\t\tline = %d {\n", i + 1);
-				fprintf(fp, "\t\t\tsing = %d\n", ap->a_sign);
+				fprintf(fp, "\t\t\tsign = %d\n", ap->a_sign);
 				fprintf(fp, "\t\t\tlnum = %d\n", ap->a_lnum);
 				fprintf(fp, "\t\t\tqry  = %s\n", ap->a_qry ? ap->a_qry : "NULL");
 				fprintf(fp, "\t\t\tlng  = %.15e\n", ap->a_lng);
