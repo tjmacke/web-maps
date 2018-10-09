@@ -158,6 +158,7 @@ find_addrs_in_box(const ADATA_T *adp, const ADDR_T *ap, double size)
 	if(bl_ge == adp->an_atab){	// [t t] [b b]
 		LOG_WARN("box is above the highest address");
 		err = 1;
+		AD_print_addr(stdout, ap);
 		goto CLEAN_UP;
 	}
 
@@ -166,6 +167,7 @@ find_addrs_in_box(const ADATA_T *adp, const ADDR_T *ap, double size)
 	if(bh_le == -1){		// [b b] [t t]
 		LOG_WARN("box is below the lowest address");
 		err = 1;
+		AD_print_addr(stdout, ap);
 		goto CLEAN_UP;
 	}
 
