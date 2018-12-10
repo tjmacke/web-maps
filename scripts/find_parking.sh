@@ -2,7 +2,7 @@
 #
 . ~/etc/funcs.sh
 
-U_MSG="usage: $0 [ -help ] [ -v ] [ -d D ] { -a address | [ address-file ] }"
+U_MSG="usage: $0 [ -help ] [ -v ] [ -efmt { new* | old } ] [ -d D ] { -a address | [ address-file ] }"
 
 if [ -z "$WM_HOME" ] ; then
 	LOG ERROR "WM_HOME not defined"
@@ -50,6 +50,7 @@ TMP_FP_CFILE_JSON=/tmp/json_file.$$	#
 GEO=geo
 GEO_2=ocd
 VERBOSE=
+EFMT=new
 DIST=
 ADDR=
 FILE=
@@ -62,6 +63,16 @@ while [ $# -gt 0 ] ; do
 		;;
 	-v)
 		VERBOSE="yes"
+		shift
+		;;
+	-efmt)
+		shift
+		if [ $# -eq 0 ] ; then
+			LOG ERROR "-efmt requires format string"
+			echo "$U_MSG" 1>&2
+			exit 1
+		fi
+		EFMT=$1
 		shift
 		;;
 	-d)
@@ -103,6 +114,12 @@ if [ $# -ne 0 ] ; then
 	exit 1
 fi
 
+if [ "$EFMT" != "new" ] && [ "$EFMT" != "old" ] ; then
+	LOG ERROR "unknown error fmt: $EFMT, must new or old"
+	echo "$U_MSG" 1>&2
+	exit 1
+fi
+
 if [ ! -z "$DIST" ] ; then
 	DIST="-d $DIST"
 fi
@@ -122,11 +139,16 @@ fi
 # try geocoder $GEO
 $DM_SCRIPTS/get_geo_for_addrs.sh -d 0 -geo $GEO $AOPT "$ADDR" > $TMP_OFILE 2> $TMP_EFILE
 n_OFILE=$(cat $TMP_OFILE | wc -l)
-n_EFILE=$(grep ERROR: $TMP_EFILE | wc -l)
+n_EFILE=$(grep '^ERROR' $TMP_EFILE | wc -l)
 n_ADDRS=$((n_OFILE + n_EFILE))
 if [ $n_EFILE -ne 0 ] ; then
 	LOG ERROR "geocoder $GEO found $n_OFILE/$n_ADDRS addresses"
-	grep '^ERROR' $TMP_EFILE | awk -F':' '{ print $4 }' > $TMP_AFILE_2
+	grep '^ERROR' $TMP_EFILE |\
+        if [ "$EFMT" == "new" ] ; then
+		awk -F'\t' '{ print $4 }'
+	else
+		awk -F':' '{ print $4 }'
+	fi > $TMP_AFILE_2
 	n_ADDRS_2=$(cat $TMP_AFILE_2 | wc -l)
 	$DM_SCRIPTS/get_geo_for_addrs.sh -geo $GEO_2 $TMP_AFILE_2 > $TMP_OFILE_2 2> $TMP_EFILE
 	n_OFILE_2=$(cat $TMP_OFILE_2 | wc -l)
