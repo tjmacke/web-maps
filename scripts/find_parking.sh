@@ -2,7 +2,7 @@
 #
 . ~/etc/funcs.sh
 
-U_MSG="usage: $0 [ -help ] [ -v ] [ -efmt { new* | old } ] [ -d D ] { -a address | [ address-file ] }"
+U_MSG="usage: $0 [ -help ] [ -v ] [ -d D ] { -a address | [ address-file ] }"
 
 if [ -z "$WM_HOME" ] ; then
 	LOG ERROR "WM_HOME not defined"
@@ -41,7 +41,9 @@ TMP_AFILE=/tmp/addrs.$$		# addrs for 1st geocoder
 TMP_AFILE_2=/tmp/addrs_2.$$	# addrs for 2nd geocoder
 TMP_OFILE=/tmp/out.$$		# output of 1st geocoder
 TMP_OFILE_2=/tmp/out_2.$$	# output of 2nd geocoder, eventually appended to TMP_OFILE
-TMP_EFILE=/tmp/err.$$		# errs for 1st, 2nd geocoder.  2nd overwrites 1st
+TMP_EFILE=/tmp/err.$$		# errs for 1st, 2nd geocoders
+TMP_EFILE_1=/tmp/err_1.$$	# errs for 1st geocoder.
+TMP_EFILE_2=/tmp/err_2.$$	# errs for 1st geocoder.
 TMP_FP_CFILE=/tmp/fp_cfile.$$	# find parking color/legend config (as key=value
 TMP_PFILE=/tmp/pspots.$$	# resolved addrs + sign cooords
 TMP_CFILE=/tmp/cfile.$$		#
@@ -50,7 +52,6 @@ TMP_FP_CFILE_JSON=/tmp/json_file.$$	#
 GEO=geo
 GEO_2=ocd
 VERBOSE=
-EFMT=new
 DIST=
 ADDR=
 FILE=
@@ -63,16 +64,6 @@ while [ $# -gt 0 ] ; do
 		;;
 	-v)
 		VERBOSE="yes"
-		shift
-		;;
-	-efmt)
-		shift
-		if [ $# -eq 0 ] ; then
-			LOG ERROR "-efmt requires format string"
-			echo "$U_MSG" 1>&2
-			exit 1
-		fi
-		EFMT=$1
 		shift
 		;;
 	-d)
@@ -114,12 +105,6 @@ if [ $# -ne 0 ] ; then
 	exit 1
 fi
 
-if [ "$EFMT" != "new" ] && [ "$EFMT" != "old" ] ; then
-	LOG ERROR "unknown error fmt: $EFMT, must new or old"
-	echo "$U_MSG" 1>&2
-	exit 1
-fi
-
 if [ ! -z "$DIST" ] ; then
 	DIST="-d $DIST"
 fi
@@ -137,33 +122,33 @@ else
 fi
 
 # try geocoder $GEO
-$DM_SCRIPTS/get_geo_for_addrs.sh -d 0 -geo $GEO $AOPT "$ADDR" > $TMP_OFILE 2> $TMP_EFILE
+LOG DEBUG "try geocoder $GEO"
+$DM_SCRIPTS/get_geo_for_addrs.sh -d 0 -efmt new -geo $GEO $AOPT "$ADDR" > $TMP_OFILE 2> $TMP_EFILE_1
 n_OFILE=$(cat $TMP_OFILE | wc -l)
-n_EFILE=$(grep '^ERROR' $TMP_EFILE | wc -l)
-n_ADDRS=$((n_OFILE + n_EFILE))
-if [ $n_EFILE -ne 0 ] ; then
+n_EFILE_1=$(grep '^ERROR' $TMP_EFILE_1 | wc -l)
+n_ADDRS=$((n_OFILE + n_EFILE_1))
+if [ $n_EFILE_1 -ne 0 ] ; then
 	LOG ERROR "geocoder $GEO found $n_OFILE/$n_ADDRS addresses"
-	grep '^ERROR' $TMP_EFILE |\
-        if [ "$EFMT" == "new" ] ; then
-		awk -F'\t' '{ print $4 }'
-	else
-		awk -F':' '{ print $4 }'
-	fi > $TMP_AFILE_2
-	n_ADDRS_2=$(cat $TMP_AFILE_2 | wc -l)
-	$DM_SCRIPTS/get_geo_for_addrs.sh -geo $GEO_2 $TMP_AFILE_2 > $TMP_OFILE_2 2> $TMP_EFILE
-	n_OFILE_2=$(cat $TMP_OFILE_2 | wc -l)
-	n_EFILE=$(grep ERROR: $TMP_EFILE | wc -l)
-	if [ $n_EFILE -ne 0 ] ; then
+	grep '^ERROR' $TMP_EFILE_1 | awk -F'\t' '{ print $4 }' > $TMP_AFILE_2
+	if [ "$VERBOSE" ] ; then
+		cat $TMP_EFILE_1 1>&2
+	fi
+	n_ADDRS_2=$(cat $TMP_AFILE_2 | wc -l | tr -d ' ')
+	$DM_SCRIPTS/get_geo_for_addrs.sh -d 0 -efmt new -geo $GEO_2 $TMP_AFILE_2 > $TMP_OFILE_2 2> $TMP_EFILE_2
+	n_OFILE_2=$(cat $TMP_OFILE_2 | wc -l | tr -d ' ')
+	n_EFILE_2=$(grep '^ERROR' $TMP_EFILE_2 | wc -l | tr -d ' ')
+	# TODO: Analyze both error files
+	if [ $n_EFILE_2 -ne 0 ] ; then
 		LOG ERROR "backup geocoder $GEO_2 found an addtional $n_OFILE_2/$n_ADDRS_2 addresses"
 		if [ "$VERBOSE" != "" ] ; then
-			cat $TMP_EFILE 1>&2
+			cat $TMP_EFILE_2 1>&2
 		fi
 	fi
 	cat $TMP_OFILE_2 >> $TMP_OFILE
 	n_OFILE=$(cat $TMP_OFILE | wc -l)
 fi
 
-# map address (if any)
+# map address(es) (if any)
 if [ $n_OFILE -ne 0 ] ; then
 
 	# very simple config that depends on number of addresses
@@ -204,4 +189,4 @@ if [ $n_OFILE -ne 0 ] ; then
 	$DM_SCRIPTS/map_addrs.sh -sc $TMP_FP_CFILE_JSON -cf $TMP_CFILE -at src $TMP_PFILE
 fi
 
-rm -f $TMP_AFILE $TMP_AFILE_2 $TMP_FP_CFILE $TMP_OFILE $TMP_OFILE_2 $TMP_EFILE $TMP_PFILE $TMP_CFILE $TMP_FP_CFILE_JSON
+rm -f $TMP_AFILE $TMP_AFILE_2 $TMP_FP_CFILE $TMP_OFILE $TMP_OFILE_2 $TMP_EFILE $TMP_EFILE_1 $TMP_EFILE_2 $TMP_PFILE $TMP_CFILE $TMP_FP_CFILE_JSON
