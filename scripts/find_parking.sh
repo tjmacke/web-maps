@@ -2,7 +2,7 @@
 #
 . ~/etc/funcs.sh
 
-U_MSG="usage: $0 [ -help ] [ -v ] [ -d D ] { -a address | [ address-file ] }"
+U_MSG="usage: $0 [ -help ] [ -d D ] { -a address | [ address-file ] }"
 
 if [ -z "$WM_HOME" ] ; then
 	LOG ERROR "WM_HOME not defined"
@@ -36,22 +36,21 @@ else
 	exit 1
 fi
 
+GEO_1=geo
+GEO_2=ocd
 
 TMP_AFILE=/tmp/addrs.$$		# addrs for 1st geocoder
 TMP_AFILE_2=/tmp/addrs_2.$$	# addrs for 2nd geocoder
 TMP_OFILE=/tmp/out.$$		# output of 1st geocoder
 TMP_OFILE_2=/tmp/out_2.$$	# output of 2nd geocoder, eventually appended to TMP_OFILE
 TMP_EFILE=/tmp/err.$$		# errs for 1st, 2nd geocoders
-TMP_EFILE_1=/tmp/err_1.$$	# errs for 1st geocoder.
-TMP_EFILE_2=/tmp/err_2.$$	# errs for 1st geocoder.
+TMP_EFILE_1=/tmp/$GEO_1.err.$$	# errs for 1st geocoder
+TMP_EFILE_2=/tmp/$GEO_2.err.$$	# errs for 2nd geocoder
 TMP_FP_CFILE=/tmp/fp_cfile.$$	# find parking color/legend config (as key=value
 TMP_PFILE=/tmp/pspots.$$	# resolved addrs + sign cooords
 TMP_CFILE=/tmp/cfile.$$		#
 TMP_FP_CFILE_JSON=/tmp/json_file.$$	#
 
-GEO=geo
-GEO_2=ocd
-VERBOSE=
 DIST=
 ADDR=
 FILE=
@@ -61,10 +60,6 @@ while [ $# -gt 0 ] ; do
 	-help)
 		echo "$U_MSG"
 		exit 0
-		;;
-	-v)
-		VERBOSE="yes"
-		shift
 		;;
 	-d)
 		shift
@@ -121,31 +116,25 @@ else
 	ADDR=$FILE
 fi
 
-# try geocoder $GEO
-LOG DEBUG "try geocoder $GEO"
-$DM_SCRIPTS/get_geo_for_addrs.sh -d 0 -efmt new -geo $GEO $AOPT "$ADDR" > $TMP_OFILE 2> $TMP_EFILE_1
+# try geocoder $GEO_1
+$DM_SCRIPTS/get_geo_for_addrs.sh -d 0 -efmt new -geo $GEO_1 $AOPT "$ADDR" > $TMP_OFILE 2> $TMP_EFILE_1
 n_OFILE=$(cat $TMP_OFILE | wc -l)
 n_EFILE_1=$(grep '^ERROR' $TMP_EFILE_1 | wc -l)
 n_ADDRS=$((n_OFILE + n_EFILE_1))
 if [ $n_EFILE_1 -ne 0 ] ; then
-	LOG ERROR "geocoder $GEO found $n_OFILE/$n_ADDRS addresses"
+	LOG ERROR "geocoder $GEO_1 found $n_OFILE/$n_ADDRS addresses"
 	grep '^ERROR' $TMP_EFILE_1 | awk -F'\t' '{ print $4 }' > $TMP_AFILE_2
-	if [ "$VERBOSE" ] ; then
-		cat $TMP_EFILE_1 1>&2
-	fi
 	n_ADDRS_2=$(cat $TMP_AFILE_2 | wc -l | tr -d ' ')
+	# try geocoder $GEO_2
 	$DM_SCRIPTS/get_geo_for_addrs.sh -d 0 -efmt new -geo $GEO_2 $TMP_AFILE_2 > $TMP_OFILE_2 2> $TMP_EFILE_2
 	n_OFILE_2=$(cat $TMP_OFILE_2 | wc -l | tr -d ' ')
 	n_EFILE_2=$(grep '^ERROR' $TMP_EFILE_2 | wc -l | tr -d ' ')
-	# TODO: Analyze both error files
 	if [ $n_EFILE_2 -ne 0 ] ; then
 		LOG ERROR "backup geocoder $GEO_2 found an addtional $n_OFILE_2/$n_ADDRS_2 addresses"
-		if [ "$VERBOSE" != "" ] ; then
-			cat $TMP_EFILE_2 1>&2
-		fi
 	fi
 	cat $TMP_OFILE_2 >> $TMP_OFILE
 	n_OFILE=$(cat $TMP_OFILE | wc -l)
+	$DM_SCRIPTS/merge_geo_error_files.sh $TMP_EFILE_1 $TMP_EFILE_2 1>&2
 fi
 
 # map address(es) (if any)
