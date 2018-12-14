@@ -48,8 +48,8 @@ TMP_EFILE_1=/tmp/$GEO_1.err.$$	# errs for 1st geocoder
 TMP_EFILE_2=/tmp/$GEO_2.err.$$	# errs for 2nd geocoder
 TMP_FP_CFILE=/tmp/fp_cfile.$$	# find parking color/legend config (as key=value
 TMP_PFILE=/tmp/pspots.$$	# resolved addrs + sign cooords
-TMP_CFILE=/tmp/cfile.$$		#
-TMP_FP_CFILE_JSON=/tmp/json_file.$$	#
+TMP_CFILE=/tmp/cfile.$$		# color file for points
+TMP_FP_CFILE_JSON=/tmp/json_file.$$	# json version of TMP_FP_CFILE.$$
 
 DIST=
 ADDR=
@@ -121,20 +121,19 @@ $DM_SCRIPTS/get_geo_for_addrs.sh -d 0 -efmt new -geo $GEO_1 $AOPT "$ADDR" > $TMP
 n_OFILE=$(cat $TMP_OFILE | wc -l)
 n_EFILE_1=$(grep '^ERROR' $TMP_EFILE_1 | wc -l)
 n_ADDRS=$((n_OFILE + n_EFILE_1))
-if [ $n_EFILE_1 -ne 0 ] ; then
-	LOG ERROR "geocoder $GEO_1 found $n_OFILE/$n_ADDRS addresses"
+if [ $n_EFILE_1 -gt 0 ] ; then
 	grep '^ERROR' $TMP_EFILE_1 | awk -F'\t' '{ print $4 }' > $TMP_AFILE_2
 	n_ADDRS_2=$(cat $TMP_AFILE_2 | wc -l | tr -d ' ')
 	# try geocoder $GEO_2
 	$DM_SCRIPTS/get_geo_for_addrs.sh -d 0 -efmt new -geo $GEO_2 $TMP_AFILE_2 > $TMP_OFILE_2 2> $TMP_EFILE_2
 	n_OFILE_2=$(cat $TMP_OFILE_2 | wc -l | tr -d ' ')
 	n_EFILE_2=$(grep '^ERROR' $TMP_EFILE_2 | wc -l | tr -d ' ')
-	if [ $n_EFILE_2 -ne 0 ] ; then
-		LOG ERROR "backup geocoder $GEO_2 found an addtional $n_OFILE_2/$n_ADDRS_2 addresses"
+	if [ $n_EFILE_2 -gt 0 ] ; then
+		LOG ERROR "$n_EFILE_2/$n_ADDRS addresses were not found"
+		$DM_SCRIPTS/merge_geo_error_files.sh $TMP_EFILE_1 $TMP_EFILE_2 1>&2
 	fi
 	cat $TMP_OFILE_2 >> $TMP_OFILE
 	n_OFILE=$(cat $TMP_OFILE | wc -l)
-	$DM_SCRIPTS/merge_geo_error_files.sh $TMP_EFILE_1 $TMP_EFILE_2 1>&2
 fi
 
 # map address(es) (if any)
@@ -171,6 +170,8 @@ if [ $n_OFILE -ne 0 ] ; then
 	{
 		comma = index($NF, ",")
 		key = comma > 0 ? substr($NF, 1, comma - 1) : $NF
+		if(key ~ /^rest:/)
+			key = "rest"
 		iv = IU_interpolate(color, key)
 		printf("#%s\n", CU_rgb_to_24bit_color(iv))
 	}' $TMP_PFILE > $TMP_CFILE
