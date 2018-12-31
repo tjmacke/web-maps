@@ -31,11 +31,12 @@ if [ $# -ne 0 ] ; then
 	exit 1
 fi
 
-awk 'BEGIN {
+awk -F'\t' 'BEGIN {
 	apos = sprintf("%c", 39)
 }
 {
 	work = $0
+	date = $2
 	idx = index(work, " -a ")
 	work = substr(work, idx+4)
 	idx = index(work, ">")
@@ -46,8 +47,10 @@ awk 'BEGIN {
 	o_quote = substr(work, 1, 1)
 	c_quote = substr(work, length(work))
 	emsg = bad_quotes(o_quote, c_quote)
-	if(emsg != "")
-		printf("WARN: main: line %7d: %s: %s\n", NR, emsg, work) > "/dev/stderr"
+	if(emsg != ""){
+		printf("ERROR: main: line %7d: %s: %s\n", NR, emsg, work) > "/dev/stderr"
+		next
+	}
 	if(o_quote == apos || o_quote == "\"")
 		work = substr(work, 2)
 	if(c_quote == apos || c_quote == "\"")
@@ -64,7 +67,7 @@ awk 'BEGIN {
 		}
 		sub(/  *$/, "", ary[i])
 		ary[i] = clean_addr(ary[i])
-		printf("%s\n", ary[i])
+		printf("%s\t%s\n", date, ary[i])
 	}
 }
 function bad_quotes(o_quote, c_quote) {
