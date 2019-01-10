@@ -2,7 +2,7 @@
 #
 . ~/etc/funcs.sh
 
-U_MSG="usage: $0 [ -help ] [ -d D ] { -a address | [ address-file ] }"
+U_MSG="usage: $0 [ -help ] [ -d D ] [ -geo geo-list ] { -a address | [ address-file ] }"
 
 if [ -z "$WM_HOME" ] ; then
 	LOG ERROR "WM_HOME not defined"
@@ -52,6 +52,7 @@ TMP_CFILE=/tmp/cfile.$$		# color file for points
 TMP_FP_CFILE_JSON=/tmp/json_file.$$	# json version of TMP_FP_CFILE.$$
 
 DIST=
+G_LIST=
 ADDR=
 FILE=
 
@@ -69,6 +70,16 @@ while [ $# -gt 0 ] ; do
 			exit 1
 		fi
 		DIST=$1
+		shift
+		;;
+	-geo)
+		shift
+		if [ $# -eq 0 ] ; then
+			LOG ERROR "-geo requires geo-list argument"
+			echo "$U_MSG" 1>&2
+			exit 1
+		fi
+		G_LIST=$1
 		shift
 		;;
 	-a)
@@ -102,6 +113,11 @@ fi
 
 if [ ! -z "$DIST" ] ; then
 	DIST="-d $DIST"
+fi
+
+if [ -z "$G_LIST" ] ; then
+	G_LIST="$GEO_1,$GEO_2"
+# else # chk that G_LIST is ok
 fi
 
 if [ ! -z "$ADDR" ] ; then

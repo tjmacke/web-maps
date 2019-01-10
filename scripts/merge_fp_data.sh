@@ -36,9 +36,9 @@ fi
 
 for f in $FILES; do
 	awk '{
-		if(fd == ""){
+		if(fdate == ""){
 			nf = split(FILENAME, ary, ".")
-			fd = ary[nf-1]
+			fdate = ary[nf-1]
 		}
 		work = $0
 		sub(/^ */, "", work)
@@ -47,7 +47,7 @@ for f in $FILES; do
 		cmd_num = substr(work, 1, sp - 1) + 0
 		work = substr(work, sp + 1)
 		sub(/^ */, "", work)
-		printf("%d\t%s\t%s\n", cmd_num, fd, work)
+		printf("%d\t%s\t%s\n", cmd_num, fdate, work)
 	}' $f
 done	|
 sort -t $'\t' -k 1n,1 -k 2n,2	|
@@ -56,6 +56,8 @@ awk -F'\t' '{
 		if(l_1 != ""){
 			if(n_dups > 1)
 				analyze_dups(n_dups, dups)
+			else
+				printf("%s\n", dups[1])
 			delete dups
 			n_dups = 0
 		}
@@ -72,6 +74,8 @@ END {
 	if(l_1 != ""){
 		if(n_dups > 1)
 			analyze_dups(n_dups, dups)
+		else
+			printf("%s\n", dups[1])
 		delete dups
 		n_dups = 0
 	}

@@ -44,6 +44,11 @@ awk -F'\t' 'BEGIN {
 		work = substr(work, 1, idx-1)
 	sub(/^  */, "", work)
 	sub(/  *$/, "", work)
+	if(work ~ /^ *$/){
+		emsg = "empty or blank line"
+		printf("ERROR: main: line %7d: %s: %s\n", NR, emsg, work) > "/dev/stderr"
+		next
+	}
 	o_quote = substr(work, 1, 1)
 	c_quote = substr(work, length(work))
 	emsg = bad_quotes(o_quote, c_quote)

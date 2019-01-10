@@ -156,7 +156,7 @@ find_addrs_in_box(const ADATA_T *adp, const ADDR_T *ap, double size)
 	// check the lowest lat of the box
 	fi_addr_bounds(box[0].s_y, adp, &bl_le, &bl_ge);
 	if(bl_ge == adp->an_atab){	// [t t] [b b]
-		LOG_WARN("box is above the highest address");
+		LOG_WARN("address %s is north of all parking data", ap->a_qry);
 		err = 1;
 		AD_print_addr(stdout, ap);
 		goto CLEAN_UP;
@@ -165,7 +165,7 @@ find_addrs_in_box(const ADATA_T *adp, const ADDR_T *ap, double size)
 	// check the highest lat of the box
 	fi_addr_bounds(box[1].s_y, adp, &bh_le, &bh_ge);
 	if(bh_le == -1){		// [b b] [t t]
-		LOG_WARN("box is below the lowest address");
+		LOG_WARN("address %s is south of all parking data", ap->a_qry);
 		err = 1;
 		AD_print_addr(stdout, ap);
 		goto CLEAN_UP;
