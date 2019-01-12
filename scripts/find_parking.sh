@@ -1,8 +1,9 @@
 #  /bin/bash
 #
 . ~/etc/funcs.sh
+U_MSG="usage: $0 [ -help ] [ -d D ] [ -gl gc-list ] { -a address | [ address-file ] }"
 
-U_MSG="usage: $0 [ -help ] [ -d D ] [ -geo geo-list ] { -a address | [ address-file ] }"
+NOW="$(date +%Y%m%d_%H%M%S)"
 
 if [ -z "$WM_HOME" ] ; then
 	LOG ERROR "WM_HOME not defined"
@@ -16,6 +17,7 @@ if [ -z "$DM_HOME" ] ; then
 	LOG ERROR "DM_HOME not defined"
 	exit 1
 fi
+DM_ETC=$DM_HOME/etc
 DM_LIB=$DM_HOME/lib
 DM_SCRIPTS=$DM_HOME/scripts
 
@@ -36,8 +38,21 @@ else
 	exit 1
 fi
 
-GEO_1=geo
-GEO_2=ocd
+. $DM_ETC/geocoder_defs.sh
+
+# Need to save & date the calls to find_parking.sh, so here's v-0.0.1
+FP_DATA=$HOME/fp_data
+LOG_DIR=$FP_DATA/"$(echo $NOW | awk -F_ '{ print substr($1, 1, 6) }')"
+if [ ! -d $LOG_DIR ] ; then
+	emsg="$(mkdir $LOG_DIR 2>&1)"
+	if [ ! -z "$emsg" ] ; then
+		LOG INFO $emsg
+		exit 1
+	fi
+fi
+LOG_FILE=$LOG_DIR/"$(echo $NOW | awk -F_ '{ printf("fp.%s.log",  $1) }')"
+# do this _before_ arg processing of $@ will be empty
+echo "$NOW $@" >> $LOG_FILE
 
 TMP_AFILE=/tmp/addrs.$$		# addrs for 1st geocoder
 TMP_AFILE_2=/tmp/addrs_2.$$	# addrs for 2nd geocoder
@@ -52,7 +67,7 @@ TMP_CFILE=/tmp/cfile.$$		# color file for points
 TMP_FP_CFILE_JSON=/tmp/json_file.$$	# json version of TMP_FP_CFILE.$$
 
 DIST=
-G_LIST=
+GC_LIST=
 ADDR=
 FILE=
 
@@ -72,14 +87,14 @@ while [ $# -gt 0 ] ; do
 		DIST=$1
 		shift
 		;;
-	-geo)
+	-gl)
 		shift
 		if [ $# -eq 0 ] ; then
 			LOG ERROR "-geo requires geo-list argument"
 			echo "$U_MSG" 1>&2
 			exit 1
 		fi
-		G_LIST=$1
+		GC_LIST=$1
 		shift
 		;;
 	-a)
@@ -115,9 +130,19 @@ if [ ! -z "$DIST" ] ; then
 	DIST="-d $DIST"
 fi
 
-if [ -z "$G_LIST" ] ; then
-	G_LIST="$GEO_1,$GEO_2"
-# else # chk that G_LIST is ok
+# set up the geocoder order
+if [ -z "$GC_LIST" ] ; then
+	GC_LIST="$GEO_PRIMARY,$GEO_SECONDARY"
+	GEO_1=$GEO_PRIMARY
+	GEO_2=$GEO_SECONDARY
+else
+	GC_WORK="$(chk_geocoders "$GC_LIST")"
+	if echo "$GC_WORK" | grep '^ERROR' ; then
+		LOG ERROR "$GC_WORK"
+		exit 1
+	fi
+	GEO_1=$(echo "$GC_WORK" | awk -F, '{ print $1 }')
+	GEO_2=$(echo "$GC_WORK" | awk -F, '{ print $2 }')
 fi
 
 if [ ! -z "$ADDR" ] ; then
