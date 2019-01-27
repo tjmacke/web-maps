@@ -1,7 +1,7 @@
 #  /bin/bash
 #
 . ~/etc/funcs.sh
-U_MSG="usage: $0 [ -help ] [ -d D ] [ -gl gc-list ] [ -app { gh*|dd|pm|ue } ] { -a address | [ address-file ] }"
+U_MSG="usage: $0 [ -help ] [ -log { file | NONE } ] [ -d D ] [ -gl gc-list ] [ -app { gh*|dd|pm|ue } ] { -a address | [ address-file ] }"
 
 NOW="$(date +%Y%m%d_%H%M%S)"
 
@@ -40,20 +40,6 @@ fi
 
 . $DM_ETC/geocoder_defs.sh
 
-# Need to save & date the calls to find_parking.sh, so here's v-0.0.1
-FP_DATA=$HOME/fp_data
-LOG_DIR=$FP_DATA/"$(echo $NOW | awk -F_ '{ printf("%s/%s", substr($1, 1, 4),  substr($1, 1, 6)) }')"
-if [ ! -d $LOG_DIR ] ; then
-	emsg="$(mkdir -p $LOG_DIR 2>&1)"
-	if [ ! -z "$emsg" ] ; then
-		LOG INFO $emsg
-		exit 1
-	fi
-fi
-LOG_FILE=$LOG_DIR/"$(echo $NOW | awk -F_ '{ printf("fp.%s.log",  $1) }')"
-# do this _before_ arg processing or $@ will be empty
-echo "$NOW $@" >> $LOG_FILE
-
 TMP_AFILE=/tmp/addrs.$$		# addrs for 1st geocoder
 TMP_AFILE_2=/tmp/addrs_2.$$	# addrs for 2nd geocoder
 TMP_OFILE=/tmp/out.$$		# output of 1st geocoder
@@ -66,6 +52,9 @@ TMP_PFILE=/tmp/pspots.$$	# resolved addrs + sign cooords
 TMP_CFILE=/tmp/cfile.$$		# color file for points
 TMP_FP_CFILE_JSON=/tmp/json_file.$$	# json version of TMP_FP_CFILE.$$
 
+# save the args so they can be logged, if requested
+ARGS="$@"
+LOG=
 DIST=
 GC_LIST=
 APP="gh"
@@ -77,6 +66,16 @@ while [ $# -gt 0 ] ; do
 	-help)
 		echo "$U_MSG"
 		exit 0
+		;;
+	-log)
+		shift
+		if [ $# -eq 0 ] ; then
+			LOG ERROR "-log requires file arg or NONE"
+			echo "$U_MSG" 1>&2
+			exit 1
+		fi
+		LOG=$1
+		shift
 		;;
 	-d)
 		shift
@@ -135,6 +134,27 @@ if [ $# -ne 0 ] ; then
 	LOG ERROR "extra arguments $*"
 	echo "$U_MSG" 1>&2
 	exit 1
+fi
+
+# process LOG arg
+if [ -z "$LOG" ] ; then	# LOG="", use default log dir & log file
+	FP_DATA=$HOME/fp_data
+	LOG_DIR=$FP_DATA/"$(echo $NOW | awk -F_ '{ printf("%s/%s", substr($1, 1, 4),  substr($1, 1, 6)) }')"
+	if [ ! -d $LOG_DIR ] ; then
+		emsg="$(mkdir -p $LOG_DIR 2>&1)"
+		if [ ! -z "$emsg" ] ; then
+			LOG INFO $emsg
+			exit 1
+		fi
+	fi
+	LOG_FILE=$LOG_DIR/"$(echo $NOW | awk -F_ '{ printf("fp.%s.log",  $1) }')"
+else
+	LOG_FILE="$LOG"
+fi
+
+# if requested, log the command; since it's save, maybe do more? later in the script?
+if [ "$LOG_FILE" != "NONE" ] ; then
+	echo "$NOW $ARGS" >> $LOG_FILE
 fi
 
 if [ ! -z "$DIST" ] ; then
