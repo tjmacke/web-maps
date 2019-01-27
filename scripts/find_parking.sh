@@ -1,7 +1,7 @@
 #  /bin/bash
 #
 . ~/etc/funcs.sh
-U_MSG="usage: $0 [ -help ] [ -d D ] [ -gl gc-list ] { -a address | [ address-file ] }"
+U_MSG="usage: $0 [ -help ] [ -d D ] [ -gl gc-list ] [ -app { gh*|dd|pm|ue } ] { -a address | [ address-file ] }"
 
 NOW="$(date +%Y%m%d_%H%M%S)"
 
@@ -42,16 +42,16 @@ fi
 
 # Need to save & date the calls to find_parking.sh, so here's v-0.0.1
 FP_DATA=$HOME/fp_data
-LOG_DIR=$FP_DATA/"$(echo $NOW | awk -F_ '{ print substr($1, 1, 6) }')"
+LOG_DIR=$FP_DATA/"$(echo $NOW | awk -F_ '{ printf("%s/%s", substr($1, 1, 4),  substr($1, 1, 6)) }')"
 if [ ! -d $LOG_DIR ] ; then
-	emsg="$(mkdir $LOG_DIR 2>&1)"
+	emsg="$(mkdir -p $LOG_DIR 2>&1)"
 	if [ ! -z "$emsg" ] ; then
 		LOG INFO $emsg
 		exit 1
 	fi
 fi
 LOG_FILE=$LOG_DIR/"$(echo $NOW | awk -F_ '{ printf("fp.%s.log",  $1) }')"
-# do this _before_ arg processing of $@ will be empty
+# do this _before_ arg processing or $@ will be empty
 echo "$NOW $@" >> $LOG_FILE
 
 TMP_AFILE=/tmp/addrs.$$		# addrs for 1st geocoder
@@ -68,6 +68,7 @@ TMP_FP_CFILE_JSON=/tmp/json_file.$$	# json version of TMP_FP_CFILE.$$
 
 DIST=
 GC_LIST=
+APP="gh"
 ADDR=
 FILE=
 
@@ -95,6 +96,16 @@ while [ $# -gt 0 ] ; do
 			exit 1
 		fi
 		GC_LIST=$1
+		shift
+		;;
+	-app)
+		shift
+		if [ $# -eq 0 ] ; then
+			LOG ERROR "-app requires app-name argument"
+			echo "$U_MSG" 1>&2
+			exit 1
+		fi
+		APP=$1
 		shift
 		;;
 	-a)
