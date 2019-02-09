@@ -39,6 +39,8 @@ else
 fi
 
 . $DM_ETC/geocoder_defs.sh
+GEO_1=$GEO_PRIMARY
+GEO_2=$GEO_SECONDARY
 
 TMP_AFILE=/tmp/addrs.$$		# addrs for 1st geocoder
 TMP_AFILE_2=/tmp/addrs_2.$$	# addrs for 2nd geocoder
@@ -168,7 +170,7 @@ if [ -z "$GC_LIST" ] ; then
 	GEO_2=$GEO_SECONDARY
 else
 	GC_WORK="$(chk_geocoders "$GC_LIST")"
-	if echo "$GC_WORK" | grep '^ERROR' ; then
+	if echo "$GC_WORK" | grep '^ERROR' > /dev/null ; then
 		LOG ERROR "$GC_WORK"
 		exit 1
 	fi
