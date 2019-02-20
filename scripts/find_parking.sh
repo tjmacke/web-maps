@@ -38,6 +38,8 @@ else
 	exit 1
 fi
 
+FP_DATA=$HOME/work/trip_data/seattle/fp_data
+
 . $DM_ETC/geocoder_defs.sh
 GEO_1=$GEO_PRIMARY
 GEO_2=$GEO_SECONDARY
@@ -140,7 +142,6 @@ fi
 
 # process LOG arg
 if [ -z "$LOG" ] ; then	# LOG="", use default log dir & log file
-	FP_DATA=$HOME/fp_data
 	LOG_DIR=$FP_DATA/"$(echo $NOW | awk -F_ '{ printf("%s/%s", substr($1, 1, 4),  substr($1, 1, 6)) }')"
 	if [ ! -d $LOG_DIR ] ; then
 		emsg="$(mkdir -p $LOG_DIR 2>&1)"
