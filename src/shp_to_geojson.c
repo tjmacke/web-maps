@@ -10,10 +10,11 @@
 #include "args.h"
 #include "props.h"
 #include "shape.h"
+#include "s2g_input.h"
 #include "index.h"
 #include "fmap.h"
 
-#define	MD_NAME	"md5"
+//#define	MD_NAME	"md5"
 
 static	ARGS_T	*args;
 static	FLAG_T	flags[] = {
@@ -23,6 +24,7 @@ static	FLAG_T	flags[] = {
 	{"-pf",   1, AVK_REQ,  AVT_STR,  NULL, "Use -pf P to to add properties to the geojson."},
 	{"-pk",   1, AVK_REQ,  AVT_STR,  NULL, "Use -pk K to set the primary key to K."},
 	{"-fmt",  1, AVK_REQ,  AVT_STR,  "wrap*|plain|list",  "Use -fmt F, F in {wrap, plain, list} to control the format of the json output."},
+	{"-all",  1, AVK_NONE, AVT_BOOL, "0",  "Use -all to convert all elements in the src to geojson; any input file is ignored."},
 	{"",      1, AVK_MSG,  AVT_BOOL, "0",  "The data sources: choose one of: -sf S or -fmap F"},
 	{"-sf",   1, AVK_REQ,  AVT_STR,  NULL, "Use -sf S to convert some or all of the shapes in S.shp, S.shx to geojson."},
 	{"-fmap", 1, AVK_REQ,  AVT_STR,  NULL, "Use -fmap F to convert some or all of the shapes in file map F to geojson."}
@@ -42,6 +44,7 @@ main(int argc, char *argv[])
 	const char	*pfname = NULL;
 	const char	*pkey = NULL;
 	const char	*fmt = NULL;
+	int	all = 0;
 	const char	*sf = NULL;
 	const char	*fm_name = NULL;
 
@@ -113,7 +116,6 @@ main(int argc, char *argv[])
 
 	a_val = TJM_get_flag_value(args, "-fmt", AVT_STR);
 	fmt = a_val->av_value.v_str;
-
 	if(strcmp(fmt, "wrap")){
 		if(scfname != NULL){
 			LOG_ERROR("-sc SC option requires -fmt wrap");
@@ -121,6 +123,9 @@ main(int argc, char *argv[])
 			goto CLEAN_UP;
 		}
 	}
+
+	a_val = TJM_get_flag_value(args, "-all", AVT_BOOL);
+	all = a_val->av_value.v_int;
 
 	a_val = TJM_get_flag_value(args, "-sf", AVT_STR);
 	sf = a_val->av_value.v_str;
@@ -237,7 +242,7 @@ main(int argc, char *argv[])
 		if(verbose)
 			PROPS_dump_properties(stderr, props);
 	}else if(fm_name != NULL){
-		// need some sort of props file as the default title shape_%07d need be unique
+		// need some sort of props file as the default title shape_%07d needs to be unique
 		props = PROPS_make_default_ptab("title");
 		if(props == NULL){
 			LOG_ERROR("PROPS_make_default_ptab failed");

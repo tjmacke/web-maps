@@ -48,8 +48,8 @@ make_shx_from_shp_file:	make_shx_from_shp_file.o log.o args.o shape.o file_io.o
 shp_dump:	shp_dump.o log.o args.o file_io.o shape.o dbase.o
 	$(CC) $(CFLAGS) -o shp_dump shp_dump.o log.o args.o file_io.o shape.o dbase.o
 
-shp_to_geojson:	shp_to_geojson.o log.o args.o file_io.o shape.o props.o fmap.o split.o
-	$(CC) $(CFLAGS) -o shp_to_geojson shp_to_geojson.o log.o args.o file_io.o shape.o props.o fmap.o split.o $(SSL_LIBS)
+shp_to_geojson:	shp_to_geojson.o log.o args.o file_io.o shape.o s2g_input.o props.o fmap.o split.o
+	$(CC) $(CFLAGS) -o shp_to_geojson shp_to_geojson.o log.o args.o file_io.o shape.o s2g_input.o props.o fmap.o split.o $(SSL_LIBS)
 
 csv2tsv.o:	log.h args.h
 
@@ -64,6 +64,8 @@ gpc_driver.o:	log.h args.h
 index_shp_file.o:	log.h args.h index.h shape.h
 
 make_shx_from_shp_file.o:	log.h args.h shape.h file_io.h
+
+s2g_input.o:	log.h shape.h s2g_input.h
 
 shp_dump.o:	log.h args.h shape.h dbase.h
 
