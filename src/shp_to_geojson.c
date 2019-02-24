@@ -14,8 +14,6 @@
 #include "index.h"
 #include "fmap.h"
 
-//#define	MD_NAME	"md5"
-
 static	ARGS_T	*args;
 static	FLAG_T	flags[] = {
 	{"-help", 1, AVK_NONE, AVT_BOOL, "0",  "Use -help to print this message."},
@@ -53,38 +51,12 @@ main(int argc, char *argv[])
 	PROP_T	*def_pp = NULL;
 	char	*p_value;
 
-	char	*shp_fname = NULL;
-	SF_FHDR_T	*shp_fhdr = NULL;
-	char	*shx_fname = NULL;
-	int	n_recs = 0;
-	SF_RIDX_T	*sf_ridx = NULL;
-	SF_RIDX_T	*sf_rip;
-	SF_SHAPE_T	*shp = NULL;
-
-	const EVP_MD	*md = NULL;
-	EVP_MD_CTX	mdctx;
-	int	mdctx_init = 0;
-	unsigned char	md_value[EVP_MAX_MD_SIZE];
-	unsigned int	md_len;
-	char	md_value_str[(2*EVP_MAX_MD_SIZE + 1)];
+	S2G_INPUT_T	*s2g = NULL;
 	char	*mvp;
-
-	FMAP_T	*fmap = NULL;
-	FILE	*i2rfp = NULL;
-	int	i2rfd;
-	struct stat	i2rsbuf;
-	void	*map = NULL;
-	HDR_T	*i2rhdr;
-	KEY2RNUM_T	*atab, *i2r;
-	int	n_atab;
-	FM_ENTRY_T	*l_fme, *fme;
-	FILE	*rixfp = NULL;
-	HDR_T	rixhdr;
+	KEY2RNUM_T	*i2r;
 	RIDX_T	ridx;
-	char	*fm_dfname = NULL;
-	size_t	s_fm_dfname = 0;
-	size_t	l_fm_dfname = 0;
 	long	offset;
+	SF_SHAPE_T	*shp = NULL;
 
 	FILE	*fp = NULL;
 	char	*line = NULL;
@@ -154,6 +126,14 @@ main(int argc, char *argv[])
 		goto CLEAN_UP;
 	}
 
+	s2g = S2G_new(verbose, sf, fm_name);
+	if(s2g == NULL){
+		LOG_ERROR("S2G_new failed");
+		err = 1;
+		goto CLEAN_UP;
+	}
+
+/*
 	if(sf != NULL){	// data in a single shp/shx pair
 		shp_fname = SHP_make_sf_name(sf, "shp");
 		if(shp_fname == NULL){
@@ -226,6 +206,7 @@ main(int argc, char *argv[])
 		n_atab = i2rhdr->h_count;
 		atab = (KEY2RNUM_T *)&((char *)map)[sizeof(HDR_T)];
 	}
+*/
 
 	if(pfname != NULL){
 		props = PROPS_new_properties(pfname, pkey);
@@ -251,7 +232,7 @@ main(int argc, char *argv[])
 		}
 	}
 
-	for(l_fme = NULL, a_prlg = first = 1, lcnt = 0; (l_line = getline(&line, &s_line, fp)) > 0; ){
+	for(s2g->sl_fme = NULL, a_prlg = first = 1, lcnt = 0; (l_line = getline(&line, &s_line, fp)) > 0; ){
 		lcnt++;
 		if(line[l_line - 1] == '\n'){
 			line[l_line - 1] = '\0';
@@ -263,78 +244,78 @@ main(int argc, char *argv[])
 		}
 		if(sf != NULL){
 			rnum = atoi(line);
-			if(rnum < 1 || rnum > n_recs){
-				LOG_WARN("line %7d: rnum %d out of range 1:%d", lcnt, rnum, n_recs);
+			if(rnum < 1 || rnum > s2g->sn_recs){
+				LOG_WARN("line %7d: rnum %d out of range 1:%d", lcnt, rnum, s2g->sn_recs);
 				err = 1;
 				continue;
 			}
-			sf_rip = &sf_ridx[rnum - 1];
-			fseek(shp_fhdr->s_fp, SF_WORD_SIZE * sf_rip->s_offset, SEEK_SET);
+			s2g->s_sf_rip = &s2g->s_sf_ridx[rnum - 1];
+			fseek(s2g->s_shp_fhdr->s_fp, SF_WORD_SIZE * s2g->s_sf_rip->s_offset, SEEK_SET);
 		}else{	// using fmap
-			EVP_DigestInit_ex(&mdctx, md, NULL);
-			EVP_DigestUpdate(&mdctx, line, l_line);
-			EVP_DigestFinal(&mdctx, md_value, &md_len);
-			for(mvp = md_value_str, i = 0; i < md_len; i++, mvp += 2)
-				sprintf(mvp, "%02x", md_value[i] & 0xff);
+			EVP_DigestInit_ex(&s2g->s_mdctx, s2g->s_md, NULL);
+			EVP_DigestUpdate(&s2g->s_mdctx, line, l_line);
+			EVP_DigestFinal(&s2g->s_mdctx, s2g->s_md_value, &s2g->s_md_len);
+			for(mvp = s2g->s_md_value_str, i = 0; i < s2g->s_md_len; i++, mvp += 2)
+				sprintf(mvp, "%02x", s2g->s_md_value[i] & 0xff);
 			*mvp = '\0';
 
-			i2r = findkey(md_value_str, n_atab, atab);
+			i2r = findkey(s2g->s_md_value_str, s2g->sn_atab, s2g->s_atab);
 			if(i2r == NULL){
-				LOG_ERROR("%s (%s) not in index %s", line, md_value_str, fmap->f_index);
+				LOG_ERROR("%s (%s) not in index %s", line, s2g->s_md_value_str, s2g->s_fmap->f_index);
 				err = 1;
 				continue;
 			}
 
-			if((fme = FMrnum2fmentry(fmap, i2r->k_rnum)) == NULL){
+			if((s2g->s_fme = FMrnum2fmentry(s2g->s_fmap, i2r->k_rnum)) == NULL){
 				LOG_ERROR("NO fme for rnum %010u", i2r->k_rnum);
 				err = 1;
 				goto CLEAN_UP;
 			}
-			if(fme != l_fme){
-				if(rixfp != NULL){
-					fclose(rixfp);
-					rixfp = NULL;
+			if(s2g->s_fme != s2g->sl_fme){
+				if(s2g->s_rixfp != NULL){
+					fclose(s2g->s_rixfp);
+					s2g->s_rixfp = NULL;
 				}
-				if((rixfp = FMfopen(fmap->f_root, fme->f_fname, fmap->f_ridx, "r")) == NULL){
-					LOG_ERROR("FMfopen failed for %s", fme->f_fname);
+				if((s2g->s_rixfp = FMfopen(s2g->s_fmap->f_root, s2g->s_fme->f_fname, s2g->s_fmap->f_ridx, "r")) == NULL){
+					LOG_ERROR("FMfopen failed for %s", s2g->s_fme->f_fname);
 					err = 1;
 					goto CLEAN_UP;
 				}
-				fread(&rixhdr, sizeof(HDR_T), (size_t)1, rixfp);
-				if(shp_fhdr != NULL){
-					SHP_close_file(shp_fhdr);
-					shp_fhdr = NULL;
+				fread(&s2g->s_rixhdr, sizeof(HDR_T), (size_t)1, s2g->s_rixfp);
+				if(s2g->s_shp_fhdr != NULL){
+					SHP_close_file(s2g->s_shp_fhdr);
+					s2g->s_shp_fhdr = NULL;
 				}
 				// TODO: open new one
-				l_fm_dfname = strlen(fmap->f_root) + 1 + strlen(fme->f_fname); 
-				if(l_fm_dfname + 1 > s_fm_dfname){
-					if(fm_dfname != NULL)
-						free(fm_dfname);
-					s_fm_dfname = l_fm_dfname + 1;
-					fm_dfname = (char *)malloc(s_fm_dfname);
-					if(fm_dfname == NULL){
-						LOG_ERROR("can't allocate fm_dfname for %s/%s", fmap->f_root, fme->f_fname);
+				s2g->sl_fm_dfname = strlen(s2g->s_fmap->f_root) + 1 + strlen(s2g->s_fme->f_fname); 
+				if(s2g->sl_fm_dfname + 1 > s2g->ss_fm_dfname){
+					if(s2g->s_fm_dfname != NULL)
+						free(s2g->s_fm_dfname);
+					s2g->ss_fm_dfname = s2g->sl_fm_dfname + 1;
+					s2g->s_fm_dfname = (char *)malloc(s2g->ss_fm_dfname);
+					if(s2g->s_fm_dfname == NULL){
+						LOG_ERROR("can't allocate fm_dfname for %s/%s", s2g->s_fmap->f_root, s2g->s_fme->f_fname);
 						err = 1;
 						goto CLEAN_UP;
 					}
 				}
-				sprintf(fm_dfname, "%s/%s", fmap->f_root, fme->f_fname);
-				shp_fhdr = SHP_open_file(fm_dfname);
-				if(shp_fhdr == NULL){
-					LOG_ERROR("SHP_open_file failed for %s", fme->f_fname);
+				sprintf(s2g->s_fm_dfname, "%s/%s", s2g->s_fmap->f_root, s2g->s_fme->f_fname);
+				s2g->s_shp_fhdr = SHP_open_file(s2g->s_fm_dfname);
+				if(s2g->s_shp_fhdr == NULL){
+					LOG_ERROR("SHP_open_file failed for %s", s2g->s_fme->f_fname);
 					err = 1;
 					goto CLEAN_UP;
 				}
 			}
 
 			// get the offset (as bytes this time for the shp to read)
-			offset = (i2r->k_rnum - fme->f_first) * rixhdr.h_size + sizeof(HDR_T);
-			fseek(rixfp, (long)offset, SEEK_SET);
-			fread(&ridx, sizeof(ridx), 1L, rixfp);
+			offset = (i2r->k_rnum - s2g->s_fme->f_first) * s2g->s_rixhdr.h_size + sizeof(HDR_T);
+			fseek(s2g->s_rixfp, (long)offset, SEEK_SET);
+			fread(&ridx, sizeof(ridx), 1L, s2g->s_rixfp);
 
-			fseek(shp_fhdr->s_fp, ridx.r_offset, SEEK_SET);
+			fseek(s2g->s_shp_fhdr->s_fp, ridx.r_offset, SEEK_SET);
 		}
-		shp = SHP_read_shape(shp_fhdr->s_fp);
+		shp = SHP_read_shape(s2g->s_shp_fhdr->s_fp);
 		if(shp == NULL){
 			LOG_ERROR("line %7d: SHP_read_shape failed for record %d", lcnt, rnum);
 			err = 1;
@@ -409,6 +390,7 @@ CLEAN_UP : ;
 	if(props != NULL)
 		PROPS_delete_properties(props);
 
+/*
 	// file map stuff
 	if(fm_dfname != NULL)
 		free(fm_dfname);
@@ -430,6 +412,9 @@ CLEAN_UP : ;
 		SHP_close_file(shp_fhdr);
 	if(shp_fname != NULL)
 		free(shp_fname);
+*/
+	if(s2g != NULL)
+		S2G_delete(s2g);
 
 	if(fp != NULL && fp != stdin)
 		fclose(fp);

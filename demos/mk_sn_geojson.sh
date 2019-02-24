@@ -2,13 +2,14 @@
 #
 . ~/etc/funcs.sh
 
-U_MSG="usage: $0 [ -help ] [ -sa adj-file ] [ -fmt F ] [ -h [ -d { union | lines | colors } ] ] (no arguments)"
+U_MSG="usage: $0 [ -help ] [ -b ] [ -sa adj-file ] [ -fmt F ] [ -h [ -d { union | lines | colors } ] ] (no arguments)"
 
 if [ -z "$WM_HOME" ] ; then
 	LOG ERROR "WM_HOME not defined"
 	exit 1
 fi
 WM_BIN=$WM_HOME/bin
+WM_BUILD=$WM_HOME/src
 WM_DATA=$WM_HOME/data
 WM_SCRIPTS=$WM_HOME/scripts
 WM_DEMOS=$WM_HOME/demos
@@ -19,6 +20,7 @@ TMP_RNFILE=/tmp/sn.rnums.$$
 TMP_CFILE=/tmp/sn.colors.tsv.$$
 TMP_PFILE_2=/tmp/sn_2.tsv.$$
 
+USE_BUILD=
 AFILE=
 FMT=
 HOPT=
@@ -29,6 +31,10 @@ while [ $# -gt 0 ] ; do
 	-help)
 		echo "$U_MSG"
 		exit 0
+		;;
+	-b)
+		USE_BUILD="yes"
+		shift
 		;;
 	-sa)
 		shift
@@ -77,7 +83,15 @@ while [ $# -gt 0 ] ; do
 	esac
 done
 
-if [ ! -z "$FMT" ] ;
+if [ "$USE_BUILD" == "yes" ] ; then
+	BINDIR=$WM_BUILD
+	BOPT="-b"
+else
+	BINDIR=$WM_BIN
+	BOPT=
+fi
+
+if [ ! -z "$FMT" ] ; then
 	FMT="-fmt $FMT"
 fi
 
@@ -185,7 +199,7 @@ function mk_id(fnums, rec,   nf, ary, i, id) {
 	return id
 }' > $TMP_PFILE
 tail -n +2 $TMP_PFILE | awk '{ print $1 }'						> $TMP_RNFILE
-$WM_BIN/shp_to_geojson -sf $SND_DATA/Neighborhoods -pf $TMP_PFILE -pk rnum $TMP_RNFILE	|\
+$BINDIR/shp_to_geojson -sf $SND_DATA/Neighborhoods -pf $TMP_PFILE -pk rnum $TMP_RNFILE	|\
 $WM_SCRIPTS/find_adjacent_polys.sh -fmt wrapped -id $ID					|\
 $WM_SCRIPTS/rm_dup_islands.sh								|\
 if [ ! -z "$AFILE" ] ; then
@@ -196,10 +210,10 @@ fi											|\
 $WM_SCRIPTS/color_graph.sh -id $ID 							> $TMP_CFILE
 if [ -z "$SAVE_BC" ] ; then
 	$WM_SCRIPTS/add_columns.sh -mk $MK $PFX $TMP_PFILE $TMP_CFILE 			> $TMP_PFILE_2
-	$WM_BIN/shp_to_geojson -sf $SND_DATA/Neighborhoods -pf $TMP_PFILE_2 -pk rnum $FMT $TMP_RNFILE
+	$BINDIR/shp_to_geojson -sf $SND_DATA/Neighborhoods -pf $TMP_PFILE_2 -pk rnum $FMT $TMP_RNFILE
 else
 	$WM_SCRIPTS/add_columns.sh -mk $MK $PFX $TMP_PFILE $TMP_CFILE	|\
-	$WM_DEMOS/mk_2l_colors.sh $FMT -sf $SND_DATA/Neighborhoods -id id
+	$WM_DEMOS/mk_2l_colors.sh $BOPT $FMT -sf $SND_DATA/Neighborhoods -id id
 fi
 
 rm -f $TMP_PFILE $TMP_RNFILE $TMP_CFILE $TMP_PFILE_2

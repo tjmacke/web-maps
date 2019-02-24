@@ -15,12 +15,23 @@
 #
 . ~/etc/funcs.sh
 
-U_MSG="usage: $0 [ -help ] [ -fmt F ] -sf shape-file -id id-field-name [ prop-tsv-file ]"
+U_MSG="usage: $0 [ -help ] [ -b ] [ -fmt F ] -sf shape-file -id id-field-name [ prop-tsv-file ]"
+
+if [ -z "$WM_HOME" ] ; then
+	LOG ERROR "WM_HOME not defined"
+	exit 1
+fi
+WM_BIN=$WM_HOME/bin
+WM_BUILD=$WM_HOME/src
+WM_DATA=$WM_HOME/data
+WM_SCRIPTS=$WM_HOME/scripts
+WM_DEMOS=$WM_HOME/demos
 
 TMP_BFILE=/tmp/2l.base.$$
 TMP_NFILE=/tmp/2l.nabes.$$
 TMP_CFILE=/tmp/2l.colors.$$
 
+USE_BUILD=
 FMT=
 SFILE=
 ID=
@@ -31,6 +42,10 @@ while [ $# -gt 0 ] ; do
 	-help)
 		echo "$U_MSG"
 		exit 0
+		;;
+	-b)
+		USE_BUILD="yes"
+		shift
 		;;
 	-fmt)
 		shift
@@ -79,6 +94,12 @@ if [ $# -ne 0 ] ; then
 	LOG ERROR "extra arguments $*"
 	echo "$U_MSG" 1>&2
 	exit 1
+fi
+
+if [ "$USE_BUILD" == "yes" ] ; then
+	BINDIR=$WM_BUILD
+else
+	BINDIR=$WM_BIN
 fi
 
 if [ ! -z "$FMT" ] ; then
@@ -152,16 +173,16 @@ while read line ; do
 		if($f_id == this_id)
 			print $0
 	}' $TMP_BFILE	> $TMP_NFILE
-	bcolor="$(../scripts/cval_to_cname.sh "$(tail -1 $TMP_NFILE | awk -F'\t' '{ print $NF }')")"
+	bcolor="$($WM_SCRIPTS/cval_to_cname.sh "$(tail -1 $TMP_NFILE | awk -F'\t' '{ print $NF }')")"
 	tail -n +2 $TMP_NFILE							|\
-	../bin/shp_to_geojson -sf $SFILE -pf $TMP_NFILE -pk rnum 		|\
-	../scripts/find_adjacent_polys.sh -fmt wrapped -id title 		|\
-	../scripts/color_graph.sh -bc $bcolor -id title				> $TMP_CFILE 
+	$BINDIR/shp_to_geojson -sf $SFILE -pf $TMP_NFILE -pk rnum 		|\
+	$WM_SCRIPTS/find_adjacent_polys.sh -fmt wrapped -id title 		|\
+	$WM_SCRIPTS/color_graph.sh -bc $bcolor -id title			> $TMP_CFILE 
 # 3. update the original colors
-	../scripts/upd_column_values.sh -mk title -b $TMP_BFILE $TMP_CFILE 
+	$WM_SCRIPTS/upd_column_values.sh -mk title -b $TMP_BFILE $TMP_CFILE 
 done
 # 4. create the geojson w/new colors
 tail -n +2 $TMP_BFILE	|\
-../bin/shp_to_geojson $FMT -sf $SFILE -pf $TMP_BFILE -pk rnum
+$BINDIR/shp_to_geojson $FMT -sf $SFILE -pf $TMP_BFILE -pk rnum
 
 rm -f $TMP_BFILE $TMP_NFILE $TMP_CFILE

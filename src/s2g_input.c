@@ -124,6 +124,23 @@ S2G_delete(S2G_INPUT_T *s2g)
 {
 
 	if(s2g != NULL){
+		if(s2g->s_sf != NULL){
+			if(s2g->s_shp_fhdr != NULL)
+				SHP_close_file(s2g->s_shp_fhdr);
+			if(s2g->s_sf_ridx != NULL)
+				free(s2g->s_sf_ridx);
+			if(s2g->s_shx_fname != NULL)
+				free(s2g->s_shx_fname);
+			if(s2g->s_shp_fname != NULL)
+				free(s2g->s_shp_fname);
+		}else{
+			if(s2g->s_map != NULL)
+				munmap(s2g->s_map, s2g->s_i2rsbuf.st_size);
+			if(s2g->s_fmap != NULL)
+				FMfree_fmap(s2g->s_fmap);
+			if(s2g->s_mdctx_init)
+				EVP_MD_CTX_cleanup(&s2g->s_mdctx);
+		}
 		free(s2g);
 	}
 }

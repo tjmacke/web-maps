@@ -2,13 +2,14 @@
 #
 . ~/etc/funcs.sh
 
-U_MSG="usage: $0 [ -help ] [ -sa adj-file ] (no arguments)"
+U_MSG="usage: $0 [ -help ] [ -b ] [ -sa adj-file ] (no arguments)"
 
 if [ -z "$WM_HOME" ] ; then
 	LOG ERROR "WM_HOME not defined"
 	exit 1
 fi
 WM_BIN=$WM_HOME/bin
+WM_BUILD=$WM_HOME/src
 WM_DATA=$WM_HOME/data
 WM_SCRIPTS=$WM_HOME/scripts
 CB_DATA=$WM_DATA/cb_2016_place_500k
@@ -18,6 +19,7 @@ TMP_TFILE=/tmp/cb_2016.titles.$$
 TMP_CFILE=/tmp/cb_2016.colors.tsv.$$
 TMP_PFILE_2=/tmp/cb_2016_2.tsv.$$
 
+USE_BUILD=
 AFILE=
 
 while [ $# -gt 0 ] ; do
@@ -25,6 +27,10 @@ while [ $# -gt 0 ] ; do
 	-help)
 		echo "$U_MSG"
 		exit 0
+		;;
+	-b)
+		USE_BUILD="yes"
+		shift
 		;;
 	-sa)
 		shift
@@ -49,10 +55,16 @@ while [ $# -gt 0 ] ; do
 	esac
 done
 
+if [ "$USE_BUILD" == "yes" ] ; then
+	BINDIR=$WM_BUILD
+else
+	BINDIR=$WM_BIN
+fi
+
 echo "title" > $TMP_PFILE
 cat $CB_DATA/*.key | sort >> $TMP_PFILE
 tail -n +2 $TMP_PFILE > $TMP_TFILE
-$WM_BIN/shp_to_geojson -fmap $CB_DATA/cb_2016_place_500k.fmap -pf $TMP_PFILE -pk title	$TMP_TFILE	|\
+$BINDIR/shp_to_geojson -fmap $CB_DATA/cb_2016_place_500k.fmap -pf $TMP_PFILE -pk title	$TMP_TFILE	|\
 $WM_SCRIPTS/find_adjacent_polys.sh -fmt wrapped -id title						|\
 $WM_SCRIPTS/rm_dup_islands.sh										|\
 if [ ! -z "$AFILE" ] ; then
@@ -62,6 +74,6 @@ else
 fi													|\
 $WM_SCRIPTS/color_graph.sh -id title									> $TMP_CFILE
 $WM_SCRIPTS/add_columns.sh -mk title $TMP_PFILE $TMP_CFILE						> $TMP_PFILE_2
-$WM_BIN/shp_to_geojson -fmap $CB_DATA/cb_2016_place_500k.fmap -pf $TMP_PFILE_2 -pk title $TMP_TFILE
+$BINDIR/shp_to_geojson -fmap $CB_DATA/cb_2016_place_500k.fmap -pf $TMP_PFILE_2 -pk title $TMP_TFILE
 
 rm -f $TMP_PFILE $TMP_TFILE $TMP_CFILE $TMP_PFILE_2

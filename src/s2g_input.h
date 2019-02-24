@@ -22,7 +22,6 @@ typedef	struct	s2g_input_t	{
 	int	sn_recs;
 	SF_RIDX_T	*s_sf_ridx;
 	SF_RIDX_T	*s_sf_rip;
-	SF_SHAPE_T	*s_shp;
 
 	// or
 	// 2. a shp/shx collection described by fmap
@@ -33,16 +32,14 @@ typedef	struct	s2g_input_t	{
 	struct stat	s_i2rsbuf;
 	void	*s_map;
 	HDR_T	*s_i2rhdr;
-	KEY2RNUM_T	*s_atab, *s_i2r;
+	KEY2RNUM_T	*s_atab;
 	int	sn_atab;
 	FM_ENTRY_T	*sl_fme, *s_fme;
 	FILE	*s_rixfp;
-	HDR_T	*s_rixhdr;
-	RIDX_T	s_ridx;
+	HDR_T	s_rixhdr;
 	char	*s_fm_dfname;
 	size_t	ss_fm_dfname;
 	size_t	sl_fm_dfname;
-	long	s_offset;
 
 	// strings are used to select from fmap; use md5 digest to fit them into 32 chars
 	const EVP_MD	*s_md;
@@ -51,7 +48,6 @@ typedef	struct	s2g_input_t	{
 	unsigned char	s_md_value[EVP_MAX_MD_SIZE];
 	unsigned int	s_md_len;
 	char	s_md_value_str[(2*EVP_MAX_MD_SIZE + 1)];
-	char	*s_mvp;
 } S2G_INPUT_T;
 
 S2G_INPUT_T	*
