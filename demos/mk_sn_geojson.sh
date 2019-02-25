@@ -213,7 +213,7 @@ if [ -z "$SAVE_BC" ] ; then
 	$BINDIR/shp_to_geojson -sf $SND_DATA/Neighborhoods -pf $TMP_PFILE_2 -pk rnum $FMT $TMP_RNFILE
 else
 	$WM_SCRIPTS/add_columns.sh -mk $MK $PFX $TMP_PFILE $TMP_CFILE	|\
-	$WM_DEMOS/mk_2l_colors.sh $BOPT $FMT -sf $SND_DATA/Neighborhoods -id id
+	$WM_SCRIPTS/make_2l_colors.sh $BOPT $FMT -sf $SND_DATA/Neighborhoods -id id
 fi
 
 rm -f $TMP_PFILE $TMP_RNFILE $TMP_CFILE $TMP_PFILE_2
