@@ -2,17 +2,12 @@
 #include <string.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <sys/stat.h>
-#include <sys/mman.h>
-#include <openssl/evp.h>
 
 #include "log.h"
 #include "args.h"
 #include "props.h"
 #include "shape.h"
 #include "s2g_input.h"
-#include "index.h"
-#include "fmap.h"
 
 static	ARGS_T	*args;
 static	FLAG_T	flags[] = {
@@ -28,9 +23,6 @@ static	FLAG_T	flags[] = {
 	{"-fmap", 1, AVK_REQ,  AVT_STR,  NULL, "Use -fmap F to convert some or all of the shapes in file map F to geojson."}
 };
 static	int	n_flags = sizeof(flags)/sizeof(flags[0]);
-
-static	KEY2RNUM_T	*
-findkey(const char *, int , KEY2RNUM_T []);
 
 int
 main(int argc, char *argv[])
@@ -52,10 +44,6 @@ main(int argc, char *argv[])
 	char	*p_value;
 
 	S2G_INPUT_T	*s2g = NULL;
-	char	*mvp;
-	KEY2RNUM_T	*i2r;
-	RIDX_T	ridx;
-	long	offset;
 	SF_SHAPE_T	*shp = NULL;
 
 	FILE	*fp = NULL;
@@ -63,7 +51,6 @@ main(int argc, char *argv[])
 	size_t	s_line = 0;
 	ssize_t	l_line;
 	int	lcnt;
-	int	i, rnum;
 	int	a_prlg, first;
 
 	int	err = 0;
@@ -167,82 +154,9 @@ main(int argc, char *argv[])
 				continue;
 			}
 		}
-		if(sf != NULL){
-			rnum = atoi(line);
-			if(rnum < 1 || rnum > s2g->sn_recs){
-				LOG_WARN("line %7d: rnum %d out of range 1:%d", lcnt, rnum, s2g->sn_recs);
-				err = 1;
-				continue;
-			}
-			s2g->s_sf_rip = &s2g->s_sf_ridx[rnum - 1];
-			fseek(s2g->s_shp_fhdr->s_fp, SF_WORD_SIZE * s2g->s_sf_rip->s_offset, SEEK_SET);
-		}else{	// using fmap
-			EVP_DigestInit_ex(&s2g->s_mdctx, s2g->s_md, NULL);
-			EVP_DigestUpdate(&s2g->s_mdctx, line, l_line);
-			EVP_DigestFinal(&s2g->s_mdctx, s2g->s_md_value, &s2g->s_md_len);
-			for(mvp = s2g->s_md_value_str, i = 0; i < s2g->s_md_len; i++, mvp += 2)
-				sprintf(mvp, "%02x", s2g->s_md_value[i] & 0xff);
-			*mvp = '\0';
-
-			i2r = findkey(s2g->s_md_value_str, s2g->sn_atab, s2g->s_atab);
-			if(i2r == NULL){
-				LOG_ERROR("%s (%s) not in index %s", line, s2g->s_md_value_str, s2g->s_fmap->f_index);
-				err = 1;
-				continue;
-			}
-
-			if((s2g->s_fme = FMrnum2fmentry(s2g->s_fmap, i2r->k_rnum)) == NULL){
-				LOG_ERROR("NO fme for rnum %010u", i2r->k_rnum);
-				err = 1;
-				goto CLEAN_UP;
-			}
-			if(s2g->s_fme != s2g->sl_fme){
-				if(s2g->s_rixfp != NULL){
-					fclose(s2g->s_rixfp);
-					s2g->s_rixfp = NULL;
-				}
-				if((s2g->s_rixfp = FMfopen(s2g->s_fmap->f_root, s2g->s_fme->f_fname, s2g->s_fmap->f_ridx, "r")) == NULL){
-					LOG_ERROR("FMfopen failed for %s", s2g->s_fme->f_fname);
-					err = 1;
-					goto CLEAN_UP;
-				}
-				fread(&s2g->s_rixhdr, sizeof(HDR_T), (size_t)1, s2g->s_rixfp);
-				if(s2g->s_shp_fhdr != NULL){
-					SHP_close_file(s2g->s_shp_fhdr);
-					s2g->s_shp_fhdr = NULL;
-				}
-				// TODO: open new one
-				s2g->sl_fm_dfname = strlen(s2g->s_fmap->f_root) + 1 + strlen(s2g->s_fme->f_fname); 
-				if(s2g->sl_fm_dfname + 1 > s2g->ss_fm_dfname){
-					if(s2g->s_fm_dfname != NULL)
-						free(s2g->s_fm_dfname);
-					s2g->ss_fm_dfname = s2g->sl_fm_dfname + 1;
-					s2g->s_fm_dfname = (char *)malloc(s2g->ss_fm_dfname);
-					if(s2g->s_fm_dfname == NULL){
-						LOG_ERROR("can't allocate fm_dfname for %s/%s", s2g->s_fmap->f_root, s2g->s_fme->f_fname);
-						err = 1;
-						goto CLEAN_UP;
-					}
-				}
-				sprintf(s2g->s_fm_dfname, "%s/%s", s2g->s_fmap->f_root, s2g->s_fme->f_fname);
-				s2g->s_shp_fhdr = SHP_open_file(s2g->s_fm_dfname);
-				if(s2g->s_shp_fhdr == NULL){
-					LOG_ERROR("SHP_open_file failed for %s", s2g->s_fme->f_fname);
-					err = 1;
-					goto CLEAN_UP;
-				}
-			}
-
-			// get the offset (as bytes this time for the shp to read)
-			offset = (i2r->k_rnum - s2g->s_fme->f_first) * s2g->s_rixhdr.h_size + sizeof(HDR_T);
-			fseek(s2g->s_rixfp, (long)offset, SEEK_SET);
-			fread(&ridx, sizeof(ridx), 1L, s2g->s_rixfp);
-
-			fseek(s2g->s_shp_fhdr->s_fp, ridx.r_offset, SEEK_SET);
-		}
-		shp = SHP_read_shape(s2g->s_shp_fhdr->s_fp);
+		shp = S2G_get_shape(s2g, line);
 		if(shp == NULL){
-			LOG_ERROR("line %7d: SHP_read_shape failed for record %d", lcnt, rnum);
+			LOG_ERROR("line %7d: S2G_get_shape failed for key: %s\n", lcnt, line);
 			err = 1;
 			goto CLEAN_UP;
 		}
@@ -315,29 +229,6 @@ CLEAN_UP : ;
 	if(props != NULL)
 		PROPS_delete_properties(props);
 
-/*
-	// file map stuff
-	if(fm_dfname != NULL)
-		free(fm_dfname);
-	if(mdctx_init)
-		EVP_MD_CTX_cleanup(&mdctx);
-	if(map != NULL){
-		munmap(map, i2rsbuf.st_size);
-		map = NULL;
-	}
-	if(fmap != NULL)
-		FMfree_fmap(fmap);
-
-	// shape file stuff
-	if(sf_ridx != NULL)
-		free(sf_ridx);
-	if(shx_fname != NULL)
-		free(shx_fname);
-	if(shp_fhdr != NULL)
-		SHP_close_file(shp_fhdr);
-	if(shp_fname != NULL)
-		free(shp_fname);
-*/
 	if(s2g != NULL)
 		S2G_delete(s2g);
 
@@ -347,25 +238,6 @@ CLEAN_UP : ;
 	TJM_free_args(args);
 
 	exit(err);
-}
-
-static	KEY2RNUM_T	*
-findkey(const char *key, int n_idx, KEY2RNUM_T idx[])
-{
-	int	i, j, k, cv;
-	KEY2RNUM_T	*k2r;
-
-	for(i = 0, j = n_idx - 1; i <= j; ){
-		k = (i + j) / 2;
-		k2r = &idx[k];
-		if((cv = strcmp(k2r->k_key, key)) == 0)
-			return k2r;
-		else if(cv < 0)
-			i = k + 1;
-		else
-			j = k - 1;
-	}
-	return NULL;
 }
 
 static	char	*

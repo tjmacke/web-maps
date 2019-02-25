@@ -56,4 +56,7 @@ S2G_new(int, const char *, const char *);
 void
 S2G_delete(S2G_INPUT_T *);
 
+SF_SHAPE_T	*
+S2G_get_shape(S2G_INPUT_T *, const char *);
+
 #endif
