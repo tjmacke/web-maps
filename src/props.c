@@ -6,6 +6,22 @@
 #include "log.h"
 #include "props.h"
 
+/*
+ *	Properties are read from tsv file w/hdr.
+ *	The hdr defines the names of the properties and
+ *	subsequent lines, if any, define the correponding values
+ *
+ *	The PROPERTIES_T structure always contains the name(s)
+ *	of the properties, as well as the name of field that 
+ *	holds the keys the properties, pkey. This information
+ *	is used to convert a PROP_T structure, possibly a row
+ *	from the PROPERTIES_T table, or, if no properties was
+ *	provided, a single (key,value) pair, where the key was
+ *	pkey provide when the PROPERITIES_T was created and
+ *	value that is the current shape recored's name or number.
+ *
+*/
+
 static	int
 props_cmp_int_key(const void *, const void *);
 
@@ -21,6 +37,9 @@ mk_json_primary(const char *, int);
 static	size_t
 fi_json_strlen(const char *);
 
+// Create a properties table to be filled in later.
+// pkey is the name of key field, ie which column in rows 2-$
+// is used to id the row
 PROPERTIES_T	*
 PROPS_new_properties(const char *fname, const char *pkey)
 {
@@ -68,6 +87,11 @@ CLEAN_UP : ;
 	return props;
 }
 
+// Create a minimal properties table.  Used when no 
+// no properties file is provided.  The header contains
+// one field, the key. Actual (key, value) pairs are
+// created directly.  But this table is require in 
+// order to convert the (key, value) to json.
 PROPERTIES_T	*
 PROPS_make_default_ptab(const char *pkey)
 {

@@ -41,7 +41,7 @@ main(int argc, char *argv[])
 	PROPERTIES_T	*props = NULL;
 	const PROP_T	*pp;
 	PROP_T	*def_pp = NULL;
-	char	*p_value;
+	char	*js_props = NULL;
 
 	S2G_INPUT_T	*s2g = NULL;
 	SF_SHAPE_T	*shp = NULL;
@@ -134,8 +134,10 @@ main(int argc, char *argv[])
 		}
 		if(verbose)
 			PROPS_dump_properties(stderr, props);
-	}else if(fm_name != NULL){
-		// need some sort of props file as the default title shape_%07d needs to be unique
+	}else{
+		// props is needed to convert properties to json.
+		// in this case, the table contains only a header w/key field = "title"
+		// The prop will be created directly as ("title", name/number of current shape)
 		props = PROPS_make_default_ptab("title");
 		if(props == NULL){
 			LOG_ERROR("PROPS_make_default_ptab failed");
@@ -170,55 +172,60 @@ main(int argc, char *argv[])
 				goto CLEAN_UP;
 			}
 		}
-		p_value = NULL;
-		if(props != NULL){
-			if(sf != NULL){
-				pp = PROPS_find_props_with_int_key(props, shp->s_rnum);
-				if(pp == NULL){
-					LOG_WARN("no properties for rnum = %d", shp->s_rnum);
-					err = 1;
-				}else{
-					p_value = PROPS_to_json_object(props, pp);
-					if(p_value == NULL){
-						LOG_ERROR("PROPS_to_json_object failed");
-						err = 1;
-						goto CLEAN_UP;
-					}
-				}
-			}else{
-				pp = PROPS_find_props_with_str_key(props, line);
-				if(pp == NULL){
-					def_pp = PROPS_new_prop("title", 0, line);
-					if(def_pp == NULL){
-						LOG_ERROR("PROPS_new_prop failed for %s", line);
-						err = 1;
-						goto CLEAN_UP;
-					}
-					p_value = PROPS_to_json_object(props, def_pp);
-					PROPS_delete_prop(def_pp);
-					def_pp = NULL;
-				}else
-					p_value = PROPS_to_json_object(props, pp);
-				if(p_value == NULL){
-					LOG_ERROR("PROPS_to_json_object failed");
+		def_pp = NULL;
+		js_props = NULL;
+		if(s2g->s_sf != NULL){
+			pp = PROPS_find_props_with_int_key(props, shp->s_rnum);
+			if(pp == NULL){
+				char	work[20];
+
+				sprintf(work, GJ_DEFAULT_TITLE_FMT_D, shp->s_rnum);
+				LOG_WARN("no properties for rnum = %d, using (\"title\", \"%s\")", shp->s_rnum, work);
+				def_pp = PROPS_new_prop("title", 1, work);
+				if(def_pp == NULL){
+					LOG_ERROR("PROPS_new_prop failed for %s", line);
 					err = 1;
 					goto CLEAN_UP;
 				}
+				pp = def_pp;
+			}
+		}else{
+			pp = PROPS_find_props_with_str_key(props, line);
+			if(pp == NULL){
+				LOG_WARN("no properties for key = %s, using (\"title\", \"%s\")", line, line);
+				def_pp = PROPS_new_prop("title", 0, line);
+				if(def_pp == NULL){
+					LOG_ERROR("PROPS_new_prop failed for %s", line);
+					err = 1;
+					goto CLEAN_UP;
+				}
+				pp = def_pp;
 			}
 		}
-		SHP_write_geojson(stdout, shp, first, p_value);
+		js_props = PROPS_to_json_object(props, pp);
+		if(js_props == NULL){
+			LOG_ERROR("PROPS_to_json_object failed");
+			err = 1;
+			goto CLEAN_UP;
+		}
+		SHP_write_geojson(stdout, shp, first, js_props);
 		SHP_delete_shape(shp);
 		shp = NULL;
-		if(p_value != NULL){
-			free(p_value);
-			p_value = NULL;
+		if(def_pp != NULL){
+			PROPS_delete_prop(def_pp);
+			def_pp = NULL;
 		}
+		free(js_props);
+		js_props = NULL;
 		first = 0;
 	}
 	if(!a_prlg)
 		SHP_write_geojson_trailer(stdout, fmt);
 
 CLEAN_UP : ;
+
+	if(def_pp != NULL)
+		PROPS_delete_prop(def_pp);
 
 	if(shp != NULL)
 		SHP_delete_shape(shp);
