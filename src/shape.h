@@ -56,7 +56,8 @@
 #define	SF_FHDR_SIZE	50	// 50 words = 100 bytes
 #define	SF_RIDX_SIZE	4	// 4 words = 8 bytes
 
-#define	GJ_DEFAULT_TITLE_FMT_D	"{\"title\": \"shape_%07d\"}"
+#define	GJ_DEFAULT_TITLE_FMT_D	"shape_%07d"
+#define	GJ_DEFAULT_PROPS_FMT_D	"{\"title\": \"shape_%07d\"}"
 
 typedef	struct	sf_bbox_t	{
 	double	s_xmin;

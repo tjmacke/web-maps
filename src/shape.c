@@ -1080,7 +1080,7 @@ SHP_write_geojson(FILE *fp, const SF_SHAPE_T *shp, int first, const char *props)
 	fprintf(fp, "  },\n");
 	fprintf(fp, "  \"properties\": ");
 	if(props == NULL)
-		fprintf(fp, GJ_DEFAULT_TITLE_FMT_D, shp->s_rnum);
+		fprintf(fp, GJ_DEFAULT_PROPS_FMT_D, shp->s_rnum);
 	else
 		fprintf(fp, "%s", props);
 	fprintf(fp, "\n");
