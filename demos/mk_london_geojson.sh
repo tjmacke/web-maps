@@ -70,8 +70,8 @@ while [ $# -gt 0 ] ; do
 		;;
 	*)
 		LOG ERROR "extra arguments $*"
-		shift
-		break
+		echo "$U_MSG" 1>&2
+		exit 1
 		;;
 	esac
 done
