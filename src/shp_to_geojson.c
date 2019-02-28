@@ -105,15 +105,17 @@ main(int argc, char *argv[])
 	if(verbose > 1)
 		TJM_dump_args(stderr, args);
 
-	if(args->an_files == 0)
-		fp = stdin;
-	else if((fp = fopen(args->a_files[0], "r")) == NULL){
-		LOG_ERROR("can't read rnum file %s", args->a_files[0]);
-		err = 1;
-		goto CLEAN_UP;
+	if(!all){	// -all means ignore any file arg
+		if(args->an_files == 0)
+			fp = stdin;
+		else if((fp = fopen(args->a_files[0], "r")) == NULL){
+			LOG_ERROR("can't read rnum file %s", args->a_files[0]);
+			err = 1;
+			goto CLEAN_UP;
+		}
 	}
 
-	s2g = S2G_new(verbose, sf, fm_name);
+	s2g = S2G_new(verbose, sf, fm_name, all, fp);
 	if(s2g == NULL){
 		LOG_ERROR("S2G_new failed");
 		err = 1;
@@ -146,7 +148,10 @@ main(int argc, char *argv[])
 		}
 	}
 
-	for(s2g->sl_fme = NULL, a_prlg = first = 1, lcnt = 0; (l_line = getline(&line, &s_line, fp)) > 0; ){
+	for(s2g->sl_fme = NULL, a_prlg = first = 1, lcnt = 0;
+		(l_line = S2G_getline(s2g, &line, &s_line)) > 0; 
+		/*(l_line = getline(&line, &s_line, fp)) > 0;*/
+	){
 		lcnt++;
 		if(line[l_line - 1] == '\n'){
 			line[l_line - 1] = '\0';

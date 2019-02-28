@@ -12,7 +12,7 @@ static	KEY2RNUM_T	*
 findkey(const char *, int, KEY2RNUM_T []);
 
 S2G_INPUT_T	*
-S2G_new(int verbose, const char *sf, const char *fm_name)
+S2G_new(int verbose, const char *sf, const char *fm_name, int all, FILE *fp)
 {
 	int	u_sf = 0;
 	int	u_fmap = 0;
@@ -41,8 +41,11 @@ S2G_new(int verbose, const char *sf, const char *fm_name)
 		goto CLEAN_UP;
 	}
 	s2g->s_verbose = verbose;
+	s2g->s_all = all;
+	s2g->s_fp = fp;
 	s2g->s_sf = sf;
 	s2g->s_fm_name = fm_name;
+
 	if(u_sf){	// data in a single shp/shx pair
 		s2g->s_shp_fname = SHP_make_sf_name(s2g->s_sf, "shp");
 		if(s2g->s_shp_fname == NULL){
@@ -147,6 +150,38 @@ S2G_delete(S2G_INPUT_T *s2g)
 				EVP_MD_CTX_cleanup(&s2g->s_mdctx);
 		}
 		free(s2g);
+	}
+}
+
+ssize_t
+S2G_getline(S2G_INPUT_T *s2g, char **line, size_t *s_line)
+{
+	ssize_t	l_line = 0;
+
+	// record keys are in a file; the before -all way
+	if(!s2g->s_all)
+		return getline(line, s_line, s2g->s_fp);
+
+	if(s2g->s_sf){
+		// keys are the ints: [1, s2g->s_nrecs] as %d, so 12 (\n\0) is good, but ...
+		if(*line == NULL){
+			*s_line = 20;
+			*line = (char *)malloc(*s_line * sizeof(char));
+			if(*line == NULL){
+				LOG_ERROR("can't allocate *line");
+				return 0;
+			}
+		}
+		if(s2g->sc_rnum >= s2g->sn_recs)
+			return 0;	// done
+		sprintf(*line, "%d\n", s2g->sc_rnum+1);
+		l_line = strlen(*line);
+		s2g->sc_rnum++;
+		return l_line;
+	}else{
+		// read the keys from the key files in fmap order.  return 
+		LOG_ERROR("-all for -fmap input not implemented");
+		return 0;
 	}
 }
 

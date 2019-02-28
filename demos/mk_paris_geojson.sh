@@ -96,5 +96,5 @@ else
 fi												|
 $WM_SCRIPTS/color_graph.sh -id title								> $TMP_CFILE
 $WM_SCRIPTS/add_columns.sh -mk title $TMP_PFILE $TMP_CFILE					> $TMP_PFILE_2
-rm -rf $TMP_PFILE $TMP_RNFILEy $TMP_CFILE
 $BINDIR/shp_to_geojson -sf $PAR_DATA/arrondissements -pf $TMP_PFILE_2 -pk rnum $TMP_RNFILE
+rm -rf $TMP_PFILE $TMP_RNFILE $TMP_CFILE $TMP_PFILE_2

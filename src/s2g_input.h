@@ -13,6 +13,10 @@
 typedef	struct	s2g_input_t	{
 	int	s_verbose;
 
+	// record selection: only will be active
+	int	s_all;	// all records in the collection 
+	FILE	*s_fp;	// records selection in this file
+
 	// geom input is either
 	// 1. a single shp/shx pair
 	const char	*s_sf;
@@ -22,6 +26,8 @@ typedef	struct	s2g_input_t	{
 	int	sn_recs;
 	SF_RIDX_T	*s_sf_ridx;
 	SF_RIDX_T	*s_sf_rip;
+	// the all "cursor"
+	int	sc_rnum;
 
 	// or
 	// 2. a shp/shx collection described by fmap
@@ -51,10 +57,13 @@ typedef	struct	s2g_input_t	{
 } S2G_INPUT_T;
 
 S2G_INPUT_T	*
-S2G_new(int, const char *, const char *);
+S2G_new(int, const char *, const char *, int, FILE *);
 
 void
 S2G_delete(S2G_INPUT_T *);
+
+ssize_t
+S2G_getline(S2G_INPUT_T *, char **, size_t *);
 
 SF_SHAPE_T	*
 S2G_get_shape(S2G_INPUT_T *, const char *);
