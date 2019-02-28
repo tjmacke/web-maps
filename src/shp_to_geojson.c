@@ -148,10 +148,7 @@ main(int argc, char *argv[])
 		}
 	}
 
-	for(s2g->sl_fme = NULL, a_prlg = first = 1, lcnt = 0;
-		(l_line = S2G_getline(s2g, &line, &s_line)) > 0; 
-		/*(l_line = getline(&line, &s_line, fp)) > 0;*/
-	){
+	for(s2g->sl_fme = NULL, a_prlg = first = 1, lcnt = 0; (l_line = S2G_getline(s2g, &line, &s_line)) > 0; ){
 		lcnt++;
 		if(line[l_line - 1] == '\n'){
 			line[l_line - 1] = '\0';
