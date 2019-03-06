@@ -461,10 +461,36 @@ mk_insert_cmd(const DBF_META_T *dbm, const char *tname, const char * pk, const c
 			printf("\t%s", fval);
 		else{
 			printf("\t'");
+/*
 			for(fvp = fval; *fvp; fvp++){
 				if(*fvp == '\'')
 					putchar('\'');
 				putchar(*fvp);
+			}
+*/
+			// escape ', tab, nl, cr
+			for(fvp = fval; *fvp; fvp++){
+				switch(*fvp){
+				case '\'' :	// escape by doubling
+					putchar('\'');
+					putchar('\'');
+					break;
+				case '\t' :
+					putchar('\\');
+					putchar('t');
+					break;
+				case '\n' :
+					putchar('\\');
+					putchar('n');
+					break;
+				case '\r' :
+					putchar('\\');
+					putchar('r');
+					break;
+				default :
+					putchar(*fvp);
+					break;
+				}
 			}
 			printf("'");
 		}
