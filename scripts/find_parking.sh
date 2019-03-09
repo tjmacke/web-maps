@@ -1,7 +1,7 @@
 #  /bin/bash
 #
 . ~/etc/funcs.sh
-U_MSG="usage: $0 [ -help ] [ -log { file | NONE } ] [ -d D ] [ -gl gc-list ] [ -app { gh*|dd|pm|ue } ] { -a address | [ address-file ] }"
+U_MSG="usage: $0 [ -help ] [ -dt date_time ] [ -log { file | NONE } ] [ -d D ] [ -gl gc-list ] [ -app { gh*|dd|pm|ue } ] { -a address | [ address-file ] }"
 
 NOW="$(date +%Y%m%d_%H%M%S)"
 
@@ -58,6 +58,7 @@ TMP_FP_CFILE_JSON=/tmp/json_file.$$	# json version of TMP_FP_CFILE.$$
 
 # save the args so they can be logged, if requested
 ARGS="$@"
+LOG_DT=
 LOG=
 DIST=
 GC_LIST=
@@ -70,6 +71,16 @@ while [ $# -gt 0 ] ; do
 	-help)
 		echo "$U_MSG"
 		exit 0
+		;;
+	-dt)
+		shift
+		if [ $# -eq 0 ] ; then
+			LOG ERROR "-dt requires date_time argument"
+			echo "$U_MSG" 1>&2
+			exit 1
+		fi
+		LOG_DT=$1
+		shift
 		;;
 	-log)
 		shift
@@ -140,9 +151,14 @@ if [ $# -ne 0 ] ; then
 	exit 1
 fi
 
+# allow user to set the date/time.  Intended for data preceding this script
+if [ -z "$LOG_DT" ] ; then
+	LOG_DT="$NOW"
+fi
+
 # process LOG arg
 if [ -z "$LOG" ] ; then	# LOG="", use default log dir & log file
-	LOG_DIR=$FP_DATA/"$(echo $NOW | awk -F_ '{ printf("%s/%s", substr($1, 1, 4),  substr($1, 1, 6)) }')"
+	LOG_DIR=$FP_DATA/"$(echo $LOG_DT | awk -F_ '{ printf("%s/%s", substr($1, 1, 4),  substr($1, 1, 6)) }')"
 	if [ ! -d $LOG_DIR ] ; then
 		emsg="$(mkdir -p $LOG_DIR 2>&1)"
 		if [ ! -z "$emsg" ] ; then
@@ -150,14 +166,14 @@ if [ -z "$LOG" ] ; then	# LOG="", use default log dir & log file
 			exit 1
 		fi
 	fi
-	LOG_FILE=$LOG_DIR/"$(echo $NOW | awk -F_ '{ printf("fp.%s.log",  $1) }')"
+	LOG_FILE=$LOG_DIR/"$(echo $LOG_DT | awk -F_ '{ printf("fp.%s.log",  $1) }')"
 else
 	LOG_FILE="$LOG"
 fi
 
 # if requested, log the command; since it's save, maybe do more? later in the script?
 if [ "$LOG_FILE" != "NONE" ] ; then
-	echo "$NOW $ARGS" >> $LOG_FILE
+	echo "$LOG_DT $ARGS" >> $LOG_FILE
 fi
 
 if [ ! -z "$DIST" ] ; then
