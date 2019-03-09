@@ -43,21 +43,29 @@ awk '{
 	lines[n_lines] = $0
 }
 END {
+	l_date = ""
 	for(i = 1; i <= n_lines; i++){
-		mk_job(lines, i)
+		parse_aline(lines[i], ainfo)
+		da_start = set_da_start(lines, i, ainfo)
+		if(l_date == ""){
+			printf("Date\ttStart\ttEnd\tMileage\tjobType\tlocStart\tlocEnd\tAmount\tPayment\tNotes\n")
+			printf("%s\t.\t.\t.\tBEGIN\n", ainfo["date"])
+		}else if(ainfo["date"] != l_date){
+			printf("%s\t.\t.\t.\tEND\n", l_date)
+			printf("%s\t.\t.\t.\tBEGIN\n", ainfo["date"])
+		}
+			
+		for(d = da_start; d <= ainfo["n_atab"]; d++){
+			printf("%s\t%s", ainfo["date"], ainfo["time"])
+			printf("\t.\t.\tJob")
+			printf("\t%s\t%s", ainfo["atab", 1], ainfo["atab", d])
+			printf("\t.\t%s\t.", ainfo["app"])
+			printf("\n")
+		}
+		l_date = ainfo["date"]
 	}
-}
-function mk_job(lines, ln,   ainfo, da_start, d) {
-
-	parse_aline(lines[ln], ainfo)
-	da_start = set_da_start(lines, ln, ainfo)
-	for(d = da_start; d <= ainfo["n_atab"]; d++){
-		printf("%s\t%s", ainfo["date"], ainfo["time"])
-		printf("\t.\t.\tJob")
-		printf("\t%s\t%s", ainfo["atab", 1], ainfo["atab", d])
-		printf("\t.\t%s\t.", ainfo["app"])
-		printf("\n")
-	}
+	if(n_lines > 0)
+		printf("%s\t.\t.\t.\tEND\n", l_date)
 }
 function parse_aline(line, ainfo,   n_ary, ary, n_dt, dt, i) {
 	n_ary = split(line, ary)
