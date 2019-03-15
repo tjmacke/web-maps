@@ -207,25 +207,54 @@ else
 	ADDR=$FILE
 fi
 
+# BEGIN: Original using the 2 known geocoders, though the order could vary
 # try geocoder $GEO_1
-$DM_SCRIPTS/get_geo_for_addrs.sh -d 0 -efmt new -geo $GEO_1 $AOPT "$ADDR" > $TMP_OFILE 2> $TMP_EFILE_1
-n_OFILE=$(cat $TMP_OFILE | wc -l)
-n_EFILE_1=$(grep '^ERROR' $TMP_EFILE_1 | wc -l)
-n_ADDRS=$((n_OFILE + n_EFILE_1))
-if [ $n_EFILE_1 -gt 0 ] ; then
-	grep '^ERROR' $TMP_EFILE_1 | awk -F'\t' '{ print $4 }' > $TMP_AFILE_2
-	n_ADDRS_2=$(cat $TMP_AFILE_2 | wc -l | tr -d ' ')
-	# try geocoder $GEO_2
-	$DM_SCRIPTS/get_geo_for_addrs.sh -d 0 -efmt new -geo $GEO_2 $TMP_AFILE_2 > $TMP_OFILE_2 2> $TMP_EFILE_2
-	n_OFILE_2=$(cat $TMP_OFILE_2 | wc -l | tr -d ' ')
-	n_EFILE_2=$(grep '^ERROR' $TMP_EFILE_2 | wc -l | tr -d ' ')
-	if [ $n_EFILE_2 -gt 0 ] ; then
-		LOG ERROR "$n_EFILE_2/$n_ADDRS addresses were not found"
-		$DM_SCRIPTS/merge_geo_error_files.sh $TMP_EFILE_1 $TMP_EFILE_2 1>&2
-	fi
-	cat $TMP_OFILE_2 >> $TMP_OFILE
+#tm $DM_SCRIPTS/get_geo_for_addrs.sh -d 0 -efmt new -geo $GEO_1 $AOPT "$ADDR" > $TMP_OFILE 2> $TMP_EFILE_1
+#tm n_OFILE=$(cat $TMP_OFILE | wc -l)
+#tm n_EFILE_1=$(grep '^ERROR' $TMP_EFILE_1 | wc -l)
+#tm n_ADDRS=$((n_OFILE + n_EFILE_1))
+#tm if [ $n_EFILE_1 -gt 0 ] ; then
+#tm 	grep '^ERROR' $TMP_EFILE_1 | awk -F'\t' '{ print $4 }' > $TMP_AFILE_2
+#tm 	n_ADDRS_2=$(cat $TMP_AFILE_2 | wc -l | tr -d ' ')
+#tm 	# try geocoder $GEO_2
+#tm 	$DM_SCRIPTS/get_geo_for_addrs.sh -d 0 -efmt new -geo $GEO_2 $TMP_AFILE_2 > $TMP_OFILE_2 2> $TMP_EFILE_2
+#tm 	n_OFILE_2=$(cat $TMP_OFILE_2 | wc -l | tr -d ' ')
+#tm 	n_EFILE_2=$(grep '^ERROR' $TMP_EFILE_2 | wc -l | tr -d ' ')
+#tm 	if [ $n_EFILE_2 -gt 0 ] ; then
+#tm 		LOG ERROR "$n_EFILE_2/$n_ADDRS addresses were not found"
+#tm 		$DM_SCRIPTS/merge_geo_error_files.sh $TMP_EFILE_1 $TMP_EFILE_2 1>&2
+#tm 	fi
+#tm 	cat $TMP_OFILE_2 >> $TMP_OFILE
+#tm 	n_OFILE=$(cat $TMP_OFILE | wc -l)
+#tm fi
+# END
+
+# BEGIN: New uses loop on GC_LIST
+for geo in $(echo $GC_LIST | tr ',' ' ') ; do
+	$DM_SCRIPTS/get_geo_for_addrs.sh -d 0 -efmt new -geo $geo $AOPT "$ADDR" >> $TMP_OFILE 2> $TMP_EFILE_1
 	n_OFILE=$(cat $TMP_OFILE | wc -l)
-fi
+	n_EFILE_1=$(grep '^ERROR' $TMP_EFILE_1 | wc -l)
+	n_ADDRS=$((n_OFILE + n_EFILE_1))
+	if [ $n_EFILE_1 -eq 0 ] ; then
+		# resolved all addrs, done
+		break
+	else 
+		# errors
+		if [ ! -s $TMP_EFILE ] ; then
+			# first time through for loop
+			mv $TMP_EFILE_1 $TMP_EFILE
+		else
+			# 2nd and subsequent times through for loop
+			$DM_SCRIPTS/merge_geo_error_files.sh $TMP_EFILE $TMP_EFILE_1 > $TMP_EFILE_2
+			mv $TMP_EFILE_2 $TMP_EFILE
+		fi
+		grep '^ERROR' $TMP_EFILE | awk -F'\t' '{ print $4 }' > $TMP_AFILE
+		# 2nd and subsequent passes always read from file
+		AOPT=""
+		ADDR=$TMP_AFILE
+	fi
+done
+# END
 
 # map address(es) (if any)
 if [ $n_OFILE -ne 0 ] ; then
@@ -268,6 +297,11 @@ if [ $n_OFILE -ne 0 ] ; then
 	}' $TMP_PFILE > $TMP_CFILE
 	$DM_SCRIPTS/cfg_to_json.sh $TMP_FP_CFILE > $TMP_FP_CFILE_JSON
 	$DM_SCRIPTS/map_addrs.sh -sc $TMP_FP_CFILE_JSON -cf $TMP_CFILE -at src $TMP_PFILE
+fi
+
+if [ -s $TMP_EFILE ] ; then
+	LOG ERROR "$n_EFILE_1/$n_ADDRS addresses were not found"
+	cat $TMP_EFILE 1>&2
 fi
 
 rm -f $TMP_AFILE $TMP_AFILE_2 $TMP_FP_CFILE $TMP_OFILE $TMP_OFILE_2 $TMP_EFILE $TMP_EFILE_1 $TMP_EFILE_2 $TMP_PFILE $TMP_CFILE $TMP_FP_CFILE_JSON
