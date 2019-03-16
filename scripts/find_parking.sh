@@ -41,16 +41,12 @@ fi
 FP_DATA=$HOME/work/trip_data/seattle/fp_data
 
 . $DM_ETC/geocoder_defs.sh
-GEO_1=$GEO_PRIMARY
-GEO_2=$GEO_SECONDARY
 
 TMP_AFILE=/tmp/addrs.$$		# addrs for 1st geocoder
-TMP_AFILE_2=/tmp/addrs_2.$$	# addrs for 2nd geocoder
 TMP_OFILE=/tmp/out.$$		# output of 1st geocoder
-TMP_OFILE_2=/tmp/out_2.$$	# output of 2nd geocoder, eventually appended to TMP_OFILE
-TMP_EFILE=/tmp/err.$$		# errs for 1st, 2nd geocoders
-TMP_EFILE_1=/tmp/$GEO_1.err.$$	# errs for 1st geocoder
-TMP_EFILE_2=/tmp/$GEO_2.err.$$	# errs for 2nd geocoder
+TMP_EFILE=/tmp/err.$$		# merged errs for all geocoders
+TMP_EFILE_1=/tmp/err_1.$$	# errs from call to to get_geo_for_addrs.sh
+TMP_EFILE_2=/tmp/err_2.$$	# output of merge_geo_error_files.sh, immed. rename to $TEM_EFILE
 TMP_FP_CFILE=/tmp/fp_cfile.$$	# find parking color/legend config (as key=value
 TMP_PFILE=/tmp/pspots.$$	# resolved addrs + sign cooords
 TMP_CFILE=/tmp/cfile.$$		# color file for points
@@ -171,7 +167,7 @@ else
 	LOG_FILE="$LOG"
 fi
 
-# if requested, log the command; since it's save, maybe do more? later in the script?
+# if requested, log the command; since it's saved, maybe do more? later in the script?
 if [ "$LOG_FILE" != "NONE" ] ; then
 	echo "$LOG_DT $ARGS" >> $LOG_FILE
 fi
@@ -183,16 +179,13 @@ fi
 # set up the geocoder order
 if [ -z "$GC_LIST" ] ; then
 	GC_LIST="$GEO_PRIMARY,$GEO_SECONDARY"
-	GEO_1=$GEO_PRIMARY
-	GEO_2=$GEO_SECONDARY
 else
 	GC_WORK="$(chk_geocoders "$GC_LIST")"
 	if echo "$GC_WORK" | grep '^ERROR' > /dev/null ; then
 		LOG ERROR "$GC_WORK"
 		exit 1
 	fi
-	GEO_1=$(echo "$GC_WORK" | awk -F, '{ print $1 }')
-	GEO_2=$(echo "$GC_WORK" | awk -F, '{ print $2 }')
+	GC_LIST="$GC_WORK"	# comma sep. list w/o spaces
 fi
 
 if [ ! -z "$ADDR" ] ; then
@@ -207,29 +200,6 @@ else
 	ADDR=$FILE
 fi
 
-# BEGIN: Original using the 2 known geocoders, though the order could vary
-# try geocoder $GEO_1
-#tm $DM_SCRIPTS/get_geo_for_addrs.sh -d 0 -efmt new -geo $GEO_1 $AOPT "$ADDR" > $TMP_OFILE 2> $TMP_EFILE_1
-#tm n_OFILE=$(cat $TMP_OFILE | wc -l)
-#tm n_EFILE_1=$(grep '^ERROR' $TMP_EFILE_1 | wc -l)
-#tm n_ADDRS=$((n_OFILE + n_EFILE_1))
-#tm if [ $n_EFILE_1 -gt 0 ] ; then
-#tm 	grep '^ERROR' $TMP_EFILE_1 | awk -F'\t' '{ print $4 }' > $TMP_AFILE_2
-#tm 	n_ADDRS_2=$(cat $TMP_AFILE_2 | wc -l | tr -d ' ')
-#tm 	# try geocoder $GEO_2
-#tm 	$DM_SCRIPTS/get_geo_for_addrs.sh -d 0 -efmt new -geo $GEO_2 $TMP_AFILE_2 > $TMP_OFILE_2 2> $TMP_EFILE_2
-#tm 	n_OFILE_2=$(cat $TMP_OFILE_2 | wc -l | tr -d ' ')
-#tm 	n_EFILE_2=$(grep '^ERROR' $TMP_EFILE_2 | wc -l | tr -d ' ')
-#tm 	if [ $n_EFILE_2 -gt 0 ] ; then
-#tm 		LOG ERROR "$n_EFILE_2/$n_ADDRS addresses were not found"
-#tm 		$DM_SCRIPTS/merge_geo_error_files.sh $TMP_EFILE_1 $TMP_EFILE_2 1>&2
-#tm 	fi
-#tm 	cat $TMP_OFILE_2 >> $TMP_OFILE
-#tm 	n_OFILE=$(cat $TMP_OFILE | wc -l)
-#tm fi
-# END
-
-# BEGIN: New uses loop on GC_LIST
 for geo in $(echo $GC_LIST | tr ',' ' ') ; do
 	$DM_SCRIPTS/get_geo_for_addrs.sh -d 0 -efmt new -geo $geo $AOPT "$ADDR" >> $TMP_OFILE 2> $TMP_EFILE_1
 	n_OFILE=$(cat $TMP_OFILE | wc -l)
@@ -254,7 +224,6 @@ for geo in $(echo $GC_LIST | tr ',' ' ') ; do
 		ADDR=$TMP_AFILE
 	fi
 done
-# END
 
 # map address(es) (if any)
 if [ $n_OFILE -ne 0 ] ; then
@@ -304,4 +273,4 @@ if [ -s $TMP_EFILE ] ; then
 	cat $TMP_EFILE 1>&2
 fi
 
-rm -f $TMP_AFILE $TMP_AFILE_2 $TMP_FP_CFILE $TMP_OFILE $TMP_OFILE_2 $TMP_EFILE $TMP_EFILE_1 $TMP_EFILE_2 $TMP_PFILE $TMP_CFILE $TMP_FP_CFILE_JSON
+rm -f $TMP_AFILE $TMP_FP_CFILE $TMP_OFILE $TMP_EFILE $TMP_EFILE_1 $TMP_EFILE_2 $TMP_PFILE $TMP_CFILE $TMP_FP_CFILE_JSON
