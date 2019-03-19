@@ -1,7 +1,7 @@
 #  /bin/bash
 #
 . ~/etc/funcs.sh
-U_MSG="usage: $0 [ -help ] [ -dt date_time ] [ -log { file | NONE } ] [ -d D ] [ -gl gc-list ] [ -app { gh*|dd|pm|ue } ] { -a address | [ address-file ] }"
+U_MSG="usage: $0 [ -help ] [ -dt date_time ] [ -log { file | NONE } ] [ -d D ] [ -app { gh*|dd|pm|ue } ] { -a address | [ address-file ] }"
 
 NOW="$(date +%Y%m%d_%H%M%S)"
 
@@ -40,13 +40,8 @@ fi
 
 FP_DATA=$HOME/work/trip_data/seattle/fp_data
 
-. $DM_ETC/geocoder_defs.sh
-
-TMP_AFILE=/tmp/addrs.$$		# addrs for 1st geocoder
 TMP_OFILE=/tmp/out.$$		# output of 1st geocoder
 TMP_EFILE=/tmp/err.$$		# merged errs for all geocoders
-TMP_EFILE_1=/tmp/err_1.$$	# errs from call to to get_geo_for_addrs.sh
-TMP_EFILE_2=/tmp/err_2.$$	# output of merge_geo_error_files.sh, immed. rename to $TEM_EFILE
 TMP_FP_CFILE=/tmp/fp_cfile.$$	# find parking color/legend config (as key=value
 TMP_PFILE=/tmp/pspots.$$	# resolved addrs + sign cooords
 TMP_CFILE=/tmp/cfile.$$		# color file for points
@@ -57,7 +52,6 @@ ARGS="$@"
 LOG_DT=
 LOG=
 DIST=
-GC_LIST=
 APP="gh"
 ADDR=
 FILE=
@@ -96,16 +90,6 @@ while [ $# -gt 0 ] ; do
 			exit 1
 		fi
 		DIST=$1
-		shift
-		;;
-	-gl)
-		shift
-		if [ $# -eq 0 ] ; then
-			LOG ERROR "-geo requires geo-list argument"
-			echo "$U_MSG" 1>&2
-			exit 1
-		fi
-		GC_LIST=$1
 		shift
 		;;
 	-app)
@@ -176,18 +160,6 @@ if [ ! -z "$DIST" ] ; then
 	DIST="-d $DIST"
 fi
 
-# set up the geocoder order
-if [ -z "$GC_LIST" ] ; then
-	GC_LIST="$GEO_PRIMARY,$GEO_SECONDARY"
-else
-	GC_WORK="$(chk_geocoders "$GC_LIST")"
-	if echo "$GC_WORK" | grep '^ERROR' > /dev/null ; then
-		LOG ERROR "$GC_WORK"
-		exit 1
-	fi
-	GC_LIST="$GC_WORK"	# comma sep. list w/o spaces
-fi
-
 if [ ! -z "$ADDR" ] ; then
 	if [ ! -z "$FILE" ] ; then
 		LOG ERROR "-a address not allowed with address-file"
@@ -200,30 +172,8 @@ else
 	ADDR=$FILE
 fi
 
-for geo in $(echo $GC_LIST | tr ',' ' ') ; do
-	$DM_SCRIPTS/get_geo_for_addrs.sh -d 0 -efmt new -geo $geo $AOPT "$ADDR" >> $TMP_OFILE 2> $TMP_EFILE_1
-	n_OFILE=$(cat $TMP_OFILE | wc -l)
-	n_EFILE_1=$(grep '^ERROR' $TMP_EFILE_1 | wc -l)
-	n_ADDRS=$((n_OFILE + n_EFILE_1))
-	if [ $n_EFILE_1 -eq 0 ] ; then
-		# resolved all addrs, done
-		break
-	else 
-		# errors
-		if [ ! -s $TMP_EFILE ] ; then
-			# first time through for loop
-			mv $TMP_EFILE_1 $TMP_EFILE
-		else
-			# 2nd and subsequent times through for loop
-			$DM_SCRIPTS/merge_geo_error_files.sh $TMP_EFILE $TMP_EFILE_1 > $TMP_EFILE_2
-			mv $TMP_EFILE_2 $TMP_EFILE
-		fi
-		grep '^ERROR' $TMP_EFILE | awk -F'\t' '{ print $4 }' > $TMP_AFILE
-		# 2nd and subsequent passes always read from file
-		AOPT=""
-		ADDR=$TMP_AFILE
-	fi
-done
+$DM_SCRIPTS/get_geo_for_addrs.sh -d 0 $AOPT "$ADDR" >> $TMP_OFILE 2> $TMP_EFILE
+n_OFILE=$(cat $TMP_OFILE | wc -l)
 
 # map address(es) (if any)
 if [ $n_OFILE -ne 0 ] ; then
@@ -269,8 +219,7 @@ if [ $n_OFILE -ne 0 ] ; then
 fi
 
 if [ -s $TMP_EFILE ] ; then
-	LOG ERROR "$n_EFILE_1/$n_ADDRS addresses were not found"
 	cat $TMP_EFILE 1>&2
 fi
 
-rm -f $TMP_AFILE $TMP_FP_CFILE $TMP_OFILE $TMP_EFILE $TMP_EFILE_1 $TMP_EFILE_2 $TMP_PFILE $TMP_CFILE $TMP_FP_CFILE_JSON
+rm -f $TMP_FP_CFILE $TMP_OFILE $TMP_EFILE $TMP_PFILE $TMP_CFILE $TMP_FP_CFILE_JSON
