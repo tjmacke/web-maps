@@ -1,7 +1,7 @@
 #  /bin/bash
 #
 . ~/etc/funcs.sh
-U_MSG="usage: $0 [ -help ] [ -dt date_time ] [ -log { file | NONE } ] [ -d D ] [ -app { gh*|dd|pm|ue } ] { -a address | [ address-file ] }"
+U_MSG="usage: $0 [ -help ] [ -dt date_time ] [ -sn ] [ -log { file | NONE } ] [ -d D ] [ -app { gh*|dd|pm|ue } ] { -a address | [ address-file ] }"
 
 NOW="$(date +%Y%m%d_%H%M%S)"
 
@@ -12,6 +12,7 @@ fi
 WM_BIN=$WM_HOME/bin
 WM_DATA=$WM_HOME/data/Seattle_Parking
 WM_SRC=$WM_HOME/src
+SN_FLIST=$WM_DATA/sn.list.json
 
 if [ -z "$DM_HOME" ] ; then
 	LOG ERROR "DM_HOME not defined"
@@ -50,6 +51,7 @@ TMP_FP_CFILE_JSON=/tmp/json_file.$$	# json version of TMP_FP_CFILE.$$
 # save the args so they can be logged, if requested
 ARGS="$@"
 LOG_DT=
+SN=
 LOG=
 DIST=
 APP="gh"
@@ -70,6 +72,10 @@ while [ $# -gt 0 ] ; do
 			exit 1
 		fi
 		LOG_DT=$1
+		shift
+		;;
+	-sn)
+		SN="yes"
 		shift
 		;;
 	-log)
@@ -215,7 +221,11 @@ if [ $n_OFILE -ne 0 ] ; then
 		printf("#%s\n", CU_rgb_to_24bit_color(iv))
 	}' $TMP_PFILE > $TMP_CFILE
 	$DM_SCRIPTS/cfg_to_json.sh $TMP_FP_CFILE > $TMP_FP_CFILE_JSON
-	$DM_SCRIPTS/map_addrs.sh -sc $TMP_FP_CFILE_JSON -cf $TMP_CFILE -at src $TMP_PFILE
+	if [ "$SN" == "yes" ] ; then
+		$DM_SCRIPTS/map_addrs.sh -sc $TMP_FP_CFILE_JSON -cf $TMP_CFILE -fl $SN_FLIST -at src $TMP_PFILE
+	else
+		$DM_SCRIPTS/map_addrs.sh -sc $TMP_FP_CFILE_JSON -cf $TMP_CFILE -at src $TMP_PFILE
+	fi
 fi
 
 if [ -s $TMP_EFILE ] ; then
