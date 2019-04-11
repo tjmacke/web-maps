@@ -37,22 +37,52 @@ if [ -z "$DIR" ] ; then
 	exit 1
 fi
 
+SD_FILE=$DIR/shift.data
+if [ ! -s $SD_FILE ] ; then
+	LOG ERROR "shift data file $SD_FILE either doesn't exist or is empty"
+	exit 1
+fi
+
 cat $DIR/*.log	|
-awk '{
+awk 'BEGIN {
+	sd_file = "'"$SD_FILE"'"
+	n_sdlines = n_sdtab = 0
+	while((getline sd_line < sd_file) > 0){
+		n_sdlines++
+		if(n_sdlines > 1){
+			n_ary = split(sd_line, ary, "\t")
+			n_sdtab++
+			sdtab[ary[1] "_" ary[2]] = n_sdtab
+			tStart[n_sdtab] = ary[3]
+			tEnd[n_sdtab] = ary[4]
+			mStart[n_sdtab] = ary[5]
+			mEnd[n_sdtab] = ary[6]
+			pay[n_sdtab] = ary[7]
+		}
+	}
+}
+{
 	n_lines++
 	lines[n_lines] = $0
 }
 END {
 	l_date = ""
+	l_app = ""
 	for(i = 1; i <= n_lines; i++){
 		parse_aline(lines[i], ainfo)
 		da_start = set_da_start(lines, i, ainfo)
 		if(l_date == ""){
 			printf("Date\ttStart\ttEnd\tMileage\tjobType\tlocStart\tlocEnd\tAmount\tPayment\tNotes\n")
-			printf("%s\t.\t.\t.\tBEGIN\n", ainfo["date"])
+			sd_idx = sdtab[ainfo["date"] "_" ainfo["app"]]
+			printf("%s\t%s\t.\t.\tBEGIN\n", ainfo["date"], tStart[sd_idx])
 		}else if(ainfo["date"] != l_date){
-			printf("%s\t.\t.\t.\tEND\n", l_date)
-			printf("%s\t.\t.\t.\tBEGIN\n", ainfo["date"])
+			printf("%s\t.\t%s\t.\tEND\n", l_date, tEnd[sd_idx])
+			sd_idx = sdtab[ainfo["date"] "_" ainfo["app"]]
+			printf("%s\t%s\t.\t.\tBEGIN\n", ainfo["date"], tStart[sd_idx])
+		}else if(ainfo["app"] != l_app){
+			printf("%s\t.\t%s\t.\tEND\n", l_date, tEnd[sd_idx])
+			sd_idx = sdtab[ainfo["date"] "_" ainfo["app"]]
+			printf("%s\t%s\t.\t.\tBEGIN\n", ainfo["date"], tStart[sd_idx])
 		}
 			
 		for(d = da_start; d <= ainfo["n_atab"]; d++){
@@ -63,9 +93,10 @@ END {
 			printf("\n")
 		}
 		l_date = ainfo["date"]
+		l_app = ainfo["app"]
 	}
 	if(n_lines > 0)
-		printf("%s\t.\t.\t.\tEND\n", l_date)
+		printf("%s\t.\t%s\t.\tEND\n", l_date, tEnd[sd_idx])
 }
 function parse_aline(line, ainfo,   n_ary, ary, n_dt, dt, i) {
 	n_ary = split(line, ary)
@@ -96,6 +127,17 @@ function parse_aline(line, ainfo,   n_ary, ary, n_dt, dt, i) {
 		ainfo["atab", i] = ary[i]
 	}
 }
+# Sometimes additional orders are added to an active order
+# This results in the case where the 1st order line is
+#
+# ... src | dst
+#
+# and subsequent lines add | dst to this pfx.
+#
+# ... src | dst | dst ...
+#
+# So if the previous line is is a pfx of the current line,
+# start at the last dst as previous dst have already been handled
 function set_da_start(lines, ln, ainfo,   p_ainfo) {
 	if(ln == 1)
 		return 2
@@ -103,10 +145,6 @@ function set_da_start(lines, ln, ainfo,   p_ainfo) {
 		return 2
 	else{
 		parse_aline(lines[ln-1], p_ainfo)
-
-#		printf("pfx = %s\n", p_ainfo["alist"])
-#		printf("me  = %s\n", ainfo["alist"])
-
 		if(index(ainfo["alist"], p_ainfo["alist"]) == 1)
 			return p_ainfo["n_atab"] + 1
 		else
