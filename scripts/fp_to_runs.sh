@@ -89,7 +89,8 @@ END {
 			printf("%s\t%s", ainfo["date"], ainfo["time"])
 			printf("\t.\t.\tJob")
 			printf("\t%s\t%s", ainfo["atab", 1], ainfo["atab", d])
-			printf("\t.\t%s\t.", ainfo["app"])
+			# Payment was DD only, use -1 to indicate N/A
+			printf("\t-1\t%s\t.", ainfo["app"])
 			printf("\n")
 		}
 		l_date = ainfo["date"]
