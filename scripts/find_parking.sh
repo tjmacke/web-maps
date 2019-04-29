@@ -1,7 +1,7 @@
 #  /bin/bash
 #
 . ~/etc/funcs.sh
-U_MSG="usage: $0 [ -help ] [ -dt date_time ] [ -sn ] [ -log { file | NONE } ] [ -d D ] [ -app { gh*|dd|pm|ue } ] { -a address | [ address-file ] }"
+U_MSG="usage: $0 [ -help ] [ -dt date_time ] [ -sn ] [ -log NONE ] [ -last N ] [ -d D ] [ -app { gh*|dd|pm|ue } ] { -a address | [ address-file ] }"
 
 NOW="$(date +%Y%m%d_%H%M%S)"
 
@@ -41,7 +41,8 @@ fi
 
 FP_DATA=$HOME/work/trip_data/seattle/fp_data
 
-TMP_OFILE=/tmp/out.$$		# output of 1st geocoder
+TMP_AFILE=/tmp/addrs.$$		# all addresseses including last if available
+TMP_OFILE=/tmp/out.$$		# output of all geocoders
 TMP_EFILE=/tmp/err.$$		# merged errs for all geocoders
 TMP_FP_CFILE=/tmp/fp_cfile.$$	# find parking color/legend config (as key=value
 TMP_PFILE=/tmp/pspots.$$	# resolved addrs + sign cooords
@@ -53,6 +54,7 @@ ARGS="$@"
 LOG_DT=
 SN=
 LOG=
+LAST=
 DIST=
 APP="gh"
 ADDR=
@@ -86,6 +88,16 @@ while [ $# -gt 0 ] ; do
 			exit 1
 		fi
 		LOG=$1
+		shift
+		;;
+	-last)
+		shift
+		if [ $# -eq 0 ] ; then
+			LOG ERROR "-lasts requires integer argument"
+			echo "$U_UMSG" 1>&2
+			exit 1
+		fi
+		LAST=$1
 		shift
 		;;
 	-d)
@@ -142,23 +154,56 @@ if [ -z "$LOG_DT" ] ; then
 	LOG_DT="$NOW"
 fi
 
-# process LOG arg
-if [ -z "$LOG" ] ; then	# LOG="", use default log dir & log file
-	LOG_DIR=$FP_DATA/"$(echo $LOG_DT | awk -F_ '{ printf("%s/%s", substr($1, 1, 4),  substr($1, 1, 6)) }')"
-	if [ ! -d $LOG_DIR ] ; then
-		emsg="$(mkdir -p $LOG_DIR 2>&1)"
-		if [ ! -z "$emsg" ] ; then
-			LOG INFO $emsg
-			exit 1
-		fi
+# process LOG arg, LOG_FILE is always LOG_DIR/fp.${LOG_DT}.log, but if LOG == NONE the current cmd is not logged
+LOG_DIR=$FP_DATA/"$(echo $LOG_DT | awk -F_ '{ printf("%s/%s", substr($1, 1, 4),  substr($1, 1, 6)) }')"
+if [ ! -d $LOG_DIR ] ; then
+	emsg="$(mkdir -p $LOG_DIR 2>&1)"
+	if [ ! -z "$emsg" ] ; then
+		LOG INFO $emsg
+		exit 1
 	fi
-	LOG_FILE=$LOG_DIR/"$(echo $LOG_DT | awk -F_ '{ printf("fp.%s.log",  $1) }')"
-else
-	LOG_FILE="$LOG"
+fi
+LOG_FILE=$LOG_DIR/"$(echo $LOG_DT | awk -F_ '{ printf("fp.%s.log",  $1) }')"
+
+# get last address if it exists
+if [ -f $LOG_FILE ] ; then
+	LAST_ADDR="$(tail -1 $LOG_FILE |
+		awk 'BEGIN {
+			last = "'"$LAST"'"
+		}
+		{
+			ix = index($0, "-a")
+			alist = substr($0, ix+3)
+			n_ary = split(alist, ary, "|")
+			for(i = 2; i <= n_ary; i++){
+				sub(/^  */, "", ary[i])
+				sub(/  *$/, "", ary[i])
+			}
+			if(last == "")
+				last_addr = ary[n_ary]
+			else{
+				last += 0
+				last_addr = ""
+				for(i = 2; i <= n_ary; i++){
+					ix = index(ary[i], ".")
+					anum = substr(ary[i], 1, ix-1)
+					if(anum == last){
+						last_addr = ary[i]
+						break
+					}
+				}
+			}
+			if(last_addr == ""){
+				printf("ERROR: END: no addr %d in %s\n", last, alist) > "/dev/stderr"
+			}else{
+				sub(/^[1-9]\.  */, "last: ", last_addr)
+			}
+			print last_addr
+		}')"
 fi
 
-# if requested, log the command; since it's saved, maybe do more? later in the script?
-if [ "$LOG_FILE" != "NONE" ] ; then
+# log the cmd if requested
+if [ "$LOG" != "NONE" ] ; then
 	echo "$LOG_DT $ARGS" >> $LOG_FILE
 fi
 
@@ -172,27 +217,33 @@ if [ ! -z "$ADDR" ] ; then
 		echo "$U_MSG" 1>&2
 		exit 1
 	fi
-	AOPT="-a"
+	echo "$ADDR" > $TMP_AFILE
+	
 else
-	AOPT=""
-	ADDR=$FILE
+	cat $FILE > $TMP_AFILE
+fi
+if [ ! -z "$LAST_ADDR" ] ; then
+	echo "$LAST_ADDR" >> $TMP_AFILE
 fi
 
-$DM_SCRIPTS/get_geo_for_addrs.sh -d 0 $AOPT "$ADDR" >> $TMP_OFILE 2> $TMP_EFILE
+$DM_SCRIPTS/get_geo_for_addrs.sh -d 1 $TMP_AFILE > $TMP_OFILE 2> $TMP_EFILE
 n_OFILE=$(cat $TMP_OFILE | wc -l)
-
 # map address(es) (if any)
 if [ $n_OFILE -ne 0 ] ; then
+	h_REST="$(awk '$1 == "rest:" { yes = 1 ; exit 0 } END { print yes ? "yes" : "" }' $TMP_AFILE)"
+	h_LAST="$(awk '$1 == "last:" { yes = 1 ; exit 0 } END { print yes ? "yes" : "" }' $TMP_AFILE)"
 
 	# very simple config that depends on number of addresses
 	awk 'BEGIN {
-		n_addrs = "'"$n_OFILE"'" + 0
+		h_rest = "'"$h_REST"'" == "yes"
+		h_last = "'"$h_LAST"'" == "yes"
 	}
 	END {
 		printf("main.scale_type = factor\n")
-		printf("main.values = 0.90,0.90,0.90 | 0.94,0.94,0.5 | 0.94,0.75,0.5 | 0.94,0.5,0.5%s\n",
-			n_addrs > 1 ? " | 0.7,0.9,0.7" : "")
-		printf("main.keys = PPL | PLU | PCVL | PTRKL%s\n", n_addrs > 1 ? " | rest" : "")
+		printf("main.values = 0.90,0.90,0.90 | 0.94,0.94,0.5 | 0.94,0.75,0.5 | 0.94,0.5,0.5%s%s\n",
+			h_last ? " | 0.65,0.65,0.65" : "",
+			h_rest ? " | 0.7,0.9,0.7" : "")
+		printf("main.keys = PPL | PLU | PCVL | PTRKL%s%s\n", h_last ? "| last" : "", h_rest ? " | rest" : "")
 		printf("main.def_value = %s\n", "0.63,0.63,0.94")
 		printf("main.def_key_text = dest\n")
 	}' < /dev/null > $TMP_FP_CFILE
@@ -217,6 +268,8 @@ if [ $n_OFILE -ne 0 ] ; then
 		key = comma > 0 ? substr($NF, 1, comma - 1) : $NF
 		if(key ~ /^rest:/)
 			key = "rest"
+		else if(key ~ /^last:/)
+			key = "last"
 		iv = IU_interpolate(color, key)
 		printf("#%s\n", CU_rgb_to_24bit_color(iv))
 	}' $TMP_PFILE > $TMP_CFILE
@@ -232,4 +285,4 @@ if [ -s $TMP_EFILE ] ; then
 	cat $TMP_EFILE 1>&2
 fi
 
-rm -f $TMP_FP_CFILE $TMP_OFILE $TMP_EFILE $TMP_PFILE $TMP_CFILE $TMP_FP_CFILE_JSON
+rm -f $TMP_AFILE $TMP_OFILE $TMP_EFILE $TMP_FP_CFILE $TMP_PFILE $TMP_CFILE $TMP_FP_CFILE_JSON
