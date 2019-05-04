@@ -1,7 +1,7 @@
 #  /bin/bash
 #
 . ~/etc/funcs.sh
-U_MSG="usage: $0 [ -help ] [ -dt date_time ] [ -sn ] [ -log NONE ] [ -last N ] [ -d D ] [ -app { gh*|dd|pm|ue } ] { -a address | [ address-file ] }"
+U_MSG="usage: $0 [ -help ] [ -dt date_time ] [ -sn ] [ -gl gc-list ] [ -log NONE ] [ -last N ] [ -d D ] [ -app { gh*|dd|pm|ue } ] { -a address | [ address-file ] }"
 
 NOW="$(date +%Y%m%d_%H%M%S)"
 
@@ -21,6 +21,8 @@ fi
 DM_ETC=$DM_HOME/etc
 DM_LIB=$DM_HOME/lib
 DM_SCRIPTS=$DM_HOME/scripts
+
+. $DM_ETC/geocoder_defs.sh
 
 # awk v3 does not support include
 AWK_VERSION="$(awk --version | awk '{ nf = split($3, ary, /[,.]/) ; print ary[1] ; exit 0 }')"
@@ -53,6 +55,7 @@ TMP_FP_CFILE_JSON=/tmp/json_file.$$	# json version of TMP_FP_CFILE.$$
 ARGS="$@"
 LOG_DT=
 SN=
+GC_LIST=
 LOG=
 LAST=
 DIST=
@@ -78,6 +81,16 @@ while [ $# -gt 0 ] ; do
 		;;
 	-sn)
 		SN="yes"
+		shift
+		;;
+	-gl)
+		shift
+		if [ $# -eq 0 ] ; then
+			LOG ERROR "-gl requries gc-list argumenet"
+			echo "$U_MSG" 1>&2
+			exit 1
+		fi
+		GC_LIST=$1
 		shift
 		;;
 	-log)
@@ -165,6 +178,18 @@ if [ ! -d $LOG_DIR ] ; then
 fi
 LOG_FILE=$LOG_DIR/"$(echo $LOG_DT | awk -F_ '{ printf("fp.%s.log",  $1) }')"
 
+# set up the geocoder order
+if [ -z "$GC_LIST" ] ; then
+	GC_LIST="$GEO_PRIMARY,$GEO_SECONDARY"
+else
+	GC_WORK="$(chk_geocoders $GC_LIST)"
+	if echo "$GC_WORK" | grep '^ERROR' > /dev/null ; then
+		LOG ERROR "$GC_WORK"
+		exit 1
+	fi
+	GC_LIST=$GC_WORK	# comma sep list w/o spaces
+fi
+
 # get last address if it exists
 if [ -f $LOG_FILE ] ; then
 	LAST_ADDR="$(tail -1 $LOG_FILE |
@@ -226,7 +251,7 @@ if [ ! -z "$LAST_ADDR" ] ; then
 	echo "$LAST_ADDR" >> $TMP_AFILE
 fi
 
-$DM_SCRIPTS/get_geo_for_addrs.sh -d 1 $TMP_AFILE > $TMP_OFILE 2> $TMP_EFILE
+$DM_SCRIPTS/get_geo_for_addrs.sh -d 1 -gl $GC_LIST $TMP_AFILE > $TMP_OFILE 2> $TMP_EFILE
 n_OFILE=$(cat $TMP_OFILE | wc -l)
 # map address(es) (if any)
 if [ $n_OFILE -ne 0 ] ; then
