@@ -41,7 +41,13 @@ else
 	exit 1
 fi
 
-FP_DATA=$HOME/work/trip_data/seattle/fp_data
+FP_LOGS=$TD_HOME/seattle/fp_logs
+FP_DATA=$TD_HOME/seattle/fp_data
+FP_DB=$FP_DATA/trips.db
+if [ ! -s $FP_DB ] ; then
+	LOG ERROR "database $FP_DB either does not exist or has zero size"
+	exit 1
+fi
 
 TMP_AFILE=/tmp/addrs.$$		# all addresseses including last if available
 TMP_OFILE=/tmp/out.$$		# output of all geocoders
@@ -168,7 +174,7 @@ if [ -z "$LOG_DT" ] ; then
 fi
 
 # process LOG arg, LOG_FILE is always LOG_DIR/fp.${LOG_DT}.log, but if LOG == NONE the current cmd is not logged
-LOG_DIR=$FP_DATA/"$(echo $LOG_DT | awk -F_ '{ printf("%s/%s", substr($1, 1, 4),  substr($1, 1, 6)) }')"
+LOG_DIR=$FP_LOGS/"$(echo $LOG_DT | awk -F_ '{ printf("%s/%s", substr($1, 1, 4),  substr($1, 1, 6)) }')"
 if [ ! -d $LOG_DIR ] ; then
 	emsg="$(mkdir -p $LOG_DIR 2>&1)"
 	if [ ! -z "$emsg" ] ; then
@@ -250,6 +256,22 @@ fi
 if [ ! -z "$LAST_ADDR" ] ; then
 	echo "$LAST_ADDR" >> $TMP_AFILE
 fi
+
+
+# this will require a 2d TMP_AFILE, holding only those addrs that were not found
+cat $TMP_AFILE |
+while read line ; do
+	LOG DEBUG "look up trip: $line"
+	echo "$line" |
+	awk -F'|' '{
+		n_ary = split($0, ary, "|")
+		for(i = 1; i <= n_ary; i++){
+			sub(/^  */, "", ary[i])
+			sub(/  *$/, "", ary[i])
+			printf("look up addr: %s\n", ary[i]) > "/dev/stderr"
+		}
+	}'
+done
 
 $DM_SCRIPTS/get_geo_for_addrs.sh -d 1 -gl $GC_LIST $TMP_AFILE > $TMP_OFILE 2> $TMP_EFILE
 n_OFILE=$(cat $TMP_OFILE | wc -l)
