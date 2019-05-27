@@ -12,6 +12,7 @@ fi
 WM_BIN=$WM_HOME/bin
 WM_DATA=$WM_HOME/data/Seattle_Parking
 WM_SRC=$WM_HOME/src
+WM_SCRIPTS=$WM_HOME/scripts
 SN_FLIST=$WM_DATA/sn.list.json
 
 if [ -z "$DM_HOME" ] ; then
@@ -249,7 +250,6 @@ if [ ! -z "$ADDR" ] ; then
 		exit 1
 	fi
 	echo "$ADDR" > $TMP_AFILE
-	
 else
 	cat $FILE > $TMP_AFILE
 fi
@@ -257,8 +257,11 @@ if [ ! -z "$LAST_ADDR" ] ; then
 	echo "$LAST_ADDR" >> $TMP_AFILE
 fi
 
+# for each addr in TMP_AFILE:
+# 	1. in DB w/geo? if so, write the details to TMP_OFILE
+#	2. in new address cache? if so, write the detils to TMP_OFILE
+#	3. write this address to TMP_AFILE_2
 
-# this will require a 2d TMP_AFILE, holding only those addrs that were not found
 cat $TMP_AFILE |
 while read line ; do
 	LOG DEBUG "look up trip: $line"

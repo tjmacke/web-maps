@@ -70,12 +70,13 @@ fi
 # 4.	rest: addr | 1. addr | 2. addr ...
 #
 # A list of a prefixed addressed.  The numbers indicate the order in whch the 
-# pickup were received
+# pickups were received and usually but not always the order in which they are
+# to be delivered
 #
 # 5.	rest: addr | 1. addr | 2. addr ... | last addr
 #
 # A list of prefixed address, where last indicates that last deliver addresss
-# of the previous delivery
+# of the previous delivery which will be colored gray
 #
 echo "$ADDR"	|
 awk -F'|' '{
@@ -112,7 +113,7 @@ while read line ; do
 			printf(".mode tab\\n")
 			printf("SELECT date(%snow%s), address, %s.%s, lng, lat, rply_address\\n", apos, apos, apos, apos)
 			printf("FROM addresses\\n")
-			printf("WHERE address = %s%s%s ;", apos, addr, apos)
+			printf("WHERE address = %s%s%s AND as_reason LIKE %sgeo.ok.%%%s ;", apos, addr, apos, apos, apos)
 		}')"
 	# query the DB
 	rply="$(echo -e "$qry" | sqlite3 $FP_DB)"
