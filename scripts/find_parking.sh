@@ -51,7 +51,9 @@ if [ ! -s $FP_DB ] ; then
 fi
 
 TMP_AFILE=/tmp/addrs.$$		# all addresseses including last if available
-TMP_OFILE=/tmp/out.$$		# output of all geocoders
+TMP_AFILE_1=/tmp/addrs_1.$$	# addresses not in DB or cache
+TMP_OFILE=/tmp/out.$$		# collected output of all geocoders, DB selects and cache gets
+TMP_OFILE_1=/tmp/out_1.$$	# output of all gecoders (ie addresses not in DB or cache)
 TMP_EFILE=/tmp/err.$$		# merged errs for all geocoders
 TMP_FP_CFILE=/tmp/fp_cfile.$$	# find parking color/legend config (as key=value
 TMP_PFILE=/tmp/pspots.$$	# resolved addrs + sign cooords
@@ -258,7 +260,7 @@ if [ ! -z "$LAST_ADDR" ] ; then
 fi
 
 # Parse address lines and check if they are in FP_DB or the soon to be implemented.
-# cache. This insures that only addresses w/o (lng, lat) are sent to a geocoder.
+# new result cache. This insures that only addresses w/o (lng, lat) are sent to a geocoder.
 cat $TMP_AFILE |
 while read line ; do
 	echo "$line" |
@@ -289,8 +291,8 @@ while read line ; do
 		pfx="$(echo "$pa_line" | awk -F'\t' '{ print $1 }')"
 		addr="$(echo "$pa_line" | awk -F'\t' '{ print $2 }')"
 		gc_addr="$($WM_SCRIPTS/select_gc_addr_from_db.sh  -db $FP_DB "$addr")"
-		# add any prefix
 		if [ ! -z "$gc_addr" ] ; then
+			# add back any prefix
 			echo "$pfx|$gc_addr" | awk -F'|' '{
 				if($1 == "")
 					print $2
@@ -302,21 +304,25 @@ while read line ; do
 						printf("\t%s", ary[i])
 					printf("\n")
 				}
-			}' 1>&2
+			}' 1>&2		# append to $TMP_OFILE
 		else
 			echo "Not in DB: $addr, chk cache" 1>&2
+			# in cache, append to $TMP_OFILE
+			# not in cache append to $TMP_AFILE_1
 		fi
 	done
 done
 
+# TODO: if necissary: read from $TMP_AFILE_1, write  to $TMP_OFILE_1, append $TMP_OFILE_1 to $TMP_OFILE
 $DM_SCRIPTS/get_geo_for_addrs.sh -d 1 -gl $GC_LIST $TMP_AFILE > $TMP_OFILE 2> $TMP_EFILE
 n_OFILE=$(cat $TMP_OFILE | wc -l)
 # map address(es) (if any)
 if [ $n_OFILE -ne 0 ] ; then
+	# TODO: update cache w/addresses in $TMP_OFILE_1
 	h_REST="$(awk '$1 == "rest:" { yes = 1 ; exit 0 } END { print yes ? "yes" : "" }' $TMP_AFILE)"
 	h_LAST="$(awk '$1 == "last:" { yes = 1 ; exit 0 } END { print yes ? "yes" : "" }' $TMP_AFILE)"
 
-	# very simple config that depends on number of addresses
+	# map pin color config.  Add rest, last colors only if present in the original addresses
 	awk 'BEGIN {
 		h_rest = "'"$h_REST"'" == "yes"
 		h_last = "'"$h_LAST"'" == "yes"
@@ -368,4 +374,4 @@ if [ -s $TMP_EFILE ] ; then
 	cat $TMP_EFILE 1>&2
 fi
 
-rm -f $TMP_AFILE $TMP_OFILE $TMP_EFILE $TMP_FP_CFILE $TMP_PFILE $TMP_CFILE $TMP_FP_CFILE_JSON
+rm -f $TMP_AFILE $TMP_AFILE_1 $TMP_OFILE $TMP_OFILE_1 $TMP_EFILE $TMP_FP_CFILE $TMP_PFILE $TMP_CFILE $TMP_FP_CFILE_JSON
