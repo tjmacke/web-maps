@@ -1,0 +1,41 @@
+Each address line is a pipe (|) separated list of addresses.  An address
+may have an optional prefix.  Prefixes are used to color the address pin
+on the map.  Recognized prefixes are:
+
+	/^rest:  */	restaurant address, colored green
+	/^last:  */	last delivery address, colored dark gray
+	/^[1-9]\.  */	active delivery addresses, colored purple
+
+Addresses w/o a recognized prefix are colored purple, even though they
+may not be delievery desitionss.
+
+Examples: 
+
+1.	addr
+
+	The simplest address line: 1 unprefixed address -> purple pin
+
+2.	addr | addr ...
+
+	A list of unprefixed addresses -> purple pins.
+
+3.	rest: addr | 1. addr
+
+	A simple pickup and delivery.  Two pins, rest: addr -> green, 1. addr ->
+	purple
+
+4.	rest: addr | 1. addr | 2. addr ...
+
+	Pickup multiple orders at rest: addr and deliver them to 1. addr, 2. addr,
+	etc.  The # numbers # are assigned in the order revieved whch is not
+	neceissarily the # delivery order.
+
+The "last: " address.  It can be useful to display the last destination
+of the previous delivery.  This address is automatically extracted from the
+log file and added as | last: addr # to the original address line:
+
+5.	rest: addr | 1. addr | last: addr
+
+	this will genearte 3 pins: rest: addr -> green, 1. addr -> purple and
+	last: addr -> dark gray
+

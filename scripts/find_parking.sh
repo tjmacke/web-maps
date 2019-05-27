@@ -257,23 +257,56 @@ if [ ! -z "$LAST_ADDR" ] ; then
 	echo "$LAST_ADDR" >> $TMP_AFILE
 fi
 
-# for each addr in TMP_AFILE:
-# 	1. in DB w/geo? if so, write the details to TMP_OFILE
-#	2. in new address cache? if so, write the detils to TMP_OFILE
-#	3. write this address to TMP_AFILE_2
-
+# Parse address lines and check if they are in FP_DB or the soon to be implemented.
+# cache. This insures that only addresses w/o (lng, lat) are sent to a geocoder.
 cat $TMP_AFILE |
 while read line ; do
-	LOG DEBUG "look up trip: $line"
 	echo "$line" |
 	awk -F'|' '{
-		n_ary = split($0, ary, "|")
-		for(i = 1; i <= n_ary; i++){
-			sub(/^  */, "", ary[i])
-			sub(/  *$/, "", ary[i])
-			printf("look up addr: %s\n", ary[i]) > "/dev/stderr"
+		# split on pipe into an array of possibly prefixed addresses
+		# trim leading/trailing spaces
+		# find addr prefixes (if any)
+		for(i = 1; i <= NF; i++){
+			sub(/^  */, "", $i)
+			sub(/  *$/, "", $i)
+			if(match($i, /^rest:  */)){
+				pfx = substr($i, 1, RLENGTH)
+				addr = substr($i, RLENGTH + 1)
+			}else if(match($i, /^[1-9]\.  */)){
+				pfx = substr($i, 1, RLENGTH)
+				addr = substr($i, RLENGTH + 1)
+			}else if(match($i, /^last: */)){
+				pfx = substr($i, 1, RLENGTH)
+				addr = substr($i, RLENGTH + 1)
+			}else{	# no pfx
+				pfx = ""
+				addr = $i
+			}
+			printf("%s\t%s\n", pfx, addr)
 		}
-	}'
+	}'	|
+	while read pa_line ; do
+		pfx="$(echo "$pa_line" | awk -F'\t' '{ print $1 }')"
+		addr="$(echo "$pa_line" | awk -F'\t' '{ print $2 }')"
+		gc_addr="$($WM_SCRIPTS/select_gc_addr_from_db.sh  -db $FP_DB "$addr")"
+		# add any prefix
+		if [ ! -z "$gc_addr" ] ; then
+			echo "$pfx|$gc_addr" | awk -F'|' '{
+				if($1 == "")
+					print $2
+				else{
+					n_ary = split($2, ary, "\t")
+					ary[2] = $1 ary[2]
+					printf("%s", ary[1])
+					for(i = 2; i <= n_ary; i++)
+						printf("\t%s", ary[i])
+					printf("\n")
+				}
+			}' 1>&2
+		else
+			echo "Not in DB: $addr, chk cache" 1>&2
+		fi
+	done
 done
 
 $DM_SCRIPTS/get_geo_for_addrs.sh -d 1 -gl $GC_LIST $TMP_AFILE > $TMP_OFILE 2> $TMP_EFILE
