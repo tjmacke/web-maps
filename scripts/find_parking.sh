@@ -1,7 +1,7 @@
 #  /bin/bash
 #
 . ~/etc/funcs.sh
-U_MSG="usage: $0 [ -help ] [ -dt date_time ] [ -sn ] [ -gl gc-list ] [ -log NONE ] [ -last N ] [ -d D ] [ -app { gh*|dd|pm|ue } ] { -a address | [ address-file ] }"
+U_MSG="usage: $0 [ -help ] [ -db db-file ] [ -dt date_time ] [ -sn ] [ -gl gc-list ] [ -log NONE ] [ -last N ] [ -d D ] [ -app { gh*|dd|pm|ue } ] { -a address | [ address-file ] }"
 
 NOW="$(date +%Y%m%d_%H%M%S)"
 
@@ -42,13 +42,11 @@ else
 	exit 1
 fi
 
+# parking data, including today's cached addresses
 FP_LOGS=$TD_HOME/seattle/fp_logs
 FP_DATA=$TD_HOME/seattle/fp_data
 FP_DB=$FP_DATA/trips.db
-if [ ! -s $FP_DB ] ; then
-	LOG ERROR "database $FP_DB either does not exist or has zero size"
-	exit 1
-fi
+FP_CACHE=/tmp/fp."$(echo $NOW | awk -F_ '{ print $1 }')".tsv
 
 TMP_AFILE=/tmp/addrs.$$		# all addresseses including last if available
 TMP_AFILE_1=/tmp/addrs_1.$$	# addresses not in DB or cache
@@ -77,6 +75,16 @@ while [ $# -gt 0 ] ; do
 	-help)
 		echo "$U_MSG"
 		exit 0
+		;;
+	-db)
+		shift
+		if [ $# -eq 0 ] ; then
+			LOG ERROR "-db requires db-file argument"
+			echo "$U_MSG" 1>&2
+			exit 1
+		fi
+		FP_DB=$1
+		shift
 		;;
 	-dt)
 		shift
@@ -168,6 +176,12 @@ done
 if [ $# -ne 0 ] ; then
 	LOG ERROR "extra arguments $*"
 	echo "$U_MSG" 1>&2
+	exit 1
+fi
+
+# allow user to set the database.  Intended to develop caching
+if [ ! -s $FP_DB ] ; then
+	LOG ERROR "trips database $FP_DB either does not exist or has zero size"
 	exit 1
 fi
 
@@ -263,52 +277,25 @@ fi
 # new result cache. This insures that only addresses w/o (lng, lat) are sent to a geocoder.
 cat $TMP_AFILE |
 while read line ; do
-	echo "$line" |
-	awk -F'|' '{
-		# split on pipe into an array of possibly prefixed addresses
-		# trim leading/trailing spaces
-		# find addr prefixes (if any)
-		for(i = 1; i <= NF; i++){
-			sub(/^  */, "", $i)
-			sub(/  *$/, "", $i)
-			if(match($i, /^rest:  */)){
-				pfx = substr($i, 1, RLENGTH)
-				addr = substr($i, RLENGTH + 1)
-			}else if(match($i, /^[1-9]\.  */)){
-				pfx = substr($i, 1, RLENGTH)
-				addr = substr($i, RLENGTH + 1)
-			}else if(match($i, /^last: */)){
-				pfx = substr($i, 1, RLENGTH)
-				addr = substr($i, RLENGTH + 1)
-			}else{	# no pfx
-				pfx = ""
-				addr = $i
-			}
-			printf("%s\t%s\n", pfx, addr)
-		}
-	}'	|
+	$WM_SCRIPTS/fp_hlpr_parse_addr.sh "$line"	|
 	while read pa_line ; do
 		pfx="$(echo "$pa_line" | awk -F'\t' '{ print $1 }')"
 		addr="$(echo "$pa_line" | awk -F'\t' '{ print $2 }')"
 		gc_addr="$($WM_SCRIPTS/select_gc_addr_from_db.sh  -db $FP_DB "$addr")"
 		if [ ! -z "$gc_addr" ] ; then
-			# add back any prefix
-			echo "$pfx|$gc_addr" | awk -F'|' '{
-				if($1 == "")
-					print $2
-				else{
-					n_ary = split($2, ary, "\t")
-					ary[2] = $1 ary[2]
-					printf("%s", ary[1])
-					for(i = 2; i <= n_ary; i++)
-						printf("\t%s", ary[i])
-					printf("\n")
-				}
-			}' 1>&2		# append to $TMP_OFILE
+			# in db, add back pfx, and (at some point) append to $TMP_OFILE
+			$WM_SCRIPTS/fp_hlpr_add_back_pfx.sh "$pfx|$gc_addr" 1>&2
 		else
-			echo "Not in DB: $addr, chk cache" 1>&2
-			# in cache, append to $TMP_OFILE
-			# not in cache append to $TMP_AFILE_1
+			# TODO:
+#tm			c_addr="$($WM_SCRIPTS/fp_cache_get -c $FP_CACHE "$addr")"
+			c_addr=""
+			if [ ! -z "$c_addr" ] ; then
+				# in cache, add back pfx, and (at some point) append to $TMP_OFILE
+				$WM_SCRIPTS/fp_hlpr_add_back_pfx.sh "$pfx|$c_addr" 1>&2
+			else
+				# unknown addr, append (at some point) to $MPT_AFILE_1, for lookup
+				echo "Not in DB: $addr, chk cache" 1>&2
+			fi
 		fi
 	done
 done
@@ -318,11 +305,20 @@ $DM_SCRIPTS/get_geo_for_addrs.sh -d 1 -gl $GC_LIST $TMP_AFILE > $TMP_OFILE 2> $T
 n_OFILE=$(cat $TMP_OFILE | wc -l)
 # map address(es) (if any)
 if [ $n_OFILE -ne 0 ] ; then
-	# TODO: update cache w/addresses in $TMP_OFILE_1
-	h_REST="$(awk '$1 == "rest:" { yes = 1 ; exit 0 } END { print yes ? "yes" : "" }' $TMP_AFILE)"
-	h_LAST="$(awk '$1 == "last:" { yes = 1 ; exit 0 } END { print yes ? "yes" : "" }' $TMP_AFILE)"
+
+	# TODO:
+	# update cache w/addresses in $TMP_OFILE_1
+#tm 	cat $TMP_OFILE |
+#tm 	while read line ; do
+#tm 		pa_line="$($WM_SCRIPTS/fp_hlpr_parse_addr.sh "$line")"
+#tm 		pfx="$(echo "$pa_line" | awk -F'\t' '{ print $1 }')"
+#tm 		addr="$(echo "$pa_line" | awk -F'\t' '{ print $2 }')"
+#tm 		$WM_SCRIPTS/fp_cache_put.sh -c $FP_CACHE "$addr"
+#tm 	done
 
 	# map pin color config.  Add rest, last colors only if present in the original addresses
+	h_REST="$(awk '$1 == "rest:" { yes = 1 ; exit 0 } END { print yes ? "yes" : "" }' $TMP_AFILE)"
+	h_LAST="$(awk '$1 == "last:" { yes = 1 ; exit 0 } END { print yes ? "yes" : "" }' $TMP_AFILE)"
 	awk 'BEGIN {
 		h_rest = "'"$h_REST"'" == "yes"
 		h_last = "'"$h_LAST"'" == "yes"
