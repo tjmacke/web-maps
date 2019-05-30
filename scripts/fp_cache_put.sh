@@ -68,6 +68,7 @@ awk -F'\t' 'BEGIN {
 		cache[ary[2]] = line
 	}
 	close(cfile)
+	wrt = 0
 }
 {
 	n_ary = split(line, ary, "\t")
@@ -78,8 +79,8 @@ awk -F'\t' 'BEGIN {
 }
 END {
 	if(wrt){
-		for(key in cache)
-			printf("%s\n", cache[k]) > cfile
+		for(addr in cache)
+			printf("%s\n", cache[addr]) > cfile
 		close(cfile)
 	}
 }'

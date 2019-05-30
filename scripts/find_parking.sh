@@ -190,7 +190,7 @@ if [ -z "$LOG_DT" ] ; then
 	LOG_DT="$NOW"
 fi
 
-# process LOG arg, LOG_FILE is always LOG_DIR/fp.${LOG_DT}.log, but if LOG == NONE the current cmd is not logged
+# set the name of the LOG_FILE.
 LOG_DIR=$FP_LOGS/"$(echo $LOG_DT | awk -F_ '{ printf("%s/%s", substr($1, 1, 4),  substr($1, 1, 6)) }')"
 if [ ! -d $LOG_DIR ] ; then
 	emsg="$(mkdir -p $LOG_DIR 2>&1)"
@@ -308,7 +308,7 @@ if [ $n_OFILE -ne 0 ] ; then
 
 	# TODO:
 	# update cache w/addresses in $TMP_OFILE_1
-#tm 	cat $TMP_OFILE |
+#tm 	cat $TMP_OFILE_1 |
 #tm 	while read line ; do
 #tm 		pa_line="$($WM_SCRIPTS/fp_hlpr_parse_addr.sh "$line")"
 #tm 		pfx="$(echo "$pa_line" | awk -F'\t' '{ print $1 }')"
@@ -316,7 +316,7 @@ if [ $n_OFILE -ne 0 ] ; then
 #tm 		$WM_SCRIPTS/fp_cache_put.sh -c $FP_CACHE "$addr"
 #tm 	done
 
-	# map pin color config.  Add rest, last colors only if present in the original addresses
+	# make the map pin color config.  Add rest, last colors only if present in the original addresses
 	h_REST="$(awk '$1 == "rest:" { yes = 1 ; exit 0 } END { print yes ? "yes" : "" }' $TMP_AFILE)"
 	h_LAST="$(awk '$1 == "last:" { yes = 1 ; exit 0 } END { print yes ? "yes" : "" }' $TMP_AFILE)"
 	awk 'BEGIN {
