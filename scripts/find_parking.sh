@@ -273,6 +273,8 @@ if [ ! -z "$LAST_ADDR" ] ; then
 	echo "$LAST_ADDR" >> $TMP_AFILE
 fi
 
+#TODO: trim pfx & addr in all places!!!
+
 # Parse address lines and check if they are in FP_DB or the soon to be implemented.
 # new result cache. This insures that only addresses w/o (lng, lat) are sent to a geocoder.
 cat $TMP_AFILE |
@@ -281,40 +283,54 @@ while read line ; do
 	while read pa_line ; do
 		pfx="$(echo "$pa_line" | awk -F'\t' '{ print $1 }')"
 		addr="$(echo "$pa_line" | awk -F'\t' '{ print $2 }')"
-		gc_addr="$($WM_SCRIPTS/select_gc_addr_from_db.sh  -db $FP_DB "$addr")"
+		gc_addr="$($WM_SCRIPTS/select_gc_addr_from_db.sh -db $FP_DB "$addr")"
 		if [ ! -z "$gc_addr" ] ; then
 			# in db, add back pfx, and (at some point) append to $TMP_OFILE
-			$WM_SCRIPTS/fp_hlpr_add_back_pfx.sh "$pfx|$gc_addr" 1>&2
+			# $WM_SCRIPTS/fp_hlpr_add_back_pfx.sh "$pfx|$gc_addr" | tee -a $TMP_OFILE 1>&2
+			$WM_SCRIPTS/fp_hlpr_add_back_pfx.sh "$pfx|$gc_addr" >> $TMP_OFILE
 		else
-			# TODO:
-#tm			c_addr="$($WM_SCRIPTS/fp_cache_get -c $FP_CACHE "$addr")"
-			c_addr=""
+			c_addr="$($WM_SCRIPTS/fp_cache_get.sh -c $FP_CACHE "$addr")"
 			if [ ! -z "$c_addr" ] ; then
 				# in cache, add back pfx, and (at some point) append to $TMP_OFILE
-				$WM_SCRIPTS/fp_hlpr_add_back_pfx.sh "$pfx|$c_addr" 1>&2
+				# $WM_SCRIPTS/fp_hlpr_add_back_pfx.sh "$pfx|$c_addr" 1>&2
+				$WM_SCRIPTS/fp_hlpr_add_back_pfx.sh "$pfx|$c_addr" >> $TMP_OFILE
 			else
-				# unknown addr, append (at some point) to $MPT_AFILE_1, for lookup
-				echo "Not in DB: $addr, chk cache" 1>&2
+				# unknown addr, append to $TMP_AFILE_1, for lookup
+				# echo "$pa_line" | tr -d '\t' | tee -a $TMP_AFILE_1 1>&2
+				echo "$pa_line" | tr -d '\t' >> $TMP_AFILE_1
 			fi
 		fi
 	done
 done
 
-# TODO: if necissary: read from $TMP_AFILE_1, write  to $TMP_OFILE_1, append $TMP_OFILE_1 to $TMP_OFILE
-$DM_SCRIPTS/get_geo_for_addrs.sh -d 1 -gl $GC_LIST $TMP_AFILE > $TMP_OFILE 2> $TMP_EFILE
+# TODO: if necessary: read from $TMP_AFILE_1, write  to $TMP_OFILE_1, append $TMP_OFILE_1 to $TMP_OFILE
+$DM_SCRIPTS/get_geo_for_addrs.sh -d 1 -gl $GC_LIST $TMP_AFILE_1 > $TMP_OFILE_1 2> $TMP_EFILE
+cat $TMP_OFILE_1 >> $TMP_OFILE
 n_OFILE=$(cat $TMP_OFILE | wc -l)
 # map address(es) (if any)
 if [ $n_OFILE -ne 0 ] ; then
 
 	# TODO:
 	# update cache w/addresses in $TMP_OFILE_1
-#tm 	cat $TMP_OFILE_1 |
-#tm 	while read line ; do
-#tm 		pa_line="$($WM_SCRIPTS/fp_hlpr_parse_addr.sh "$line")"
-#tm 		pfx="$(echo "$pa_line" | awk -F'\t' '{ print $1 }')"
-#tm 		addr="$(echo "$pa_line" | awk -F'\t' '{ print $2 }')"
-#tm 		$WM_SCRIPTS/fp_cache_put.sh -c $FP_CACHE "$addr"
-#tm 	done
+	cat $TMP_OFILE_1 |
+	while read line ; do
+		nopfx_line="$(echo "$line" |
+			awk -F'\t' '{
+				work = $2
+				if(match(work, /^rest:  */)){
+					work = substr(work, RLENGTH)
+				}else if(match(work, /^[1-9]\.  */)){
+					work = substr(work, RLENGTH)
+				}else if(match(work, /^last:  */)){
+					work = substr(work, RLENGTH)
+				}
+				printf("%s\t%s", $1, work)
+				for(i = 3; i <= NF; i++)
+					printf("\t%s", $i)
+				printf("\n")
+			}')"
+		$WM_SCRIPTS/fp_cache_put.sh -c $FP_CACHE "$nopfx_line"
+	done
 
 	# make the map pin color config.  Add rest, last colors only if present in the original addresses
 	h_REST="$(awk '$1 == "rest:" { yes = 1 ; exit 0 } END { print yes ? "yes" : "" }' $TMP_AFILE)"

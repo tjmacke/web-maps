@@ -35,7 +35,7 @@ while [ $# -gt 0 ] ; do
 	esac
 done
 
-if [ $# -ne 0 ] ; thne
+if [ $# -ne 0 ] ; then
 	LOG ERROR "extra arguments $*"
 	echo "$U_MSG" 1>&2
 	exit 1
@@ -59,21 +59,26 @@ if [ ! -f $CACHE ] ; then
 	exit 0
 fi
 
-echo "$addr"	|
+echo "$ADDR"	|
 awk -F'\t' 'BEGIN {
 	cfile = "'"$CACHE"'"
 	for(n_cache = 0; (getline line < cfile) > 0; ){
 		n_cache++
 		n_ary = split(line, ary, "\t")
+		# TODO: find the source of the extra spaces
+		sub(/^  */, "", ary[2])
+		sub(/  *$/, "", ary[2])
 		cache[ary[2]] = line
 	}
 	close(cfile)
 	wrt = 0
 }
 {
-	n_ary = split(line, ary, "\t")
+	n_ary = split($0, ary, "\t")
+	sub(/^  */, "", ary[2])
+	sub(/  *$/, "", ary[2])
 	if(!(ary[2] in cache)){
-		cache[ary[2]] = addr
+		cache[ary[2]] = $0
 		wrt = 1
 	}
 }
