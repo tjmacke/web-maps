@@ -21,6 +21,10 @@ awk -F'|' '{
 			pfx = ""
 			addr = $i
 		}
+		sub(/^  */, "", pfx)
+		sub(/  *$/, "", pfx)
+		sub(/^  */, "", addr)
+		sub(/  *$/, "", addr)
 		printf("%s\t%s\n", pfx, addr)
 	}
 }'

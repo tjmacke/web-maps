@@ -65,9 +65,6 @@ awk -F'\t' 'BEGIN {
 	for(n_cache = 0; (getline line < cfile) > 0; ){
 		n_cache++
 		n_ary = split(line, ary, "\t")
-		# TODO: find the source of the extra spaces
-		sub(/^  */, "", ary[2])
-		sub(/  *$/, "", ary[2])
 		cache[ary[2]] = line
 	}
 	close(cfile)
@@ -75,8 +72,6 @@ awk -F'\t' 'BEGIN {
 }
 {
 	n_ary = split($0, ary, "\t")
-	sub(/^  */, "", ary[2])
-	sub(/  *$/, "", ary[2])
 	if(!(ary[2] in cache)){
 		cache[ary[2]] = $0
 		wrt = 1
