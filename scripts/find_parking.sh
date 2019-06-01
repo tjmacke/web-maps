@@ -286,17 +286,14 @@ while read line ; do
 		gc_addr="$($WM_SCRIPTS/select_gc_addr_from_db.sh -db $FP_DB "$addr")"
 		if [ ! -z "$gc_addr" ] ; then
 			# in db, add back pfx, and (at some point) append to $TMP_OFILE
-			# $WM_SCRIPTS/fp_hlpr_add_back_pfx.sh "$pfx|$gc_addr" | tee -a $TMP_OFILE 1>&2
 			$WM_SCRIPTS/fp_hlpr_add_back_pfx.sh "$pfx|$gc_addr" >> $TMP_OFILE
 		else
 			c_addr="$($WM_SCRIPTS/fp_cache_get.sh -c $FP_CACHE "$addr")"
 			if [ ! -z "$c_addr" ] ; then
-				# in cache, add back pfx, and (at some point) append to $TMP_OFILE
-				# $WM_SCRIPTS/fp_hlpr_add_back_pfx.sh "$pfx|$c_addr" 1>&2
+				# in cache, add back pfx
 				$WM_SCRIPTS/fp_hlpr_add_back_pfx.sh "$pfx|$c_addr" >> $TMP_OFILE
 			else
 				# unknown addr, append to $TMP_AFILE_1, for lookup
-				# echo "$pa_line" | tr -d '\t' | tee -a $TMP_AFILE_1 1>&2
 				echo "$pa_line" | tr -d '\t' >> $TMP_AFILE_1
 			fi
 		fi
@@ -304,33 +301,37 @@ while read line ; do
 done
 
 # TODO: if necessary: read from $TMP_AFILE_1, write  to $TMP_OFILE_1, append $TMP_OFILE_1 to $TMP_OFILE
-$DM_SCRIPTS/get_geo_for_addrs.sh -d 1 -gl $GC_LIST $TMP_AFILE_1 > $TMP_OFILE_1 2> $TMP_EFILE
-cat $TMP_OFILE_1 >> $TMP_OFILE
+if [ -f $TMP_AFILE_1 ] ; then
+	$DM_SCRIPTS/get_geo_for_addrs.sh -d 1 -gl $GC_LIST $TMP_AFILE_1 > $TMP_OFILE_1 2> $TMP_EFILE
+	cat $TMP_OFILE_1 >> $TMP_OFILE
+fi
 n_OFILE=$(cat $TMP_OFILE | wc -l)
 # map address(es) (if any)
 if [ $n_OFILE -ne 0 ] ; then
 
 	# TODO:
-	# update cache w/addresses in $TMP_OFILE_1
-	cat $TMP_OFILE_1 |
-	while read line ; do
-		nopfx_line="$(echo "$line" |
-			awk -F'\t' '{
-				work = $2
-				if(match(work, /^rest:  */)){
-					work = substr(work, RLENGTH)
-				}else if(match(work, /^[1-9]\.  */)){
-					work = substr(work, RLENGTH)
-				}else if(match(work, /^last:  */)){
-					work = substr(work, RLENGTH)
-				}
-				printf("%s\t%s", $1, work)
-				for(i = 3; i <= NF; i++)
-					printf("\t%s", $i)
-				printf("\n")
-			}')"
-		$WM_SCRIPTS/fp_cache_put.sh -c $FP_CACHE "$nopfx_line"
-	done
+	# update cache w/addresses in $TMP_OFILE_1 (if any)
+	if [ -f $TMP_OFILE_1 ] ; then
+		cat $TMP_OFILE_1 |
+		while read line ; do
+			nopfx_line="$(echo "$line" |
+				awk -F'\t' '{
+					work = $2
+					if(match(work, /^rest:  */)){
+						work = substr(work, RLENGTH)
+					}else if(match(work, /^[1-9]\.  */)){
+						work = substr(work, RLENGTH)
+					}else if(match(work, /^last:  */)){
+						work = substr(work, RLENGTH)
+					}
+					printf("%s\t%s", $1, work)
+					for(i = 3; i <= NF; i++)
+						printf("\t%s", $i)
+					printf("\n")
+				}')"
+			$WM_SCRIPTS/fp_cache_put.sh -c $FP_CACHE "$nopfx_line"
+		done
+	fi
 
 	# make the map pin color config.  Add rest, last colors only if present in the original addresses
 	h_REST="$(awk '$1 == "rest:" { yes = 1 ; exit 0 } END { print yes ? "yes" : "" }' $TMP_AFILE)"
