@@ -179,7 +179,7 @@ if [ $# -ne 0 ] ; then
 	exit 1
 fi
 
-# allow user to set the database.  Intended to develop caching
+# allow user to set the database.  Allows for fixing bugs found in today's use
 if [ ! -s $FP_DB ] ; then
 	LOG ERROR "trips database $FP_DB either does not exist or has zero size"
 	exit 1
@@ -188,6 +188,29 @@ fi
 # allow user to set the date/time.  Intended for data preceding this script
 if [ -z "$LOG_DT" ] ; then
 	LOG_DT="$NOW"
+else
+	# make sure the date/time in in LOG_DT is reasonable
+	emsg="$(echo "$LOG_DT" |
+	awk -F_ '{
+		if(NF != 2){
+			printf("ERROR: LOG_DT %s: wrong number of fields %d, expect 2\n", $0, NF)
+			exit 1
+		}else{
+			if(length($1) != 8){
+				printf("ERROR: LOG_DT %s: bad date, must be YYYYMMDD\n", $0)
+				exit 1
+			}
+			if(length($2) != 6){
+				printf("ERROR: LOG_DT %s: bad time, must be HHMMSS\n", $0)
+				exit 1
+			}
+			printf("")
+		}
+	}')"
+	if [ ! -z "$emsg" ] ; then
+		LOG ERROR "$emsg"
+		exit 1
+	fi
 fi
 
 # set the name of the LOG_FILE.
