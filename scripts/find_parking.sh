@@ -203,7 +203,7 @@ LOG_FILE=$LOG_DIR/"$(echo $LOG_DT | awk -F_ '{ printf("fp.%s.log",  $1) }')"
 
 # set up the geocoder order
 if [ -z "$GC_LIST" ] ; then
-	GC_LIST="$GEO_PRIMARY,$GEO_SECONDARY"
+	GC_LIST="$GEO_PRIMARY,$GEO_SECONDARY,$GEO_TERTIARY"
 else
 	GC_WORK="$(chk_geocoders $GC_LIST)"
 	if echo "$GC_WORK" | grep '^ERROR' > /dev/null ; then
