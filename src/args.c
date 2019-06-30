@@ -439,6 +439,43 @@ CLEAN_UP : ;
 	return avp;
 }
 
+int
+TJM_get_flag_was_set(const ARGS_T *args, const char *fname)
+{
+	FLAG_T	*fp = NULL;
+	int	err = 0;
+
+	if(args == NULL){
+		LOG_ERROR("args is NULL");
+		err = 1;
+		goto CLEAN_UP;
+	}
+	if(args->an_flags == 0){
+		LOG_ERROR("no flags");
+		err = 1;
+		goto CLEAN_UP;
+	}
+	if(args->a_flag_idx == NULL){
+		LOG_ERROR("args has not been initialized: call TJM_get_args() before any calls to TJM_get_flag_was_set()");
+		err = 1;
+		goto CLEAN_UP;
+	}
+	if(fname == NULL || *fname == '\0'){
+		LOG_ERROR("fname is NULL or empty");
+		err = 1;
+		goto CLEAN_UP;
+	}
+	if((fp = find_flag_name(fname, args->an_flags, args->a_flag_idx)) == NULL){
+		LOG_ERROR("unknown flag %s", fname);
+		err = 1;
+		goto CLEAN_UP;
+	}
+
+CLEAN_UP : ;
+
+	return err ? 0 : fp->f_was_set;
+}
+
 static	int
 cmp_flag_name(const void *p1, const void *p2)
 {

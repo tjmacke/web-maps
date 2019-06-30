@@ -83,6 +83,9 @@ TJM_dump_args(FILE *, const ARGS_T *);
 const	ARG_VAL_T	*
 TJM_get_flag_value(const ARGS_T *, const char *, int);
 
+int
+TJM_get_flag_was_set(const ARGS_T *, const char *);
+
 void
 TJM_print_help_msg(FILE *, const ARGS_T *);
 

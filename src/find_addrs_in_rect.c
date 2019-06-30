@@ -1,4 +1,3 @@
-#include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
 #include <math.h>
@@ -27,15 +26,20 @@ static	FLAG_T	flags[] = {
 	{"-help", 1, AVK_NONE, AVT_BOOL, "0",  "Use -help to print this message."},
 	{"-v",    1, AVK_OPT,  AVT_UINT, "0",  "Use -v to set the verbosity to 1; use -v=N to set it to N."},
 	{"-a",    0, AVK_REQ,  AVT_STR,  NULL, "Use -a AF file to use the sorted addresses in AF."},
-	{"-d",    1, AVK_REQ,  AVT_REAL, ARGS_n2s(DEF_DIST),  "Use -d D to set the box size 2*D feet."}
+	{"",      1, AVK_MSG,  AVT_BOOL, "0",  "Ways to create the search box(es), choose only 1."},
+	{"-d",    1, AVK_REQ,  AVT_REAL, ARGS_n2s(DEF_DIST),  "Use -d D to set the box size 2*D feet."},
+	{"-box",  1, AVK_NONE, AVT_BOOL, "0",  "Use -box to read boxes (tab separated: name lx ly ux uy) from the input."},
 };
 static	int	n_flags = sizeof(flags)/sizeof(flags[0]);
 
 static	int
-find_addrs_in_box(const ADATA_T *, const ADDR_T *, double);
+find_addrs_in_cs_box(const ADATA_T *, const ADDR_T *, double);
 
 static	int
-mk_box(const SF_POINT_T *, double, SF_POINT_T []);
+find_addrs_in_named_box(const ADATA_T *, const char *);
+
+static	int
+mk_cs_box(const SF_POINT_T *, double, SF_POINT_T []);
 
 static	void
 fi_addr_bounds(double, const ADATA_T *, int *, int *);
@@ -48,6 +52,7 @@ main(int argc, char *argv[])
 	int	verbose = 0;
 	const char	*afname = NULL;
 	double	dist = DEF_DIST;
+	int	box = 0;
 	FILE	*fp = NULL;
 	ADATA_T	*adata = NULL;
 	char	*line = NULL;
@@ -73,6 +78,15 @@ main(int argc, char *argv[])
 	a_val = TJM_get_flag_value(args, "-d", AVT_REAL);
 	dist = a_val->av_value.v_double;
 
+	a_val = TJM_get_flag_value(args, "-box", AVT_BOOL);
+	box = a_val->av_value.v_int;
+
+	if(box && TJM_get_flag_was_set(args, "-d")){
+		LOG_ERROR("Use only one of -d D or -box");
+		err = 1;
+		goto CLEAN_UP;
+	}
+
 	if(verbose > 1)
 		TJM_dump_args(stderr, args);
 
@@ -91,7 +105,7 @@ main(int argc, char *argv[])
 		err = 1;
 		goto CLEAN_UP;
 	}
-	if(AD_read_adata(adata, verbose)){
+	if(AD_read_adata(adata, verbose, (box ? AT_BOXED_PT : AT_SIGN))){
 		LOG_ERROR("AD_read_adata failed");
 		err = 1;
 		goto CLEAN_UP;
@@ -109,15 +123,19 @@ main(int argc, char *argv[])
 				continue;
 			}
 		}
-		ap = AD_new_addr(line, lnum, 0);
-		if(ap == NULL){
-			LOG_ERROR("line %7d: AD_new_addr failed", lnum);
-			err = 1;
-			goto CLEAN_UP;
+		if(!box){
+			ap = AD_new_addr(line, lnum, AT_POINT);
+			if(ap == NULL){
+				LOG_ERROR("line %7d: AD_new_addr failed", lnum);
+				err = 1;
+				goto CLEAN_UP;
+			}
+			find_addrs_in_cs_box(adata, ap, dist);
+			AD_delete_addr(ap);
+			ap = NULL;
+		}else{
+			find_addrs_in_named_box(adata, line);
 		}
-		find_addrs_in_box(adata, ap, dist);
-		AD_delete_addr(ap);
-		ap = NULL;
 	}
 
 CLEAN_UP : ;
@@ -138,7 +156,7 @@ CLEAN_UP : ;
 
 // TODO: fix to remove linear search on lng
 static	int
-find_addrs_in_box(const ADATA_T *adp, const ADDR_T *ap, double size)
+find_addrs_in_cs_box(const ADATA_T *adp, const ADDR_T *ap, double size)
 {
 	SF_POINT_T	ctr;
 	SF_POINT_T	box[4];
@@ -151,38 +169,35 @@ find_addrs_in_box(const ADATA_T *adp, const ADDR_T *ap, double size)
 
 	ctr.s_x = ap->a_lng;
 	ctr.s_y = ap->a_lat;
-	mk_box(&ctr, size, box);
+	mk_cs_box(&ctr, size, box);
 
 	// check the lowest lat of the box
 	fi_addr_bounds(box[0].s_y, adp, &bl_le, &bl_ge);
 	if(bl_ge == adp->an_atab){	// [t t] [b b]
-		LOG_WARN("address %s is north of all parking data", ap->a_qry);
+		LOG_WARN("address %s is north of all %s data", ap->a_qry, adp->a_fname);
 		err = 1;
-		AD_print_addr(stdout, ap);
+		AD_print_addr(stdout, ap, NULL);
 		goto CLEAN_UP;
 	}
 
 	// check the highest lat of the box
 	fi_addr_bounds(box[1].s_y, adp, &bh_le, &bh_ge);
 	if(bh_le == -1){		// [b b] [t t]
-		LOG_WARN("address %s is south of all parking data", ap->a_qry);
+		LOG_WARN("address %s is south of all %s data", ap->a_qry, adp->a_fname);
 		err = 1;
-		AD_print_addr(stdout, ap);
+		AD_print_addr(stdout, ap, NULL);
 		goto CLEAN_UP;
 	}
 
 	// box and table overlap, deal w/ box.low < table.low and box.high > table.high
-	AD_print_addr(stdout, ap);
+	AD_print_addr(stdout, ap, NULL);
 	i_first = bl_ge == -1 ? 0 : bl_ge;
 	i_last = bh_le == adp->an_atab ? adp->an_atab - 1 : bh_le;
 	for(pr_ap = 1, i = i_first; i <= i_last; i++){
 		ap1 = adp->a_atab[i];
 		if(ap1->a_lng < box[0].s_x || ap1->a_lng > box[3].s_x)
 			continue;
-		/*
-		printf("%s\n", ap1->a_line);
-		*/
-		AD_print_addr(stdout, ap1);
+		AD_print_addr(stdout, ap1, NULL);
 	}
 	
 CLEAN_UP : ;
@@ -191,7 +206,68 @@ CLEAN_UP : ;
 }
 
 static	int
-mk_box(const SF_POINT_T *ctr, double size, SF_POINT_T box[])
+find_addrs_in_named_box(const ADATA_T *adp, const char *b_str)
+{
+	char	*name = NULL, *sp, *next;
+	double	xmin, ymin, xmax, ymax;
+	int	bl_le, bl_ge;
+	int	bh_le, bh_ge;
+	int	pr_ap;
+	int	i, i_first, i_last;
+	const ADDR_T	*ap1;
+	int	err = 0;
+
+	sp = strchr(b_str, '\t');
+	name = strndup(b_str, sp - b_str);
+	if(name == NULL){
+		LOG_ERROR("strndup of name failed");
+		err = 1;
+		goto CLEAN_UP;
+	}
+	xmin = strtod(sp, &next);
+	sp = next;
+	ymin = strtod(sp, &next);
+	sp = next;
+	xmax = strtod(sp, &next);
+	sp = next;
+	ymax = strtod(sp, NULL);
+
+	// check the lowest lat of the box
+	fi_addr_bounds(ymin, adp, &bl_le, &bl_ge);
+	if(bl_ge == adp->an_atab){
+		LOG_WARN("box %s is north of all %s data", name, adp->a_fname);
+		err = 1;
+		goto CLEAN_UP;
+	}
+
+	// check the highest lat of the box
+	fi_addr_bounds(ymax, adp, &bh_le, &bh_ge);
+	if(bh_le == -1){
+		LOG_WARN("box %s is south of all %s data", name, adp->a_fname);
+		err = 1;
+		goto CLEAN_UP;
+	}
+
+	// box and table overlap
+	i_first = bl_ge == -1 ? 0 : bl_ge;
+	i_last = bh_le == adp->an_atab ? adp->an_atab - 1 : bh_le;
+	for(i = i_first; i <= i_last; i++){
+		ap1 = adp->a_atab[i];
+		if(ap1->a_lng < xmin || ap1->a_lng > xmax)
+			continue;
+		AD_print_addr(stdout, ap1, name);
+	}
+
+CLEAN_UP : ;
+
+	if(name != NULL)
+		free(name);
+
+	return err;
+}
+
+static	int
+mk_cs_box(const SF_POINT_T *ctr, double size, SF_POINT_T box[])
 {
 	double	dpf_lat, lng_adj, lat_adj;
 	int	err = 0;
@@ -233,7 +309,8 @@ fi_addr_bounds(double lat, const ADATA_T *adp, int *i_le, int *i_ge)
 			i = k + 1;
 		else if(ap->a_lat > lat)
 			j = k - 1;
-		else{	// Found!  Use i == j to indicate the element was in the table
+		else{	// Exact match!
+			// TODO: ajust, i, j to cover all addrs w/this lat!
 			i = j = k;
 			break;
 		}

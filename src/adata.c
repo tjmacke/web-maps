@@ -84,7 +84,7 @@ AD_delete_adata(ADATA_T *adp)
 }
 
 int
-AD_read_adata(ADATA_T *adp, int verbose)
+AD_read_adata(ADATA_T *adp, int verbose, int atype)
 {
 	char	*line = NULL;
 	size_t	s_line = 0;
@@ -126,7 +126,7 @@ AD_read_adata(ADATA_T *adp, int verbose)
 				goto CLEAN_UP;
 			}
 		}
-		ap = AD_new_addr(line, lnum, 1);
+		ap = AD_new_addr(line, lnum, atype);
 		if(ap == NULL){
 			LOG_ERROR("line %7d: AD_new_addr failed", lnum);
 			err = 1;
@@ -198,10 +198,10 @@ AD_dump_adata(FILE *fp, const ADATA_T *adp, int verbose)
 		for(i = 0; i < adp->an_atab; i++){
 			ap = adp->a_atab[i];
 			if(verbose == 1)
-				fprintf(fp, "\t\t%d\t%d\t%.15e\t%15e\t%s\n", ap->a_sign, ap->a_lnum, ap->a_lng, ap->a_lat, ap->a_line);
+				fprintf(fp, "\t\t%d\t%d\t%.15e\t%15e\t%s\n", ap->a_type, ap->a_lnum, ap->a_lng, ap->a_lat, ap->a_line);
 			else{
 				fprintf(fp, "\t\tline = %d {\n", i + 1);
-				fprintf(fp, "\t\t\tsign = %d\n", ap->a_sign);
+				fprintf(fp, "\t\t\tsign = %d\n", ap->a_type);
 				fprintf(fp, "\t\t\tlnum = %d\n", ap->a_lnum);
 				fprintf(fp, "\t\t\tqry  = %s\n", ap->a_qry ? ap->a_qry : "NULL");
 				fprintf(fp, "\t\t\tlng  = %.15e\n", ap->a_lng);
@@ -216,7 +216,7 @@ AD_dump_adata(FILE *fp, const ADATA_T *adp, int verbose)
 }
 
 ADDR_T	*
-AD_new_addr(const char *line, int lnum, int sign)
+AD_new_addr(const char *line, int lnum, int atype)
 {
 	const char	*s_fp, *e_fp;
 	char	*qry = NULL;
@@ -270,7 +270,7 @@ AD_new_addr(const char *line, int lnum, int sign)
 		goto CLEAN_UP;
 	}
 
-	ap->a_sign = sign;
+	ap->a_type = atype;
 	ap->a_lnum = lnum;
 	ap->a_line = strdup(line);
 	if(ap->a_line == NULL){
@@ -320,36 +320,55 @@ AD_delete_addr(ADDR_T *ap)
 }
 
 void
-AD_print_addr(FILE *fp, const ADDR_T *ap)
+AD_print_addr(FILE *fp, const ADDR_T *ap, const char *bname)
 {
 	const char *q1, *e_q1;
 	const char *r1, *e_r1;
 	int	f;
-	char	*s_fp, *e_fp;;
+	char	*s_fp, *e_fp;
+	char	*sp;
 
-	if(ap->a_sign){
+	if(ap->a_type == AT_SIGN){
 		fprintf(fp, "%s\n", ap->a_line);
 		return;
 	}
 
+	if(ap->a_type == AT_BOXED_PT){
+		// replace the last field wth box name
+		for(s_fp = NULL, sp = ap->a_line; *sp; sp++){
+			if(*sp == '\t')
+				s_fp = sp;
+		}
+		fprintf(fp, "%.*s\t%s\n", (int)(s_fp - ap->a_line), ap->a_line, bname);
+		return;
+	}
+
+	// get the 1st line of the qry address: _usually_ the restaurant
+	// or name of the person who ordered the food, but now & then
+	// just the street number
 	for(q1 = ap->a_qry; isspace(*q1); q1++)
 		;
 	e_q1 = strchr(q1, ',');
 	for(--e_q1; isspace(*e_q1); e_q1--)
 		;
 
+	// get the 1st line of the rply address.  Always the street
+	// number
 	for(r1 = ap->a_rply; isspace(*r1); r1++)
 		;
 	e_r1 = strchr(r1, ',');
 	for(--e_r1; isspace(*e_r1); e_r1--)
 		;
 
-	// qry & rply are the same, nothing to do
+	// firist lines of qry & rply are the same, nothing to do
 	if(!strncmp(q1, r1, e_q1 - q1)){
 		fprintf(fp, "%s\n", ap->a_line);
 		return;
 	}
 
+	// TODO: Fix this?
+	// prepend 1st line of qry to the reply address
+	// Do this b/c addresses are colored based on the value of $NF
 	for(f = 0, s_fp = ap->a_line; *s_fp; ){
 		f++;
 		if(f == 6)
@@ -358,8 +377,5 @@ AD_print_addr(FILE *fp, const ADDR_T *ap)
 			e_fp = s_fp + strlen(s_fp);
 		s_fp = *e_fp ? e_fp + 1 : e_fp;
 	}
-
-	// LOG_DEBUG("%.*s\t%.*s, %s", (int)(s_fp - ap->a_line), ap->a_line, (int)(e_q1 - q1 + 1), q1, s_fp);
-
 	fprintf(fp, "%.*s%.*s, %s\n", (int)(s_fp - ap->a_line), ap->a_line, (int)(e_q1 - q1 + 1), q1, s_fp);
 }

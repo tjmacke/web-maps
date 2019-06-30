@@ -1,7 +1,7 @@
 #  /bin/bash
 #
 . ~/etc/funcs.sh
-U_MSG="usage: $0 [ -help ] [ -db db-file ] [ -dt date_time ] [ -sn ] [ -gl gc-list ] [ -log NONE ] [ -last N ] [ -d D ] [ -app { gh*|dd|cav|pm|ue } ] { -a address | [ address-file ] }"
+U_MSG="usage: $0 [ -help ] [ -b ] [ -db db-file ] [ -dt date_time ] [ -sn ] [ -gl gc-list ] [ -log NONE ] [ -last N ] [ -d D ] [ -app { gh*|dd|cav|pm|ue } ] { -a address | [ address-file ] }"
 
 NOW="$(date +%Y%m%d_%H%M%S)"
 
@@ -10,6 +10,7 @@ if [ -z "$WM_HOME" ] ; then
 	exit 1
 fi
 WM_BIN=$WM_HOME/bin
+WM_BUILD=$WM_HOME/src
 WM_DATA=$WM_HOME/data/Seattle_Parking
 WM_SRC=$WM_HOME/src
 WM_SCRIPTS=$WM_HOME/scripts
@@ -60,6 +61,7 @@ TMP_FP_CFILE_JSON=/tmp/json_file.$$	# json version of TMP_FP_CFILE.$$
 
 # save the args so they can be logged, if requested
 ARGS="$@"
+USE_BUILD=
 LOG_DT=
 SN=
 GC_LIST=
@@ -75,6 +77,10 @@ while [ $# -gt 0 ] ; do
 	-help)
 		echo "$U_MSG"
 		exit 0
+		;;
+	-b)
+		USE_BUILD="yes"
+		shift
 		;;
 	-db)
 		shift
@@ -177,6 +183,12 @@ if [ $# -ne 0 ] ; then
 	LOG ERROR "extra arguments $*"
 	echo "$U_MSG" 1>&2
 	exit 1
+fi
+
+if [ "$USE_BUILD" == "yes" ]  ;then
+	BINDIR=$WM_BUILD
+else
+	BINDIR=$WM_BIN
 fi
 
 # allow user to set the database.  Allows for fixing bugs found in today's use
@@ -374,8 +386,7 @@ if [ $n_OFILE -ne 0 ] ; then
 		printf("main.def_value = %s\n", "0.63,0.63,0.94")
 		printf("main.def_key_text = dest\n")
 	}' < /dev/null > $TMP_FP_CFILE
-
-	$WM_BIN/find_addrs_in_rect $DIST -a $WM_DATA/sps_sorted.tsv $TMP_OFILE > $TMP_PFILE
+	$BINDIR/find_addrs_in_rect $DIST -a $WM_DATA/sps_sorted.tsv $TMP_OFILE > $TMP_PFILE
 	$AWK -F'\t' '
 	@include '"$CFG_UTILS"'
 	@include '"$INTERP_UTILS"'

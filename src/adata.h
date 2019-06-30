@@ -1,8 +1,12 @@
 #ifndef	_ADDRS_H_
 #define	_ADDRS_H_
 
+#define	AT_POINT	0
+#define	AT_SIGN		1
+#define	AT_BOXED_PT	2
+
 typedef	struct	addr_t	{
-	int	a_sign;
+	int	a_type;
 	int	a_lnum;
 	char	*a_line;
 	// the parsed query
@@ -28,7 +32,7 @@ void
 AD_delete_adata(ADATA_T *);
 
 int
-AD_read_adata(ADATA_T *, int);
+AD_read_adata(ADATA_T *, int, int);
 
 void
 AD_dump_adata(FILE *, const ADATA_T *, int);
@@ -40,6 +44,6 @@ void
 AD_delete_addr(ADDR_T *);
 
 void
-AD_print_addr(FILE *, const ADDR_T *);
+AD_print_addr(FILE *, const ADDR_T *, const char *);
 
 #endif
