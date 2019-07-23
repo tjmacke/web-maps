@@ -2,7 +2,7 @@
 #
 . ~/etc/funcs.sh
 
-U_MSG="usage: $0 [ -help ] [ -b ] [ -trace ] [ -sa adj-file ] [ -h [ -d { union | lines | colors } ] (no arguments)"
+U_MSG="usage: $0 [ -help ] [ -b ] [ -trace ] [ -sa adj-file ] [ -fmt F ] [ -h [ -d { union | lines | colors } ] ] (no arguments)"
 
 if [ -z "$WM_HOME" ] ; then
 	LOG ERROR "WM_HOME not defined"
@@ -14,14 +14,15 @@ WM_DATA=$WM_HOME/data
 WM_SCRIPTS=$WM_HOME/scripts
 LON_DATA=$WM_DATA/London-wards-2014
 
-TMP_PFILE=/tmp/lon.tsv.$$
-TMP_RNFILE=/tmp/lon.rnums.$$
-TMP_CFILE=/tmp/lon.colors.tsv.$$
-TMP_PFILE_2=/tmp/lon_2.tsv.$$
+TMP_PFILE=/tmp/pfile.$$
+TMP_RNFILE=/tmp/rnums.$$
+TMP_CFILE=/tmp/colors.$$
+TMP_PFILE_2=/tmp/pfile_2.$$
 
 USE_BUILD=
 TRACE=
 AFILE=
+FMT=
 HOPT=
 HDISP=
 
@@ -47,6 +48,16 @@ while [ $# -gt 0 ] ; do
 			exit 1
 		fi
 		AFILE=$1
+		shift
+		;;
+	-fmt)
+		shift
+		if [ $# -eq 0 ] ; then
+			LOG ERROR "-fmt requires format arg, one of wrap, plain, list"
+			echo "$U_MSG" 1>&2
+			exit 1
+		fi
+		FMT=$1
 		shift
 		;;
 	-h)
@@ -78,10 +89,14 @@ done
 
 if [ "$USE_BUILD" == "yes" ] ; then
 	BINDIR=$WM_BUILD
-	BOPT=-b
+	BOPT="-b"
 else
 	BINDIR=$WM_BIN
 	BOPT=
+fi
+
+if [ ! -z "$FMT" ] ; then
+	FMT="-fmt $FMT"
 fi
 
 if [ "$HOPT" == "yes" ] ; then
@@ -97,14 +112,14 @@ if [ "$HOPT" == "yes" ] ; then
 	elif [ "$HDISP" == "colors" ] ; then
 		SAVE_BC="yes"
 	elif [ "$HDISP" != "lines" ] ; then
-		LOG ERROR "bad hierarchy display type $HDISP, must be union, lines or colors"
+		LOG ERROR "bad hierarchy display type $HDISP, must be one of union, lines or colors"
 		echo "$U_MSG" 1>&2
 		exit 1
 	fi
 elif [ ! -z "$HDISP" ] ; then
 	LOG ERROR "-d requires -h option"
 	echo "$U_MSG" 1>&2
-	exite 1
+	exit 1
 else
 	ID="title"
 	MK="title"
@@ -115,10 +130,10 @@ if [ ! -z "$TRACE" ] ; then
 	TRACE="-trace"
 fi
 
-# 1. select the wards (neighborhoods?)
+# 1. select the shapes
 sqlite3 $LON_DATA/london.db <<_EOF_	|
 .headers on
-.mode tab
+.mode tabs
 select rnum, NAME, BOROUGH from data ;
 _EOF_
 awk -F'\t' 'BEGIN {
@@ -187,15 +202,14 @@ if [ ! -z "$AFILE" ] ; then
 	tee $AFILE
 else
 	cat
-fi									|\
-$WM_SCRIPTS/color_graph.sh $TRACE -id $ID				> $TMP_CFILE
+fi										|\
+$WM_SCRIPTS/color_graph.sh $TRACE -id $ID					> $TMP_CFILE
 if [ -z "$SAVE_BC" ] ; then
 	$WM_SCRIPTS/add_columns.sh $TRACE -mk $MK $PFX $TMP_PFILE $TMP_CFILE	> $TMP_PFILE_2
 	$BINDIR/shp_to_geojson -sf $LON_DATA/london -pf $TMP_PFILE_2 -pk rnum $TMP_RNFILE
 else
-#	$WM_SCRIPTS/add_columns.sh $TRACE -mk $MK $PFX $TMP_PFILE $TMP_CFILE | tee lon_2.colors.tsv	> $TMP_PFILE_2
-	$WM_SCRIPTS/add_columns.sh $TRACE -mk $MK $PFX $TMP_PFILE $TMP_CFILE |\
-	$WM_SCRIPTS/make_2l_colors.sh $BOPT -sf $LON_DATA/london -id id
+	$WM_SCRIPTS/add_columns.sh $TRACE -mk $MK $PFX $TMP_PFILE $TMP_CFILE 	|\
+	$WM_SCRIPTS/make_2l_colors.sh $BOPT $FMT -sf $LON_DATA/london -id id
 fi
 
 rm -f $TMP_PFILE $TMP_RNFILE $TMP_CFILE $TMP_PFILE_2

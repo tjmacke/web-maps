@@ -2,7 +2,7 @@
 #
 . ~/etc/funcs.sh
 
-U_MSG="usage: $0 [ -help ] [ -b ] [ -sa adj-file ] [ -fmt F ] [ -h [ -d { union | lines | colors } ] ] (no arguments)"
+U_MSG="usage: $0 [ -help ] [ -b ] [ -trace ] [ -sa adj-file ] [ -fmt F ] [ -h [ -d { union | lines | colors } ] ] (no arguments)"
 
 if [ -z "$WM_HOME" ] ; then
 	LOG ERROR "WM_HOME not defined"
@@ -14,12 +14,13 @@ WM_DATA=$WM_HOME/data
 WM_SCRIPTS=$WM_HOME/scripts
 SND_DATA=$WM_DATA/Seattle_Neighborhoods/WGS84
 
-TMP_PFILE=/tmp/sn.tsv.$$
-TMP_RNFILE=/tmp/sn.rnums.$$
-TMP_CFILE=/tmp/sn.colors.tsv.$$
-TMP_PFILE_2=/tmp/sn_2.tsv.$$
+TMP_PFILE=/tmp/pfile.$$
+TMP_RNFILE=/tmp/rnums.$$
+TMP_CFILE=/tmp/colors.$$
+TMP_PFILE_2=/tmp/pfile_2.$$
 
 USE_BUILD=
+TRACE=
 AFILE=
 FMT=
 HOPT=
@@ -33,6 +34,10 @@ while [ $# -gt 0 ] ; do
 		;;
 	-b)
 		USE_BUILD="yes"
+		shift
+		;;
+	-trace)
+		TRACE="yes"
 		shift
 		;;
 	-sa)
@@ -107,12 +112,12 @@ if [ "$HOPT" == "yes" ] ; then
 	elif [ "$HDISP" == "colors" ] ; then
 		SAVE_BC="yes"
 	elif [ "$HDISP" != "lines" ] ; then
-		LOG ERROR "bad hierarchy display type $HDISP, must union, lines or colors"
+		LOG ERROR "bad hierarchy display type $HDISP, must be one of union, lines or colors"
 		echo "$U_MSG" 1>&2
 		exit 1
 	fi
 elif [ ! -z "$HDISP" ] ; then
-	LOG ERROR "-d option requires -h option"
+	LOG ERROR "-d requires -h option"
 	echo "$U_MSG" 1>&2
 	exit 1
 else
@@ -121,7 +126,11 @@ else
 	PFX=
 fi
 
-# 1. select the neighborhoods. Currently neighborhoods w/L_HOOD = "" are skipped
+if [ ! -z "$TRACE" ] ; then
+	TRACE="-trace"
+fi
+
+# 1. select the shapes
 sqlite3 $SND_DATA/Neighborhoods.db <<_EOF_ |
 .headers on
 .mode tabs
@@ -199,19 +208,19 @@ function mk_id(fnums, rec,   nf, ary, i, id) {
 }' > $TMP_PFILE
 tail -n +2 $TMP_PFILE | awk '{ print $1 }'						> $TMP_RNFILE
 $BINDIR/shp_to_geojson -sf $SND_DATA/Neighborhoods -pf $TMP_PFILE -pk rnum $TMP_RNFILE	|\
-$WM_SCRIPTS/find_adjacent_polys.sh -fmt wrapped -id $ID					|\
+$WM_SCRIPTS/find_adjacent_polys.sh $TRACE -fmt wrapped -id $ID				|\
 $WM_SCRIPTS/rm_dup_islands.sh								|\
 if [ ! -z "$AFILE" ] ; then
 	tee $AFILE
 else
 	cat
 fi											|\
-$WM_SCRIPTS/color_graph.sh -id $ID 							> $TMP_CFILE
+$WM_SCRIPTS/color_graph.sh $TRACE -id $ID 						> $TMP_CFILE
 if [ -z "$SAVE_BC" ] ; then
-	$WM_SCRIPTS/add_columns.sh -mk $MK $PFX $TMP_PFILE $TMP_CFILE 			> $TMP_PFILE_2
+	$WM_SCRIPTS/add_columns.sh $TRACE -mk $MK $PFX $TMP_PFILE $TMP_CFILE 		> $TMP_PFILE_2
 	$BINDIR/shp_to_geojson -sf $SND_DATA/Neighborhoods -pf $TMP_PFILE_2 -pk rnum $FMT $TMP_RNFILE
 else
-	$WM_SCRIPTS/add_columns.sh -mk $MK $PFX $TMP_PFILE $TMP_CFILE	|\
+	$WM_SCRIPTS/add_columns.sh $TRACE -mk $MK $PFX $TMP_PFILE $TMP_CFILE		|\
 	$WM_SCRIPTS/make_2l_colors.sh $BOPT $FMT -sf $SND_DATA/Neighborhoods -id id
 fi
 
