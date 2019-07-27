@@ -1,6 +1,6 @@
 #! /bin/bash
 #
-# input file:
+# input file: property file with the colors for the containing meighborhoods
 #	header:	rnum, title, id, fill, all tab separated.
 #
 #	rnum:	shapefile record num
@@ -15,7 +15,7 @@
 #
 . ~/etc/funcs.sh
 
-U_MSG="usage: $0 [ -help ] [ -b ] [ -fmt F ] -sf shape-file -id id-field-name [ prop-tsv-file ]"
+U_MSG="usage: $0 [ -help ] [ -b ] [ -fmt F ] -sf shape-file -id id-field-name [ prop-file ]"
 
 if [ -z "$WM_HOME" ] ; then
 	LOG ERROR "WM_HOME not defined"
@@ -27,8 +27,9 @@ WM_DATA=$WM_HOME/data
 WM_SCRIPTS=$WM_HOME/scripts
 WM_DEMOS=$WM_HOME/demos
 
-TMP_BFILE=/tmp/2l.base.$$
-TMP_NFILE=/tmp/2l.nabes.$$
+TMP_BC_FILE=/tmp/2l.bc_colors.$$
+TMP_ON_FILE=/tmp/2l.on_nabes.$$
+TMP_IN_FILE=/tmp/2l.in_nabes.$$
 TMP_CFILE=/tmp/2l.colors.$$
 
 USE_BUILD=
@@ -119,7 +120,7 @@ if [ -z "$ID" ] ; then
 fi
 
 # The contents of the input will be used multiple times, so copy to temp to deal with stdin
-cat $FILE > $TMP_BFILE
+cat $FILE > $TMP_BC_FILE
 # 1. collect all outer level shapes, ie those with id ending with /
 awk -F'\t' 'BEGIN {
 	id = "'"$ID"'"
@@ -150,10 +151,11 @@ END {
 	n = asorti(id_tab)
 	for(i = 1; i <= n; i++)
 		printf("%s\n", id_tab[i])
-}' $TMP_BFILE	|\
-# 2. collect all inner shapes contained in outer shape $line,
+}' $TMP_BC_FILE	> $TMP_ON_FILE
+# 2. collect all inner shapes contained in each outer shape
 #    extract them from the shape file
-#    color them use a varieties of base color
+#    color them using varieties of the base color
+cat $TMP_ON_FILE	|
 while read line ; do
 	awk -F'\t' 'BEGIN {
 		id = "'"$ID"'"
@@ -172,17 +174,16 @@ while read line ; do
 	NR > 1 {
 		if($f_id == this_id)
 			print $0
-	}' $TMP_BFILE	> $TMP_NFILE
-	bcolor="$($WM_SCRIPTS/cval_to_cname.sh "$(tail -1 $TMP_NFILE | awk -F'\t' '{ print $NF }')")"
-	tail -n +2 $TMP_NFILE							|\
-	$BINDIR/shp_to_geojson -sf $SFILE -pf $TMP_NFILE -pk rnum 		|\
-	$WM_SCRIPTS/find_adjacent_polys.sh -fmt wrapped -id title 		|\
+	}' $TMP_BC_FILE	> $TMP_IN_FILE
+	bcolor="$($WM_SCRIPTS/cval_to_cname.sh "$(tail -1 $TMP_IN_FILE | awk -F'\t' '{ print $NF }')")"
+	tail -n +2 $TMP_IN_FILE							|
+	$BINDIR/shp_to_geojson -sf $SFILE -pf $TMP_IN_FILE -pk rnum 		|
+	$WM_SCRIPTS/find_adjacent_polys.sh -fmt wrapped -id title 		|
 	$WM_SCRIPTS/color_graph.sh -bc $bcolor -id title			> $TMP_CFILE 
-# 3. update the original colors
-	$WM_SCRIPTS/upd_column_values.sh -mk title -b $TMP_BFILE $TMP_CFILE 
+	# 3. update the original colors
+	$WM_SCRIPTS/upd_column_values.sh -mk title -b $TMP_BC_FILE $TMP_CFILE 
 done
-# 4. create the geojson w/new colors
-tail -n +2 $TMP_BFILE	|\
-$BINDIR/shp_to_geojson $FMT -sf $SFILE -pf $TMP_BFILE -pk rnum
+# 4. return the a new pfile w/updated colors
+cat $TMP_BC_FILE
 
-rm -f $TMP_BFILE $TMP_NFILE $TMP_CFILE
+rm -f $TMP_BC_FILE $TMP_ON_FILE $TMP_IN_FILE $TMP_CFILE

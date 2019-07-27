@@ -208,21 +208,21 @@ function mk_id(fnums, rec,   nf, ary, i, id) {
 	return id
 }' > $TMP_PFILE
 tail -n +2 $TMP_PFILE | awk '{ print $1 }'					> $TMP_RNFILE
-$BINDIR/shp_to_geojson -sf $SHP_ROOT -pf $TMP_PFILE -pk rnum $TMP_RNFILE	|\
-$WM_SCRIPTS/find_adjacent_polys.sh $TRACE -fmt wrapped -id $ID			|\
-$WM_SCRIPTS/rm_dup_islands.sh							|\
+$BINDIR/shp_to_geojson -sf $SHP_ROOT -pf $TMP_PFILE -pk rnum $TMP_RNFILE	|
+$WM_SCRIPTS/find_adjacent_polys.sh $TRACE -fmt wrapped -id $ID			|
+$WM_SCRIPTS/rm_dup_islands.sh							|
 if [ ! -z "$AFILE" ] ; then
 	tee $AFILE
 else
 	cat
-fi										|\
+fi										|
 $WM_SCRIPTS/color_graph.sh $TRACE -id $ID					> $TMP_CFILE
 if [ -z "$SAVE_BC" ] ; then
 	$WM_SCRIPTS/add_columns.sh $TRACE -mk $MK $PFX $TMP_PFILE $TMP_CFILE	> $TMP_PFILE_2
-	$BINDIR/shp_to_geojson -sf $SHP_ROOT -pf $TMP_PFILE_2 -pk rnum $FMT $TMP_RNFILE
 else
-	$WM_SCRIPTS/add_columns.sh $TRACE -mk $MK $PFX $TMP_PFILE $TMP_CFILE	|\
-	$WM_SCRIPTS/make_2l_colors.sh $BOPT $FMT -sf $SHP_ROOT -id id
+	$WM_SCRIPTS/add_columns.sh $TRACE -mk $MK $PFX $TMP_PFILE $TMP_CFILE	|
+	$WM_SCRIPTS/make_2l_colors.sh $BOPT $FMT -sf $SHP_ROOT -id id		> $TMP_PFILE_2
 fi
+$BINDIR/shp_to_geojson -sf $SHP_ROOT -pf $TMP_PFILE_2 -pk rnum $FMT $TMP_RNFILE
 
 rm -f $TMP_PFILE $TMP_RNFILE $TMP_CFILE $TMP_PFILE_2
