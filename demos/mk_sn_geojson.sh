@@ -2,7 +2,7 @@
 #
 . ~/etc/funcs.sh
 
-U_MSG="usage: $0 [ -help ] [ -b ] [ -trace ] [ -sa adj-file ] [ -fmt F ] [ -h [ -d { union | lines | colors } ] ] (no arguments)"
+U_MSG="usage: $0 [ -help ] [ -b ] [ -trace ] [ -sa adj-file ] [ -fmt F ] [ -h [ -d { lines*|colors|union } ] ] shape-file"
 
 if [ -z "$WM_HOME" ] ; then
 	LOG ERROR "WM_HOME not defined"
@@ -12,7 +12,6 @@ WM_BIN=$WM_HOME/bin
 WM_BUILD=$WM_HOME/src
 WM_DATA=$WM_HOME/data
 WM_SCRIPTS=$WM_HOME/scripts
-SND_DATA=$WM_DATA/Seattle_Neighborhoods/WGS84
 
 TMP_PFILE=/tmp/pfile.$$
 TMP_RNFILE=/tmp/rnums.$$
@@ -25,6 +24,7 @@ AFILE=
 FMT=
 HOPT=
 HDISP=
+SHP_FILE=
 
 while [ $# -gt 0 ] ; do
 	case $1 in
@@ -80,12 +80,25 @@ while [ $# -gt 0 ] ; do
 		exit 1
 		;;
 	*)
-		LOG ERROR "extra arguments $*"
-		echo "$U_MSG" 1>&2
-		exit 1
+		SHP_FILE=$1
+		shift
+		break
 		;;
 	esac
 done
+
+if [ $# -ne 0 ] ; then
+	LOG ERROR "extra arguments $*"
+	echo "$U_MSG" 1>&2
+	exit 1
+fi
+
+if [ -z "$SHP_FILE" ] ; then
+	LOG ERROR "missing shape-file argument"
+	echo "$U_MSG" 1>&2
+	exit 1
+fi
+SHP_ROOT="$(echo $SHP_FILE | awk -F'.' '{ r = $1 ; for(i = 2; i < NF; i++) { r = r "." $i } ; print r }')"
 
 if [ "$USE_BUILD" == "yes" ] ; then
 	BINDIR=$WM_BUILD
@@ -131,7 +144,7 @@ if [ ! -z "$TRACE" ] ; then
 fi
 
 # 1. select the shapes
-sqlite3 $SND_DATA/Neighborhoods.db <<_EOF_ |
+sqlite3 $SHP_ROOT.db <<_EOF_	|
 .headers on
 .mode tabs
 select OBJECTID, L_HOOD, S_HOOD from data order by L_HOOD, S_HOOD ;
@@ -206,22 +219,22 @@ function mk_id(fnums, rec,   nf, ary, i, id) {
 		id = sprintf("%s/", ary[fnums["L_HOOD"]])
 	return id
 }' > $TMP_PFILE
-tail -n +2 $TMP_PFILE | awk '{ print $1 }'						> $TMP_RNFILE
-$BINDIR/shp_to_geojson -sf $SND_DATA/Neighborhoods -pf $TMP_PFILE -pk rnum $TMP_RNFILE	|\
-$WM_SCRIPTS/find_adjacent_polys.sh $TRACE -fmt wrapped -id $ID				|\
-$WM_SCRIPTS/rm_dup_islands.sh								|\
+tail -n +2 $TMP_PFILE | awk '{ print $1 }'					> $TMP_RNFILE
+$BINDIR/shp_to_geojson -sf $SHP_ROOT -pf $TMP_PFILE -pk rnum $TMP_RNFILE	|\
+$WM_SCRIPTS/find_adjacent_polys.sh $TRACE -fmt wrapped -id $ID			|\
+$WM_SCRIPTS/rm_dup_islands.sh							|\
 if [ ! -z "$AFILE" ] ; then
 	tee $AFILE
 else
 	cat
-fi											|\
-$WM_SCRIPTS/color_graph.sh $TRACE -id $ID 						> $TMP_CFILE
+fi										|\
+$WM_SCRIPTS/color_graph.sh $TRACE -id $ID					> $TMP_CFILE
 if [ -z "$SAVE_BC" ] ; then
-	$WM_SCRIPTS/add_columns.sh $TRACE -mk $MK $PFX $TMP_PFILE $TMP_CFILE 		> $TMP_PFILE_2
-	$BINDIR/shp_to_geojson -sf $SND_DATA/Neighborhoods -pf $TMP_PFILE_2 -pk rnum $FMT $TMP_RNFILE
+	$WM_SCRIPTS/add_columns.sh $TRACE -mk $MK $PFX $TMP_PFILE $TMP_CFILE	> $TMP_PFILE_2
+	$BINDIR/shp_to_geojson -sf $SHP_ROOT -pf $TMP_PFILE_2 -pk rnum $FMT $TMP_RNFILE
 else
-	$WM_SCRIPTS/add_columns.sh $TRACE -mk $MK $PFX $TMP_PFILE $TMP_CFILE		|\
-	$WM_SCRIPTS/make_2l_colors.sh $BOPT $FMT -sf $SND_DATA/Neighborhoods -id id
+	$WM_SCRIPTS/add_columns.sh $TRACE -mk $MK $PFX $TMP_PFILE $TMP_CFILE	|\
+	$WM_SCRIPTS/make_2l_colors.sh $BOPT $FMT -sf $SHP_ROOT -id id
 fi
 
 rm -f $TMP_PFILE $TMP_RNFILE $TMP_CFILE $TMP_PFILE_2
