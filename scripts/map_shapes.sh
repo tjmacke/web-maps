@@ -2,7 +2,7 @@
 #
 . ~/etc/funcs.sh
 
-U_MSG="usage: $0 [ -help ] [ -b ] [ -trace ] [ -sa adj-file ] [ -fmt F ] [ -h [ -d { lines*|colors|union } ] ] shape-file"
+U_MSG="usage: $0 [ -help ] [ -b ] [ -trace ] [ -sa adj-file ] [ -fmt F ] [ -h [ -d { lines*|colors|union } ] ] -sel selector shape-file"
 
 if [ -z "$WM_HOME" ] ; then
 	LOG ERROR "WM_HOME not defined"
@@ -24,6 +24,7 @@ AFILE=
 FMT=
 HOPT=
 HDISP=
+SEL=
 SHP_FILE=
 
 while [ $# -gt 0 ] ; do
@@ -74,6 +75,16 @@ while [ $# -gt 0 ] ; do
 		HDISP=$1
 		shift
 		;;
+	-sel)
+		shift
+		if [ $# -eq 0 ] ; then
+			LOG ERROR "-sel requires selector argument"
+			echo "$U_MSG" 1>&2
+			exit 1
+		fi
+		SEL="$1"
+		shift
+		;;
 	-*)
 		LOG ERROR "unknown option $1"
 		echo "$U_MSG" 1>&2
@@ -89,6 +100,12 @@ done
 
 if [ $# -ne 0 ] ; then
 	LOG ERROR "extra arguments $*"
+	echo "$U_MSG" 1>&2
+	exit 1
+fi
+
+if [ -z "$SEL" ] ; then
+	LOG ERROR "missing -sel selector argument"
 	echo "$U_MSG" 1>&2
 	exit 1
 fi
@@ -129,6 +146,7 @@ if [ "$HOPT" == "yes" ] ; then
 		echo "$U_MSG" 1>&2
 		exit 1
 	fi
+	HOPT="-h"
 elif [ ! -z "$HDISP" ] ; then
 	LOG ERROR "-d requires -h option"
 	echo "$U_MSG" 1>&2
@@ -143,81 +161,7 @@ if [ ! -z "$TRACE" ] ; then
 	TRACE="-trace"
 fi
 
-# 1. select the shapes
-sqlite3 $SHP_ROOT.db <<_EOF_	|
-.headers on
-.mode tabs
-select OBJECTID, L_HOOD, S_HOOD from data order by L_HOOD, S_HOOD ;
-_EOF_
-awk -F'\t' 'BEGIN {
-	hopt = "'"$HOPT"'" == "yes"
-}
-NR == 1 {
-	for(i = 1; i <= NF; i++)
-		fnums[$i] = i
-}
-NR > 1 {
-	n_recs++
-	recs[n_recs] = $0
-}
-END {
-	for(i = 1; i <= n_recs; i++){
-		titles[i] = title = mk_title(fnums, recs[i])
-		if(title == "")
-			continue;
- 		t_count[title]++
-		if(hopt){
-			ids[i] = id = mk_id(fnums, recs[i])
-			i_count[id]++
-		}
-	}
-	printf("%s\t%s", "rnum", "title")
-	if(hopt)
-		printf("\t%s", "id")
-	printf("\n")
-	for(i = 1; i <= n_recs; i++){
-		title = titles[i]
-		if(title == "")
-			continue
-		nf = split(recs[i], ary)
-		if(t_count[title] > 1){
-			if(title !~ /\/$/)
-				title = title "_" ary[fnums["OBJECTID"]]
-		}
-		printf("%s\t%s", ary[fnums["OBJECTID"]], title)
-		if(hopt){
-			id = mk_id(fnums, recs[i])
-			if(i_count[id] > 1){
-				if(id !~ /\/$/)
-					id = id "_" ary[fnums["OBJECTID"]]
-			}
-			printf("\t%s", id)
-		}
-		printf("\n")
-	}
-}
-function mk_title(fnums, rec,   nf, ary, i, title) {
-
-	nf = split(rec, ary)
-	if(ary[fnums["L_HOOD"]] == "")
-		title = ""
-	else if(ary[fnums["L_HOOD"]] == "NO BROADER TERM")
-		title = ary[fnums["S_HOOD"]]
-	else
-		title = sprintf("%s/%s", ary[fnums["L_HOOD"]], ary[fnums["S_HOOD"]])
-	return title
-}
-function mk_id(fnums, rec,   nf, ary, i, id) {
-
-	nf = split(rec, ary)
-	if(ary[fnums["L_HOOD"]] == "")
-		id = ""
-	else if(ary[fnums["L_HOOD"]] == "NO BROADER TERM")
-		id = ary[fnums["S_HOOD"]] 
-	else
-		id = sprintf("%s/", ary[fnums["L_HOOD"]])
-	return id
-}' > $TMP_PFILE
+$SEL $HOPT $SHP_ROOT.db > $TMP_PFILE
 tail -n +2 $TMP_PFILE | awk '{ print $1 }'					> $TMP_RNFILE
 $BINDIR/shp_to_geojson -sf $SHP_ROOT -pf $TMP_PFILE -pk rnum $TMP_RNFILE	|
 $WM_SCRIPTS/find_adjacent_polys.sh $TRACE -fmt wrapped -id $ID			|

@@ -151,7 +151,6 @@ select rnum, NAME, BOROUGH from data ;
 _EOF_
 awk -F'\t' 'BEGIN {
 	hopt = "'"$HOPT"'" == "yes"
-	hdisp = "'"$HDISP"'"
 }
 NR == 1 {
 	for(i = 1; i <= NF; i++)
