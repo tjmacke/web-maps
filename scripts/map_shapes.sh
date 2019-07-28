@@ -133,16 +133,13 @@ if [ "$HOPT" == "yes" ] ; then
 	ID="id"
 	MK="id"
 	PFX="-pfx_of title"
-	SAVE_BC=
 	if [ -z "$HDISP" ] ; then
 		HDISP="lines"
 	elif [ "$HDISP" == "union" ] ; then
 		LOG ERROR "-d union not yet implemented, use lines or colors"
 		exit 1
-	elif [ "$HDISP" == "colors" ] ; then
-		SAVE_BC="yes"
-	elif [ "$HDISP" != "lines" ] ; then
-		LOG ERROR "bad hierarchy display type $HDISP, must be one of union, lines or colors"
+	elif [ "$HDISP" != "lines" ] && [ "$HDISP" != "colors" ] ; then
+		LOG ERROR "bad hierarchy display type $HDISP, must be one of lines, colors or union"
 		echo "$U_MSG" 1>&2
 		exit 1
 	fi
@@ -172,11 +169,11 @@ else
 	cat
 fi										|
 $WM_SCRIPTS/color_graph.sh $TRACE -id $ID					> $TMP_CFILE
-if [ -z "$SAVE_BC" ] ; then
-	$WM_SCRIPTS/add_columns.sh $TRACE -mk $MK $PFX $TMP_PFILE $TMP_CFILE	> $TMP_PFILE_2
-else
+if [ "$HDISP" == "colors" ] ; then
 	$WM_SCRIPTS/add_columns.sh $TRACE -mk $MK $PFX $TMP_PFILE $TMP_CFILE	|
 	$WM_SCRIPTS/make_2l_colors.sh $BOPT $FMT -sf $SHP_ROOT -id id		> $TMP_PFILE_2
+else
+	$WM_SCRIPTS/add_columns.sh $TRACE -mk $MK $PFX $TMP_PFILE $TMP_CFILE	> $TMP_PFILE_2
 fi
 $BINDIR/shp_to_geojson -sf $SHP_ROOT -pf $TMP_PFILE_2 -pk rnum $FMT $TMP_RNFILE
 
