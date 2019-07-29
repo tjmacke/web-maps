@@ -2,35 +2,22 @@
 #
 . ~/etc/funcs.sh
 
-U_MSG="usage: $0 [ -help ] [ -bt { shape* | outer | both } [ -json ] ] shp-file"
+U_MSG="usage: $0 [ -help ] [ -b ] -sel selector [ -json ] ] shape-file"
 
 if [ -z "$WM_HOME" ] ; then
 	LOG ERROR "WM_HOME not defined"
 	exit 1
 fi
 WM_BIN=$WM_HOME/bin
+WM_BUILD=$WM_HOME/src
 
 TMP_NFILE=/tmp/names.$$
 
-function mk_fname() {
-	echo "$(echo $1 $2	|
-	awk '{
-		n_ary = split($1, ary, ".")
-		if(ary[nf] == $2)
-			print $1
-		else{
-			fn = ary[1]
-			for(i = 2; i < n_ary; i++)
-				fn = fn "." ary[i]
-			fn = fn "." $2
-			print fn
-		}
-	}')"
-}
-
+USE_BUILD=
+SEL=
 BTYPE=shape
 JSON=
-FILE=
+SHP_FILE=
 
 while [ $# -gt 0 ] ; do
 	case $1 in
@@ -38,14 +25,18 @@ while [ $# -gt 0 ] ; do
 		echo "$U_MSG"
 		exit 0
 		;;
-	-bt)
+	-b)
+		USE_BUILD="yes"
+		shift
+		;;
+	-sel)
 		shift
 		if [ $# -eq 0 ] ; then
-			LOG ERROR "-bt requires bbox type"
+			LOG ERROR "-sel requires selector argument"
 			echo "$U_MSG" 1>&2
 			exit 1
 		fi
-		BTYPE=$1
+		SEL=$1
 		shift
 		;;
 	-json)
@@ -58,7 +49,7 @@ while [ $# -gt 0 ] ; do
 		exit 1
 		;;
 	*)
-		FILE=$1
+		SHP_FILE=$1
 		shift
 		break
 		;;
@@ -71,84 +62,29 @@ if [ $# -ne 0 ] ; then
 	exit 1
 fi
 
-G_OUTER=
-G_SHAPE=
-if [ ! -z "$BTYPE" ] ; then
-	if [ "$BTYPE" == "outer" ] ; then
-		G_OUTER="yes"
-	elif [ "$BTYPE" == "shape" ] ; then
-		G_SHAPE="yes"
-	elif [ "$BTYPE" == "both" ] ; then
-		G_OUTER="yes"
-		G_SHAPE="yes"
-	else
-		LOG ERROR "unknown bbox type $BTYPE, must be shape, outer or both"
-		exit 1
-	fi
+if [ "$USE_BUILD" == "yes" ] ; then
+	BINDIR=$WM_BIULD
 else
-	G_SHAPE="yes"
+	BINDIR=$WM_BIN
 fi
 
-if [ -z "$FILE" ] ; then
-	LOG ERROR "missing shp-file argument"
+if [ -z "$SEL" ] ; then
+	LOG ERROR "missing -sel selector argument"
 	echo "$U_MSG" 1>&2
 	exit 1
 fi
-SHP_FILE=$(mk_fname $FILE "shp")
 
-if [ "$G_SHAPE" == "yes" ] ; then
-	DB_FILE=$(mk_fname $FILE "db")
-	sqlite3 $DB_FILE <<-_EOF_ |
-	.headers on
-	.mode tabs
-	select OBJECTID, L_HOOD, S_HOOD from data order by L_HOOD, S_HOOD ;
-	_EOF_
-	awk -F'\t' 'NR == 1 {
-		for(i = 1; i <= NF; i++)
-			fnums[$i] = i
-	}
-	NR > 1 {
-		n_recs++
-		recs[n_recs] = $0
-	}
-	END {
-		for(i = 1; i <= n_recs; i++){
-			titles[i] = title = mk_title(fnums, recs[i])
-			if(title == "")
-				continue
-			t_count[title]++
-		}
-		printf("%s\t%s\n", "rnum", "title")
-		for(i = 1; i <= n_recs; i++){
-			title = titles[i]
-			if(title == "")
-				continue
-			n_ary = split(recs[i], ary)
-			if(t_count[title] > 1){
-				if(title != /\/$/)
-					title = title "_" ary[fnums["OBJECTID"]]
-			}
-			printf("%s\t%s\n", ary[fnums["OBJECTID"]], title)
-		}
-	}
-	function mk_title(fnums, rec,   n_ary, ary, i, title) {
+if [ -z "$SHP_FILE" ] ; then
+	LOG ERROR "missing shape-file argument"
+	echo "$U_MSG" 1>&2
+	exit 1
+fi
+SHP_ROOT="$(echo $SHP_FILE | awk -F'.' '{ r = $1 ; for(i = 2; i < NF; i++) { r = r "." $i } ; print r }')"
 
-		n_ary = split(rec, ary)
-		if(ary[fnums["L_HOOD"]] == "")
-			title = ""
-		else if(ary[fnums["L_HOOD"]] == "NO BROADER TERM")
-			title = ary[fnums["S_HOOD"]]
-		else
-			title = sprintf("%s/%s", ary[fnums["L_HOOD"]], ary[fnums["S_HOOD"]])
-		return title
-	}' > $TMP_NFILE
-fi
-if [ "$G_OUTER" == "yes" ] ; then
-	echo -e "-1\t_outer_" >> $TMP_NFILE
-fi
+$SEL $SHP_ROOT.db | tail -n +2 > $TMP_NFILE	# omit header
 
 # this next section relies on the fact the -v dumps only bounding boxes.
-$WM_BIN/shp_dump -v $SHP_FILE	|
+$BINDIR/shp_dump -v $SHP_ROOT.shp	|
 awk 'BEGIN {
 	json = "'"$JSON"'" == "yes"
 	nfile = "'"$TMP_NFILE"'"
