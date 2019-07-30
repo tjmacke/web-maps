@@ -115,6 +115,7 @@ if [ -z "$SHP_FILE" ] ; then
 	echo "$U_MSG" 1>&2
 	exit 1
 fi
+# TODO: do this right
 SHP_ROOT="$(echo $SHP_FILE | awk -F'.' '{ r = $1 ; for(i = 2; i < NF; i++) { r = r "." $i } ; print r }')"
 
 if [ "$USE_BUILD" == "yes" ] ; then

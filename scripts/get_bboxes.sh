@@ -79,12 +79,13 @@ if [ -z "$SHP_FILE" ] ; then
 	echo "$U_MSG" 1>&2
 	exit 1
 fi
+# TODO: do this right
 SHP_ROOT="$(echo $SHP_FILE | awk -F'.' '{ r = $1 ; for(i = 2; i < NF; i++) { r = r "." $i } ; print r }')"
 
 $SEL $SHP_ROOT.db | tail -n +2 > $TMP_NFILE	# omit header
 
 # this next section relies on the fact the -v dumps only bounding boxes.
-$BINDIR/shp_dump -v $SHP_ROOT.shp	|
+$BINDIR/shp_dump -v $SHP_ROOT.shp 2> /dev/null	|
 awk 'BEGIN {
 	json = "'"$JSON"'" == "yes"
 	nfile = "'"$TMP_NFILE"'"
