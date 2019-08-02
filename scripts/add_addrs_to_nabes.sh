@@ -146,6 +146,6 @@ END {
 }'> $TMP_ANB_FILE
 
 # 5. add addrs to nabes selected by bbox's found in 5
-$WM_SCRIPTS/put_addr_in_poly.sh -l $TMP_LFILE $TMP_ANB_FILE
+$WM_SCRIPTS/put_point_in_poly.sh -l $TMP_LFILE $TMP_ANB_FILE
 
 rm -f $TMP_PFILE $TMP_RNFILE $TMP_LFILE $TMP_BB_FILE $TMP_ANB_FILE
