@@ -12,6 +12,8 @@ DM_ETC=$DM_HOME/etc
 DM_LIB=$DM_HOME/lib
 DM_SCRIPTS=$DM_HOME/scripts
 
+PROG=$0
+
 # awk v3 does not support include
 AWK_VERSION="$(awk --version | awk '{ nf = split($3, ary, /[,.]/) ; print ary[1] ; exit 0 }')"
 if [ "$AWK_VERSION" == "3" ] ; then
@@ -135,6 +137,7 @@ BEGIN {
 	prog = "'"$PROG"'"
 	pfile = "'"$PFILE"'"
 	mkey = "'"$MKEY"'"
+	sc_cfg = "'"$SC_CFG"'"
 	if(pfile != ""){
 		# read props
 		f_mkey = 0
@@ -154,8 +157,7 @@ BEGIN {
 				}
 			}else{
 				n_ptab++
-				p_idx[$f_mkey] = i
-				ptab[n_ptab] = $0
+				ptab[$f_mkey] = $0
 			}
 		}
 		close(pfile)
@@ -163,6 +165,7 @@ BEGIN {
 			exit err
 	}else
 		n_ptab = 0
+	GU_get_style_defaults(style_defs)
 	flist = "'"$FLIST"'"
 	atype = "'"$ATYPE"'"
 	f_addr = atype == "src" ? 2 : 3
@@ -170,8 +173,7 @@ BEGIN {
 {
 	n_addrs++
 	date[n_addrs] = $1
-	s_addr[n_addrs] = $2
-	d_addr[n_addrs] = $3
+	addr[n_addrs] = $f_addr
 	lng[n_addrs] = $4
 	lat[n_addrs] = $5
 	rply_addr[n_addrs] = $6
@@ -189,7 +191,7 @@ END {
 	meta_data[meta_data["count"], "is_str"] = 1
 	meta_data["count"] = 2
 	meta_data[meta_data["count"], "key"] = "n_features"
-	meta_data[meta_data["count"], "value"] = n_points
+	meta_data[meta_data["count"], "value"] = n_addrs
 	meta_data[meta_data["count"], "is_str"] = 0
 	GU_pr_header(sc_cfg, meta_data)
 
@@ -210,8 +212,33 @@ END {
 		GU_geo_adjust(lng[pg_starts[i]], lat[pg_starts[i]], pg_counts[i], lng_adj, lat_adj)
 		for(j = 0; j < pg_counts[i]; j++){
 			s_idx = pg_starts[i] + j
+
+# working original
+#			GU_mk_point("/dev/stdout",
+#				colors[s_idx], styles[s_idx], lng[s_idx] + lng_adj[j+1], lat[s_idx] + lat_adj[j+1], titles[s_idx], (s_idx == n_addrs))
+
+			# TODO: deal with arbitrary props 
+			# default values for an address
+			marker_color = style_defs["marker-color"]
+			marker_size = style_defs["marker-size"]
+			title = addr[s_idx]
+			if(n_ptab > 0){
+				props = ptab[addr[s_idx]]
+				if(props != ""){
+					n_ary = split(props, ary, "\t")
+					val = ary[p_ftab["marker-color"]]
+					if(val != "")
+						marker_color = val
+					val = ary[p_ftab["marker-size"]]
+					if(val != "")
+						marker_size = val
+					val = ary[p_ftab["title"]]
+					if(val != "")
+						title = val
+				}
+			}
 			GU_mk_point("/dev/stdout",
-				colors[s_idx], styles[s_idx], lng[s_idx] + lng_adj[j+1], lat[s_idx] + lat_adj[j+1], titles[s_idx], (s_idx == n_points))
+				marker_color, marker_size, lng[s_idx] + lng_adj[j+1], lat[s_idx] + lat_adj[j+1], title, (s_idx == n_addrs))
 		}
 	}
 
