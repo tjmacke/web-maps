@@ -55,8 +55,8 @@ TMP_OFILE=/tmp/out.$$		# collected output of all geocoders, DB selects and cache
 TMP_OFILE_1=/tmp/out_1.$$	# output of all gecoders (ie addresses not in DB or cache)
 TMP_EFILE=/tmp/err.$$		# merged errs for all geocoders
 TMP_FP_CFILE=/tmp/fp_cfile.$$	# find parking color/legend config (as key=value
-TMP_PFILE=/tmp/pspots.$$	# resolved addrs + sign cooords
-TMP_CFILE=/tmp/cfile.$$		# color file for points
+TMP_PR_FILE=/tmp/pr_file.$$	# prop file describing point colors, sizes and titles
+TMP_PT_FILE=/tmp/pt_file.$$	# resolved addrs + sign cooords
 TMP_FP_CFILE_JSON=/tmp/json_file.$$	# json version of TMP_FP_CFILE.$$
 
 # save the args so they can be logged, if requested
@@ -386,7 +386,11 @@ if [ $n_OFILE -ne 0 ] ; then
 		printf("main.def_value = %s\n", "0.63,0.63,0.94")
 		printf("main.def_key_text = dest\n")
 	}' < /dev/null > $TMP_FP_CFILE
-	$BINDIR/find_addrs_in_rect $DIST -a $WM_DATA/sps_sorted.tsv $TMP_OFILE > $TMP_PFILE
+	$BINDIR/find_addrs_in_rect $DIST -a $WM_DATA/sps_sorted.tsv $TMP_OFILE |
+	awk -F'\t' '{
+		printf("%s\t%s\t%d\t%s\t%s\t%s\n", $1, $2, NR, $4, $5, $6)
+
+	}'> $TMP_PT_FILE
 	$AWK -F'\t' '
 	@include '"$CFG_UTILS"'
 	@include '"$INTERP_UTILS"'
@@ -400,6 +404,8 @@ if [ $n_OFILE -ne 0 ] ; then
 			err = 1
 			exit err
 		}
+
+		pr_hdr = 1
 	}
 	{
 		comma = index($NF, ",")
@@ -409,13 +415,18 @@ if [ $n_OFILE -ne 0 ] ; then
 		else if(key ~ /^last:/)
 			key = "last"
 		iv = IU_interpolate(color, key)
-		printf("#%s\n", CU_rgb_to_24bit_color(iv))
-	}' $TMP_PFILE > $TMP_CFILE
+		if(pr_hdr){
+			pr_hdr = 0
+			printf("rnum\tmarker-color\ttitle\n")
+		}
+		printf("%d\t#%s\t%s\n", NR, CU_rgb_to_24bit_color(iv), $2)
+
+	}' $TMP_PT_FILE > $TMP_PR_FILE
 	$DM_SCRIPTS/cfg_to_json.sh $TMP_FP_CFILE > $TMP_FP_CFILE_JSON
 	if [ "$SN" == "yes" ] ; then
-		$DM_SCRIPTS/map_addrs.sh -sc $TMP_FP_CFILE_JSON -cf $TMP_CFILE -fl $SN_FLIST -at src $TMP_PFILE
+		$WM_SCRIPTS/map_addrs.sh -sc $TMP_FP_CFILE_JSON -p $TMP_PR_FILE -mk rnum -fl $SN_FLIST -at dst $TMP_PT_FILE
 	else
-		$DM_SCRIPTS/map_addrs.sh -sc $TMP_FP_CFILE_JSON -cf $TMP_CFILE -at src $TMP_PFILE
+		$WM_SCRIPTS/map_addrs.sh -sc $TMP_FP_CFILE_JSON -p $TMP_PR_FILE -mk rnum -at dst $TMP_PT_FILE
 	fi
 fi
 
@@ -423,4 +434,4 @@ if [ -s $TMP_EFILE ] ; then
 	cat $TMP_EFILE 1>&2
 fi
 
-rm -f $TMP_AFILE $TMP_AFILE_1 $TMP_OFILE $TMP_OFILE_1 $TMP_EFILE $TMP_FP_CFILE $TMP_PFILE $TMP_CFILE $TMP_FP_CFILE_JSON
+rm -f $TMP_AFILE $TMP_AFILE_1 $TMP_OFILE $TMP_OFILE_1 $TMP_EFILE $TMP_FP_CFILE $TMP_PT_FILE $TMP_PR_FILE $TMP_FP_CFILE_JSON
