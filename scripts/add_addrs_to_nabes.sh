@@ -146,6 +146,9 @@ END {
 }'> $TMP_ANB_FILE
 
 # 5. add addrs to nabes selected by bbox's found in 5
+if [ -s $TMP_ANB_FILE ] ; then
+	echo -e "address\tnabe"
+fi
 $WM_SCRIPTS/put_point_in_poly.sh -l $TMP_LFILE $TMP_ANB_FILE
 
 rm -f $TMP_PFILE $TMP_RNFILE $TMP_LFILE $TMP_BB_FILE $TMP_ANB_FILE
