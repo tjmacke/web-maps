@@ -2,13 +2,11 @@
 #
 . ~/etc/funcs.sh
 
-U_MSG="usage: $0 [ -help ] [ -trace ] -mk merge-key [ -pfx_of target-field ] [ -mv missing-values-file ] [ -ign_extra ] file-1 file-2"
+U_MSG="usage: $0 [ -help ] [ -trace ] -mk merge-key [ -pfx_of target-field ] file-1 file-2"
 
 TRACE=
 MKEY=
 PFX_OF=
-MV_FILE=
-IGN_EXTRA=
 FILE_1=
 FILE_2=
 n_FLIST=0
@@ -41,20 +39,6 @@ while [ $# -gt 0 ] ; do
 			exit 1
 		fi
 		PFX_OF="$1"
-		shift
-		;;
-	-mv)
-		shift
-		if [ $# -eq 0 ] ; then
-			LOG ERROR "-mv requires missing values argument"
-			echo "$U_MSG" 1>&2
-			exit 1
-		fi
-		MV_FILE="$1"
-		shift
-		;;
-	-ign_extra)
-		IGN_EXTRA="yes"
 		shift
 		;;
 	-*)
@@ -103,26 +87,6 @@ awk -F'\t' 'BEGIN {
 		printf("TRACE: BEGIN: add columns\n") > "/dev/stderr"
 	mkey = "'"$MKEY"'"
 	pfx_of = "'"$PFX_OF"'"
-	mv_file = "'"$MV_FILE"'"
-	ign_extra = "'"$IGN_EXTRA"'" == "yes"
-	if(mv_file != ""){
-		for(n_mv_tab = 0; (getline < mv_file) > 0; ){
-			n_mv_tab++
-			mv_tab[n_mv_tab] = $0
-		}
-		close(mv_file)
-		if(n_mv_tab == 0){
-			printf("ERROR: BEGIN: mv_file %s is empty\n", mv_file) > "/dev/stderr"
-			err = 1
-			exit err
-		}else if(n_mv_tab > 1){
-			printf("ERROR: BEGIN: mv_file %s is has > 1 line\n", mv_file) > "/dev/stderr"
-			err = 1
-			exit err
-		}
-		nm_ary = split(mv_tab[1], m_ary)
-		delete mv_tab
-	}
 }
 {
 	if(l_FILENAME != FILENAME){
