@@ -6,6 +6,9 @@
 #include "log.h"
 #include "adata.h"
 
+static	int
+cmp_lat_asc(const void *, const void *);
+
 ADATA_T	*
 AD_new_adata(const char *fname, int size)
 {
@@ -115,6 +118,7 @@ AD_read_adata(ADATA_T *adp, int verbose, int atype)
 
 	// file format is 6 fields, tab separated
 	//	text	text	text	lng	lat	text
+	// fill will be sorted on lat (double) ascending, so uses
 	for(lnum = 0; (l_line = getline(&line, &s_line, adp->a_fp)) > 0; ){
 		lnum++;
 		if(line[l_line - 1] == '\n'){
@@ -162,6 +166,7 @@ AD_read_adata(ADATA_T *adp, int verbose, int atype)
 		err = 1;
 		goto CLEAN_UP;
 	}
+	qsort(adp->a_atab, adp->an_atab, sizeof(ADDR_T **), cmp_lat_asc); 
 
 CLEAN_UP : ;
 
@@ -378,4 +383,18 @@ AD_print_addr(FILE *fp, const ADDR_T *ap, const char *bname)
 		s_fp = *e_fp ? e_fp + 1 : e_fp;
 	}
 	fprintf(fp, "%.*s%.*s, %s\n", (int)(s_fp - ap->a_line), ap->a_line, (int)(e_q1 - q1 + 1), q1, s_fp);
+}
+
+static	int
+cmp_lat_asc(const void *p1, const void *p2)
+{
+	const ADDR_T	**ap1 = (const ADDR_T **)p1;
+	const ADDR_T	**ap2 = (const ADDR_T **)p2;
+
+	if((*ap1)->a_lat < (*ap2)->a_lat)
+		return -1;
+	else if((*ap1)->a_lat > (*ap2)->a_lat)
+		return 1;
+	else
+		return 0;
 }

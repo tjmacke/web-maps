@@ -63,7 +63,7 @@ if [ $# -ne 0 ] ; then
 fi
 
 if [ "$USE_BUILD" == "yes" ] ; then
-	BINDIR=$WM_BIULD
+	BINDIR=$WM_BUILD
 else
 	BINDIR=$WM_BIN
 fi
