@@ -133,7 +133,6 @@ fi
 if [ "$HOPT" == "yes" ] ; then
 	ID="id"
 	MK="id"
-	PFX="-pfx_of title"
 	if [ -z "$HDISP" ] ; then
 		HDISP="lines"
 	elif [ "$HDISP" == "union" ] ; then
@@ -152,7 +151,6 @@ elif [ ! -z "$HDISP" ] ; then
 else
 	ID="title"
 	MK="title"
-	PFX=
 fi
 
 if [ ! -z "$TRACE" ] ; then
@@ -171,10 +169,10 @@ else
 fi										|
 $WM_SCRIPTS/color_graph.sh $TRACE -id $ID					> $TMP_CFILE
 if [ "$HDISP" == "colors" ] ; then
-	$WM_SCRIPTS/add_columns.sh $TRACE -mk $MK $PFX $TMP_PFILE $TMP_CFILE	|
+	$WM_SCRIPTS/add_columns.sh -b $TMP_PFILE -mk $MK $TMP_CFILE		|
 	$WM_SCRIPTS/make_2l_colors.sh $BOPT $FMT -sf $SHP_ROOT -id id		> $TMP_PFILE_2
 else
-	$WM_SCRIPTS/add_columns.sh $TRACE -mk $MK $PFX $TMP_PFILE $TMP_CFILE	> $TMP_PFILE_2
+	$WM_SCRIPTS/add_columns.sh -b $TMP_PFILE -mk $MK $TMP_CFILE		>  $TMP_PFILE_2
 fi
 $BINDIR/shp_to_geojson -sf $SHP_ROOT -pf $TMP_PFILE_2 -pk rnum $FMT $TMP_RNFILE
 
