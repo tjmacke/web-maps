@@ -105,6 +105,10 @@ fi
 $SEL $SHP_ROOT.db > $TMP_PFILE
 tail -n +2 $TMP_PFILE > $TMP_RNFILE
 
+echo "$TMP_PFILE" 1>&2
+head $TMP_PFILE 1>&2
+echo 1>&2
+
 # 2. get lines from polys
 $BINDIR/shp_to_geojson -sf $SHP_ROOT -pf $TMP_PFILE -pk rnum $TMP_RNFILE	|
 $WM_SCRIPTS/get_lines_from_polys.sh						> $TMP_LFILE
@@ -145,9 +149,13 @@ END {
 	}
 }'> $TMP_ANB_FILE
 
+echo "$TMP_ANB_FILE" 1>&2
+head $TMP_ANB_FILE 1>&2
+echo 1>&2
+
 # 5. add addrs to nabes selected by bbox's found in 5
 if [ -s $TMP_ANB_FILE ] ; then
-	echo -e "address\tnabe"
+	echo -e "address\tnabee"
 fi
 $WM_SCRIPTS/put_point_in_poly.sh -l $TMP_LFILE $TMP_ANB_FILE
 
