@@ -67,12 +67,12 @@ fi
 
 awk -F'\t' 'BEGIN {
 	bfile = "'"$BFILE"'"
-	n_ary = split("'"$MKEY"'", ary, "|")
+	n_ary = split("'"$MKEY"'", ary, "=")
 	if(n_ary == 1)
 		b_mkey = p_mkey = ary[1]
 	else{
 		b_mkey = ary[1]
-		p_meky = ary[2]
+		p_mkey = ary[2]
 	}
 	for(n_blines = n_btab = 0; (getline < bfile) > 0; ){
 		n_blines++
@@ -80,7 +80,7 @@ awk -F'\t' 'BEGIN {
 			bhdr = $0
 			fb_mkey = -1
 			for(i = 1; i <= NF; i++){
-				if($i == mkey){
+				if($i == b_mkey){
 					fb_mkey = i
 					break
 				}
