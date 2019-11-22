@@ -15,7 +15,7 @@
 #
 . ~/etc/funcs.sh
 
-U_MSG="usage: $0 [ -help ] [ -b ] [ -fmt F ] -sf shape-file -id id-field-name [ prop-file ]"
+U_MSG="usage: $0 [ -help ] [ -b ] -sf shape-file -id id-field-name [ prop-file ]"
 
 if [ -z "$WM_HOME" ] ; then
 	LOG ERROR "WM_HOME not defined"
@@ -33,7 +33,6 @@ TMP_IN_FILE=/tmp/2l.in_nabes.$$
 TMP_CFILE=/tmp/2l.colors.$$
 
 USE_BUILD=
-FMT=
 SFILE=
 ID=
 FILE=
@@ -46,16 +45,6 @@ while [ $# -gt 0 ] ; do
 		;;
 	-b)
 		USE_BUILD="yes"
-		shift
-		;;
-	-fmt)
-		shift
-		if [ $# -eq 0 ] ; then
-			LOG ERROR "-fmt requires format argument, one of wrap, plain, list"
-			echo "$U_MSG" 1>&2
-			exit 1
-		fi
-		FMT=$1
 		shift
 		;;
 	-sf)
@@ -101,10 +90,6 @@ if [ "$USE_BUILD" == "yes" ] ; then
 	BINDIR=$WM_BUILD
 else
 	BINDIR=$WM_BIN
-fi
-
-if [ ! -z "$FMT" ] ; then
-	FMT="-fmt $FMT"
 fi
 
 if [ -z "$SFILE" ] ; then

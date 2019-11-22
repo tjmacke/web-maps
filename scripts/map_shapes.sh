@@ -170,7 +170,7 @@ fi										|
 $WM_SCRIPTS/color_graph.sh $TRACE -id $ID					> $TMP_CFILE
 if [ "$HDISP" == "colors" ] ; then
 	$WM_SCRIPTS/add_columns.sh -b $TMP_PFILE -mk $MK $TMP_CFILE		|
-	$WM_SCRIPTS/make_2l_colors.sh $BOPT $FMT -sf $SHP_ROOT -id id		> $TMP_PFILE_2
+	$WM_SCRIPTS/make_2l_colors.sh $BOPT -sf $SHP_ROOT -id id		> $TMP_PFILE_2
 else
 	$WM_SCRIPTS/add_columns.sh -b $TMP_PFILE -mk $MK $TMP_CFILE		>  $TMP_PFILE_2
 fi
