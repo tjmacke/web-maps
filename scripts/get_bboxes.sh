@@ -120,9 +120,7 @@ awk 'BEGIN {
 			else
 				printf("%s\t%s\t%s\t%s\t%s\n", ntab[rnum], xmin, ymin, xmax, ymax)
 		}
-		# get outer "_outer_" block only
-		if(rnum == -1 && n_ntab == 1)
-			exit 0
+		# TODO: add code to get bbox for entire file?
 	}
 }
 END {
