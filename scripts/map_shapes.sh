@@ -2,7 +2,7 @@
 #
 . ~/etc/funcs.sh
 
-U_MSG="usage: $0 [ -help ] [ -b ] [ -trace ] [ -sa adj-file ] [ -fmt F ] [ -h [ -d { lines*|colors|union } ] ] -sel selector shape-file"
+U_MSG="usage: $0 [ -help ] [ -b ] [ -trace ] [ -sa adj-file ] [ -fmt F ] [ -h [ -d { lines*|colors|union } ] ] -sel selector [ -rn rnum-file ] shape-file"
 
 if [ -z "$WM_HOME" ] ; then
 	LOG ERROR "WM_HOME not defined"
@@ -25,6 +25,7 @@ FMT=
 HOPT=
 HDISP=
 SEL=
+RN_FILE=
 SHP_FILE=
 
 while [ $# -gt 0 ] ; do
@@ -83,6 +84,16 @@ while [ $# -gt 0 ] ; do
 			exit 1
 		fi
 		SEL="$1"
+		shift
+		;;
+	-rn)
+		shift
+		if [ $# -eq 0 ] ; then
+			LOG ERROR "-rn requires rnum file argument"
+			echo "$U_MSG" 1>&2
+			exit 1
+		fi
+		RN_FILE=$1
 		shift
 		;;
 	-*)
@@ -158,16 +169,21 @@ if [ ! -z "$TRACE" ] ; then
 fi
 
 $SEL $HOPT $SHP_ROOT.db > $TMP_PFILE
-tail -n +2 $TMP_PFILE | awk '{ print $1 }'					> $TMP_RNFILE
+if [ ! -z "$RN_FILE" ] ; then
+	cat $RN_FILE								> $TMP_RNFILE
+else
+	tail -n +2 $TMP_PFILE | awk '{ print $1 }'				> $TMP_RNFILE
+fi
 $BINDIR/shp_to_geojson -sf $SHP_ROOT -pf $TMP_PFILE -pk rnum $TMP_RNFILE	|
 $WM_SCRIPTS/find_adjacent_polys.sh $TRACE -fmt wrapped -id $ID			|
-$WM_SCRIPTS/rm_dup_islands.sh							|
+$WM_SCRIPTS/collect_adjacent_polys.sh -pf $TMP_PFILE				|
 if [ ! -z "$AFILE" ] ; then
 	tee $AFILE
 else
 	cat
 fi										|
 $WM_SCRIPTS/color_graph.sh $TRACE -id $ID					> $TMP_CFILE
+
 if [ "$HDISP" == "colors" ] ; then
 	$WM_SCRIPTS/add_columns.sh -b $TMP_PFILE -mk $MK $TMP_CFILE		|
 	$WM_SCRIPTS/make_2l_colors.sh $BOPT -sf $SHP_ROOT -id id		> $TMP_PFILE_2
