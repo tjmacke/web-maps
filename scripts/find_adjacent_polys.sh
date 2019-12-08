@@ -135,7 +135,7 @@ function get_xy(str, n_points, x, y,   work, idx, x_str, y_str) {
 function abs(x) {
 	return x < 0 ? -x : x
 }'					|
-sort -t $'\t' -k 3,3 -k 4g,5 -k 5g,5	|
+sort -t $'\t' -k 3,3 -k 4g,5 -k 5g,5	|	# add a tee here to collect the sorted edge data
 awk -F'\t' 'BEGIN {
 	l_key[1] = ""
 	l_key[2] = ""

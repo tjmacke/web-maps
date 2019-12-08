@@ -175,7 +175,7 @@ else
 	tail -n +2 $TMP_PFILE | awk '{ print $1 }'				> $TMP_RNFILE
 fi
 $BINDIR/shp_to_geojson -sf $SHP_ROOT -pf $TMP_PFILE -pk rnum $TMP_RNFILE	|
-$WM_SCRIPTS/find_adjacent_polys.sh $TRACE -fmt wrapped -id $ID			|
+$WM_SCRIPTS/find_adjacent_polys.sh $TRACE -fmt wrapped -id $ID			|	# tee here to get adj line groups
 $WM_SCRIPTS/collect_adjacent_polys.sh -pf $TMP_PFILE				|
 if [ ! -z "$AFILE" ] ; then
 	tee $AFILE

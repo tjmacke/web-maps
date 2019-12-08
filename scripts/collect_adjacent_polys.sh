@@ -48,59 +48,8 @@ if [ -z "$PFILE" ] ; then
 	exit 1
 fi
 
-awk -F'\t' 'BEGIN {
-	l_key[1] = ""
-	l_key[2] = ""
-	l_key[3] = ""
-}
-{
-	if(trace_f){
-		trace_f = 0
-		printf("TRACE: BEGIN: select overlapping line segments candidates\n")  > "/dev/stderr"
-	}
-	key[1] = $3
-	key[2] = $4
-	key[3] = $5
-	if(!keys_equal(key, l_key)){
-		if(!key_is_null(l_key)){
-			n_ptab = 0
-			for(i = 1; i <= n_edges; i++){
-				n_ary = split(edges[i], ary, "\t")
-				if(!(ary[1] in pset)){
-					pset[ary[1]] = 1
-					n_ptab++
-					ptab[n_ptab] = ary[1]
-				}
-			}
-			if(n_ptab > 1){
-				for(i = 1; i < n_ptab; i++){
-					for(j = i+1; j <= n_ptab; j++){
-						printf("%s\t%s\n", ptab[i], ptab[j])
-						printf("%s\t%s\n", ptab[j], ptab[i])
-					}
-				}
-			}
-			delete ptab
-			delete pset
-			delete edges
-			n_edges = 0
-		}
-	}
-	n_edges++
-	edges[n_edges] = $0
-	key_assign(l_key, key)
-}
-END {
-	if(!key_is_null(l_key)){
-		n_ptab = 0
-		for(i = 1; i <= n_edges; i++){
-			n_ary = split(edges[i], ary, "\t")
-			if(!(ary[1] in pset)){
-				pset[ary[1]] = 1
-				n_ptab++
-				ptab[n_ptab] = ary[1]
-			}
-		}
+awk -F'\t' '{
+	if($0 == ""){
 		if(n_ptab > 1){
 			for(i = 1; i < n_ptab; i++){
 				for(j = i+1; j <= n_ptab; j++){
@@ -111,21 +60,25 @@ END {
 		}
 		delete ptab
 		delete pset
-		delete edges
-		n_edges = 0
+		n_ptab = 0
+	}else if(!($1 in pset)){
+		pset[$1] = 1
+		n_ptab++
+		ptab[n_ptab] = $1
 	}
 }
-function keys_equal(k1, k2) {
-
-	return (k1[1] == k2[1] && k1[2] == k2[2] && k1[3] == k2[3])
-}
-function key_is_null(k) {
-	return (k[1] == "" && k[2] == "" && k[3] == "")
-}
-function key_assign(kd, ks) {
-	kd[1] = ks[1]
-	kd[2] = ks[2]
-	kd[3] = ks[3]
+END {
+	if(n_ptab > 1){
+		for(i = 1; i < n_ptab; i++){
+			for(j = i+1; j <= n_ptab; j++){
+				printf("%s\t%s\n", ptab[i], ptab[j])
+				printf("%s\t%s\n", ptab[j], ptab[i])
+			}
+		}
+	}
+	delete ptab
+	delete pset
+	n_ptab = 0
 }' $FILE	|
 sort -u		|
 awk -F'\t' 'BEGIN {
@@ -155,7 +108,6 @@ awk -F'\t' 'BEGIN {
 		}
 	}
 	close(pfile)
-	printf("INFO: BEGIN: %s: %d lines\n", pfile, n_plines) > "/dev/stderr"
 }
 {
 	if($1 != l_1){
