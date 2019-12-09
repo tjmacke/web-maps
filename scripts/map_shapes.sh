@@ -2,7 +2,7 @@
 #
 . ~/etc/funcs.sh
 
-U_MSG="usage: $0 [ -help ] [ -b ] [ -trace ] [ -sa adj-file ] [ -fmt F ] [ -h [ -d { lines*|colors|union } ] ] -sel selector [ -rn rnum-file ] shape-file"
+U_MSG="usage: $0 [ -help ] [ -b ] [ -sa adj-file ] [ -fmt F ] [ -h [ -d { lines*|colors|union } ] ] -sel selector [ -rn rnum-file ] shape-file"
 
 if [ -z "$WM_HOME" ] ; then
 	LOG ERROR "WM_HOME not defined"
@@ -19,7 +19,6 @@ TMP_CFILE=/tmp/colors.$$
 TMP_PFILE_2=/tmp/pfile_2.$$
 
 USE_BUILD=
-TRACE=
 AFILE=
 FMT=
 HOPT=
@@ -36,10 +35,6 @@ while [ $# -gt 0 ] ; do
 		;;
 	-b)
 		USE_BUILD="yes"
-		shift
-		;;
-	-trace)
-		TRACE="yes"
 		shift
 		;;
 	-sa)
@@ -164,10 +159,6 @@ else
 	MK="title"
 fi
 
-if [ ! -z "$TRACE" ] ; then
-	TRACE="-trace"
-fi
-
 $SEL $HOPT $SHP_ROOT.db > $TMP_PFILE
 if [ ! -z "$RN_FILE" ] ; then
 	cat $RN_FILE								> $TMP_RNFILE
@@ -175,14 +166,14 @@ else
 	tail -n +2 $TMP_PFILE | awk '{ print $1 }'				> $TMP_RNFILE
 fi
 $BINDIR/shp_to_geojson -sf $SHP_ROOT -pf $TMP_PFILE -pk rnum $TMP_RNFILE	|
-$WM_SCRIPTS/find_adjacent_polys.sh $TRACE -fmt wrapped -id $ID			|	# tee here to get adj line groups
+$WM_SCRIPTS/find_adjacent_polys.sh -fmt wrapped -id $ID				|	# tee here to get adj line groups
 $WM_SCRIPTS/collect_adjacent_polys.sh -pf $TMP_PFILE				|
 if [ ! -z "$AFILE" ] ; then
 	tee $AFILE
 else
 	cat
 fi										|
-$WM_SCRIPTS/color_graph.sh $TRACE -id $ID					> $TMP_CFILE
+$WM_SCRIPTS/color_graph.sh -id $ID						> $TMP_CFILE
 
 if [ "$HDISP" == "colors" ] ; then
 	$WM_SCRIPTS/add_columns.sh -b $TMP_PFILE -mk $MK $TMP_CFILE		|

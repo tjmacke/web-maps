@@ -164,6 +164,7 @@ while read line ; do
 	tail -n +2 $TMP_IN_FILE							|
 	$BINDIR/shp_to_geojson -sf $SFILE -pf $TMP_IN_FILE -pk rnum 		|
 	$WM_SCRIPTS/find_adjacent_polys.sh -fmt wrapped -id title 		|
+	$WM_SCRIPTS/collect_adjacent_polys.sh -pf $TMP_IN_FILE			|
 	$WM_SCRIPTS/color_graph.sh -bc $bcolor -id title			> $TMP_CFILE 
 	# 3. update the original colors
 	$WM_SCRIPTS/upd_column_values.sh -mk title -b $TMP_BC_FILE $TMP_CFILE 

@@ -2,7 +2,7 @@
 #
 . ~/etc/funcs.sh
 
-U_MSG="usage: $0 [ -help ] [ -trace ] [ -v ] [ -cd color-def-file ] [ -bc { pink | gold | green | blue | purple } ] -id id-field [ ap-file ]"
+U_MSG="usage: $0 [ -help ] [ -v ] [ -cd color-def-file ] [ -bc { pink | gold | green | blue | purple } ] -id id-field [ ap-file ]"
 
 if [ -z "$WM_HOME" ] ; then
 	LOG ERROR "WM_HOME not defined"
@@ -28,7 +28,6 @@ fi
 #
 # edge-list is a pipe (|) separated list of node-names.  node-num is carried along and may be used by other programs
 
-TRACE=
 VERBOSE=
 COLOR_DATA="$WM_SCRIPTS/color_data.awk"
 BCOLOR=
@@ -40,10 +39,6 @@ while [ $# -gt 0 ] ; do
 	-help)
 		echo "$U_MSG"
 		exit 0
-		;;
-	-trace)
-		TRACE="yes"
-		shift
 		;;
 	-v)
 		VERBOSE="yes"
@@ -120,9 +115,6 @@ sort -t $'\t' -k 3rn,3 $FILE	|\
 $AWK -F'\t' '
 @include '"$COLOR_DATA"'
 BEGIN {
-	trace = "'"$TRACE"'" == "yes"
-	if(trace)
-		trace_f = 1
 	verbose = "'"$VERBOSE"'" == "yes"
 	bcolor = ("'"$BCOLOR"'" != "") ? "'"$BCOLOR"'" : "_NO_BCOLOR_"
 	id = "'"$ID"'"
@@ -148,10 +140,6 @@ BEGIN {
 	colors["next"] = 1
 }
 {
-	if(trace_f){
-		trace_f = 0
-		printf("TRACE: BEGIN: color graph\n") > "/dev/stderr"
-	}
 	# deal with "islands" separately
 	if($3 == 0){
 		n_islands++
@@ -193,8 +181,6 @@ END {
 				err = 1
 				printf("ERROR: need rule 2!\n") > "/dev/stderr"
 				dump_graf("/dev/stderr", n_nodes, graf)
-				if(trace)
-					printf("TRACE: END: FAILED: color graph needs rule 2\n") > "/dev/stderr"
 				exit err
 			}
 			if(verbose)
@@ -217,9 +203,6 @@ END {
 	for(i = 1; i <= n_islands; i++){
 		printf("%s\t%s\n", islands[i, "name"], get_color(colors));
 	}
-
-	if(trace)
-		printf("TRACE: END: color graph\n") > "/dev/stderr"
 }
 function remove_node(graf, n, name_index, node_stk,    nf, ary, i, ni) {
 	nf = split(graf[n, "neighbors"], ary, "|")

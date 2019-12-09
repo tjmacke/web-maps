@@ -11,16 +11,12 @@ fi
 WM_BIN=$WM_HOME/bin
 WM_BUILD=$WM_HOME/src
 WM_DATA=$WM_HOME/data
+WM_DEMOS=$WM_HOME/demos
 WM_SCRIPTS=$WM_HOME/scripts
-WA_DATA=$WM_DATA/cb_2016_place_500k
+WA_DATA=$WM_DATA/cb_2016_place_500k/cb_2016_53_place_500k.shp
 
-TMP_PFILE=/tmp/53.tsv.$$
-TMP_RNFILE=/tmp/53.rnums.$$
-TMP_CFILE=/tmp/53.colors.tsv.$$
-TMP_PFILE_2=/tmp/53_2.tsv.$$
-
-USE_BUILD=
-AFILE=
+BOPT=
+SA=
 
 while [ $# -gt 0 ] ; do
 	case $1 in
@@ -29,7 +25,7 @@ while [ $# -gt 0 ] ; do
 		exit 0
 		;;
 	-b)
-		USE_BUILD="yes"
+		BOPT="-b"
 		shift
 		;;
 	-sa)
@@ -39,7 +35,7 @@ while [ $# -gt 0 ] ; do
 			echo "$U_MSG" 1>&2
 			exit 1
 		fi
-		AFILE=$1
+		SA="-sa $1"
 		shift
 		;;
 	-*)
@@ -55,29 +51,4 @@ while [ $# -gt 0 ] ; do
 	esac
 done
 
-if [ "$USE_BUILD" == "yes" ] ; then
-	BINDIR=$WM_BUILD
-else
-	BINDIR=$WM_BIN
-fi
-
-# 1. select ALL places in Washington state
-sqlite3 $WA_DATA/cb_2016_53_place_500k.db <<_EOF_ > $TMP_PFILE
-.headers on
-.mode tabs
-select rnum, NAME || ', ' || statefp.STUSAB || '_' || PLACEFP as title from data, statefp where data.STATEFP = statefp.STATEFP ;
-_EOF_
-tail -n +2 $TMP_PFILE | awk '{ print $1 }'							> $TMP_RNFILE
-$BINDIR/shp_to_geojson -sf $WA_DATA/cb_2016_53_place_500k -pf $TMP_PFILE -pk rnum $TMP_RNFILE	|\
-$WM_SCRIPTS/find_adjacent_polys.sh -fmt wrapped -id title					|\
-$WM_SCRIPTS/rm_dup_islands.sh									|\
-if [ ! -z "$AFILE" ] ; then
-	tee $AFILE
-else
-	cat
-fi												|\
-$WM_SCRIPTS/color_graph.sh -id title								> $TMP_CFILE
-$WM_SCRIPTS/add_columns.sh -mk title -b $TMP_PFILE $TMP_CFILE 					> $TMP_PFILE_2
-$BINDIR/shp_to_geojson -sf $WA_DATA/cb_2016_53_place_500k -pf $TMP_PFILE_2 -pk rnum $TMP_RNFILE
-
-rm -f $TMP_PFILE $TMP_RNFILE $TMP_CFILE $TMP_PFILE_2
+$WM_SCRIPTS/map_shapes.sh $BOPT $SA -sel $WM_DEMOS/select_places.sh $WA_DATA

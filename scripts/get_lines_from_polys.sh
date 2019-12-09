@@ -1,7 +1,7 @@
 #! /bin/bash
 #
 . ~/etc/funcs.sh
-U_MSG="usage: $0 [ -help ] [ -trace ] [ geosjson-file ]"
+U_MSG="usage: $0 [ -help ] [ geosjson-file ]"
 
 JU_HOME=$HOME/json_utils
 JU_BIN=$JU_HOME/bin
@@ -9,7 +9,6 @@ JU_BIN=$JU_HOME/bin
 JG='{geojson}{features}[1:$]'
 JG2='{properties}{title},{geometry}{type,coordinates}'
 
-TRACE=
 FILE=
 
 while [ $# -gt 0 ] ; do
@@ -17,10 +16,6 @@ while [ $# -gt 0 ] ; do
 	-help)
 		echo "$U_MSG"
 		exit 0
-		;;
-	-trace)
-		TRACE="yes"
-		shift
 		;;
 	-*)
 		LOG ERROR "unknown option $1"
@@ -43,20 +38,7 @@ fi
 
 $JU_BIN/json_get -g $JG $FILE 2> /dev/null	|
 $JU_BIN/json_get -n -g $JG2 2> /dev/null	|
-awk -F'\t' 'BEGIN {
-	# TODO: figure out what to do with trace
-	trace = "'"$TRACE"'" == "yes"
-	if(trace){
-		trace_f = 1
-		at_file = "/dev/stderr"
-	}
-}
-{
-	if(trace_f){
-		trace_f = 0
-		printf("TRACE: BEGIN: process json into line segments\n") > "/dev/stderr"
-	}
-	all_titles[$1] = 1
+awk -F'\t' '{
 	nf = split($3, ary, "]")
 	n_polys = n_points = 0
 	for(i = 1; i < nf; i++){
@@ -92,14 +74,6 @@ awk -F'\t' 'BEGIN {
 			printf("\t%.15e\t%.15e\t%.15e\t%.15e\t%.15e\t%.15e", m, b, x1, y1, x2, y2)
 			printf("\n")
 		}
-	}
-}
-END {
-	if(trace){
-		printf("TRACE: END: processed json into line segments\n") > "/dev/stderr"
-		for(t in all_titles)
-			printf("%s\n", t) > at_file
-		close(at_file)
 	}
 }
 function get_xy(str, n_points, x, y,   work, idx, x_str, y_str) {
