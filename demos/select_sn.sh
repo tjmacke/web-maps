@@ -2,8 +2,9 @@
 #
 . ~/etc/funcs.sh
 
-U_MSG="usage: $0 [ -help ] [ -h ] db-file"
+U_MSG="usage: $0 [ -help ] [ -all ] [ -h ] db-file"
 
+ALL=
 HOPT=
 DB=
 
@@ -12,6 +13,10 @@ while [ $# -gt 0 ] ; do
 	-help)
 		echo "$U_MSG"
 		exit 0
+		;;
+	-all)
+		ALL="yes"
+		shift
 		;;
 	-h)
 		HOPT="yes"
@@ -48,6 +53,7 @@ sqlite3 $DB <<_EOF_	|
 select OBJECTID, L_HOOD, S_HOOD from data order by L_HOOD, S_HOOD ;
 _EOF_
 awk -F'\t' 'BEGIN {
+	all = "'"$ALL"'" == "yes"
 	hopt = "'"$HOPT"'" == "yes"
 }
 NR == 1 {
@@ -60,12 +66,12 @@ NR > 1 {
 }
 END {
 	for(i = 1; i <= n_recs; i++){
-		titles[i] = title = mk_title(fnums, recs[i])
+		titles[i] = title = mk_title(fnums, recs[i], all)
 		if(title == "")
 			continue;
  		t_count[title]++
 		if(hopt){
-			ids[i] = id = mk_id(fnums, recs[i])
+			ids[i] = id = mk_id(fnums, recs[i], all)
 			i_count[id]++
 		}
 	}
@@ -94,7 +100,7 @@ END {
 		printf("\n")
 	}
 }
-function mk_title(fnums, rec,   nf, ary, i, title) {
+function mk_title(fnums, rec, all,   nf, ary, i, title) {
 
 	nf = split(rec, ary)
 	if(ary[fnums["L_HOOD"]] == "")
@@ -105,7 +111,7 @@ function mk_title(fnums, rec,   nf, ary, i, title) {
 		title = sprintf("%s/%s", ary[fnums["L_HOOD"]], ary[fnums["S_HOOD"]])
 	return title
 }
-function mk_id(fnums, rec,   nf, ary, i, id) {
+function mk_id(fnums, rec, all,   nf, ary, i, id) {
 
 	nf = split(rec, ary)
 	if(ary[fnums["L_HOOD"]] == "")
