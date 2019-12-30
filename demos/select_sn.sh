@@ -104,7 +104,7 @@ function mk_title(fnums, rec, all,   nf, ary, i, title) {
 
 	nf = split(rec, ary)
 	if(ary[fnums["L_HOOD"]] == "")
-		title = ""
+		title = all ? _"notNamed_" : ""
 	else if(ary[fnums["L_HOOD"]] == "NO BROADER TERM")
 		title = ary[fnums["S_HOOD"]]
 	else
@@ -115,7 +115,7 @@ function mk_id(fnums, rec, all,   nf, ary, i, id) {
 
 	nf = split(rec, ary)
 	if(ary[fnums["L_HOOD"]] == "")
-		id = ""
+		id = all ? "_notNamed_" : ""
 	else if(ary[fnums["L_HOOD"]] == "NO BROADER TERM")
 		id = ary[fnums["S_HOOD"]] 
 	else
