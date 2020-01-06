@@ -99,19 +99,21 @@ if [ -z "$SEL" ] ; then
 	exit 1
 fi
 
-if [ -z "$SHP_FILE" ] && [ -z "$FILEMAP" ] ; then
-	LOG ERROR "missing data source: use on of -sf shape-file or -fmap filemap"
-	echo "$U_MSG" 1>&2
-	exit 1
-elif [ ! -z "$SHP_FILE" ] && [ ! -z "$FILEMAP" ] ; then
-	LOG ERROR "use only one of -sf shape-file or -fmap filemap"
-	echo "$U_MSG" 1>&2
-	exit 1
-fi
-
 if [ ! -z "$SHP_FILE" ] ; then
+	if [ ! -z "$FILEMAP" ] ; then
+		LOG ERROR "use only one of -sf shape-file or -fmap filemap"
+		echo "$U_MSG" 1>&2
+		exit 1
+	fi
 	# TODO: do this right
 	SHP_ROOT="$(echo $SHP_FILE | awk -F'.' '{ r = $1 ; for(i = 2; i < NF; i++) { r = r "." $i } ; print r }')"
+	SRC="-sf $SHP_ROOT"
+elif [ ! -z "$FILEMAP" ] ; then
+	SRC="-fmap $FILEMAP"
+else
+	LOG ERROR "missing data source: use one of -sf shape-file or -fmap filemap"
+	echo "$U_MSG" 1>&2
+	exit 1
 fi
 
 if [ -z "$FILE" ] ; then
@@ -120,7 +122,6 @@ if [ -z "$FILE" ] ; then
 	exit 1
 fi
 
-
 # TODO: send appropriate source to $SEL
 # 1. decide on which shapes are needed
 $SEL $SHP_ROOT.db > $TMP_PFILE
@@ -128,8 +129,8 @@ tail -n +2 $TMP_PFILE > $TMP_RNFILE
 
 # TODO: use appropriate source here
 # 2. get lines from polys
-$BINDIR/shp_to_geojson -sf $SHP_ROOT -pf $TMP_PFILE -pk rnum $TMP_RNFILE	|
-$WM_SCRIPTS/get_lines_from_polys.sh						> $TMP_LFILE
+$BINDIR/shp_to_geojson $SRC -pf $TMP_PFILE -pk rnum $TMP_RNFILE	|
+$WM_SCRIPTS/get_lines_from_polys.sh				> $TMP_LFILE
 
 # 3. get_bbox.sh
 $WM_SCRIPTS/get_bboxes.sh $BOPT -sel $SEL $SHP_FILE	> $TMP_BB_FILE

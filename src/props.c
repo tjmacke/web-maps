@@ -172,6 +172,39 @@ PROPS_delete_properties(PROPERTIES_T	*props)
 	free(props);
 }
 
+void
+PROPS_dump_properties(FILE *fp, const PROPERTIES_T *props)
+{
+	int	i;
+	PROP_T	*pp;
+
+	if(props == NULL){
+		fprintf(fp, "props = NULL\n");
+		return;
+	}
+
+	fprintf(fp, "props = %d {\n", props->pn_ptab);
+	fprintf(fp, "\tftab = %d {\n", props->pn_ftab);
+	for(i = 0; i < props->pn_ftab; i++)
+		fprintf(fp, "\t\t%d = %s\n", i+1, props->p_ftab[i]);
+	fprintf(fp, "\t}\n");
+	fprintf(fp, "\tptab = %d {\n", props->pn_ptab);
+	for(i = 0; i < props->pn_ptab; i++){
+		pp = props->p_ptab[i];
+		if(pp == NULL)
+			fprintf(fp, "\t\t%d = NULL\n", i+1);
+		else{
+			fprintf(fp, "\t\t%d = {\n", i+1);
+			fprintf(fp, "\t\t\tint_key   = %d\n", pp->p_int_key);
+			fprintf(fp, "\t\t\tstr_key   = %s\n", pp->p_str_key != NULL ? pp->p_str_key : "NULL");
+			fprintf(fp, "\t\t\tvalue     = %s\n", pp->p_value ? pp->p_value : "NULL");
+			fprintf(fp, "\t\t}\n");
+		}
+	}
+	fprintf(fp, "\t}\n");
+	fprintf(fp, "}\n");
+}
+
 PROP_T	*
 PROPS_new_prop(const char *key, int int_key, const char *value)
 {
@@ -444,37 +477,51 @@ PROPS_find_props_with_str_key(const PROPERTIES_T *props, const char *pkey)
 	return NULL;
 }
 
-void
-PROPS_dump_properties(FILE *fp, const PROPERTIES_T *props)
+char	*
+PROPS_get_prop_value(const PROPERTIES_T *props, const PROP_T *pp, const char *key)
 {
-	int	i;
-	PROP_T	*pp;
+	int	f, f_key;
+	char	*s_fp, *e_fp;
+	char	*value = NULL;
 
 	if(props == NULL){
-		fprintf(fp, "props = NULL\n");
-		return;
+		LOG_ERROR("props is NULL");
+		goto CLEAN_UP;
 	}
 
-	fprintf(fp, "props = %d {\n", props->pn_ptab);
-	fprintf(fp, "\tftab = %d {\n", props->pn_ftab);
-	for(i = 0; i < props->pn_ftab; i++)
-		fprintf(fp, "\t\t%d = %s\n", i+1, props->p_ftab[i]);
-	fprintf(fp, "\t}\n");
-	fprintf(fp, "\tptab = %d {\n", props->pn_ptab);
-	for(i = 0; i < props->pn_ptab; i++){
-		pp = props->p_ptab[i];
-		if(pp == NULL)
-			fprintf(fp, "\t\t%d = NULL\n", i+1);
-		else{
-			fprintf(fp, "\t\t%d = {\n", i+1);
-			fprintf(fp, "\t\t\tint_key   = %d\n", pp->p_int_key);
-			fprintf(fp, "\t\t\tstr_key   = %s\n", pp->p_str_key != NULL ? pp->p_str_key : "NULL");
-			fprintf(fp, "\t\t\tvalue     = %s\n", pp->p_value ? pp->p_value : "NULL");
-			fprintf(fp, "\t\t}\n");
+	if(pp == NULL){
+		LOG_ERROR("pp is NULL");
+		goto CLEAN_UP;
+	}
+
+	for(f_key = -1, f = 0; f < props->pn_ftab; f++){
+		if(!strcmp(key, props->p_ftab[f])){
+			f_key = f;
+			break;
 		}
 	}
-	fprintf(fp, "\t}\n");
-	fprintf(fp, "}\n");
+	if(f_key == -1){
+		LOG_ERROR("no such property: %s", key);
+		goto CLEAN_UP;
+	}
+
+	// get the value
+	for(f = -1, e_fp = s_fp = pp->p_value; *s_fp; ){
+		f++;
+		if((e_fp = strchr(s_fp, '\t')) == NULL)
+			e_fp = s_fp + strlen(s_fp);
+		if(f == f_key){
+			value = strndup(s_fp, e_fp - s_fp);
+			if(value == NULL){
+				LOG_ERROR("strndup failed for key = %s", key);
+				goto CLEAN_UP;
+			}
+		}
+	}
+
+CLEAN_UP : ;
+
+	return value;
 }
 
 char	*

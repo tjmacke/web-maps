@@ -46,6 +46,9 @@ const PROP_T	*
 PROPS_find_props_with_str_key(const PROPERTIES_T *, const char *);
 
 char	*
+PROPS_get_prop_value(const PROPERTIES_T *, const PROP_T *, const char *);
+
+char	*
 PROPS_to_json_object(const PROPERTIES_T *, const PROP_T *);
 
 #endif

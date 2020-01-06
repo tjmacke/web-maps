@@ -22,6 +22,9 @@ static	FLAG_T	flags[] = {
 };
 static	int	n_flags = sizeof(flags)/sizeof(flags[0]);
 
+static	char	*
+shp_get_title(const S2G_INPUT_T *, const SF_SHAPE_T *, const char *, const PROPERTIES_T *);
+
 int
 main(int argc, char *argv[])
 {
@@ -41,6 +44,7 @@ main(int argc, char *argv[])
 
 	S2G_INPUT_T	*s2g = NULL;
 	SF_SHAPE_T	*shp = NULL;
+	char	*shp_title = NULL;
 
 	FILE	*fp = NULL;
 	char	*line = NULL;
@@ -166,13 +170,33 @@ main(int argc, char *argv[])
 		}
 		if(verbose)
 			SHP_dump_shape(stderr, shp, verbose);
-		// do the work
+
+		shp_title = shp_get_title(s2g, shp, line, props);
+		if(shp_title == NULL){
+			LOG_ERROR("shp_get_title failed for %s", line);
+			err = 1;
+			goto CLEAN_UP;
+		}
+
+		if(!strcmp(what, "bboxes")){
+			printf("%s", shp_title);
+			printf("\t%.15e\t%.15e\t%.15e\t%.15e", shp->s_bbox.s_xmin, shp->s_bbox.s_ymin, shp->s_bbox.s_xmax, shp->s_bbox.s_ymax);
+			printf("\n");
+		}else{
+		}
+
+		if(shp_title != NULL){
+			free(shp_title);
+			shp_title = NULL;
+		}
 		SHP_delete_shape(shp);
 		shp = NULL;
-		// deal with property
 	}
 
 CLEAN_UP : ;
+
+	if(shp_title != NULL)
+		free(shp_title);
 
 	if(shp != NULL)
 		SHP_delete_shape(shp);
@@ -192,4 +216,30 @@ CLEAN_UP : ;
 	TJM_free_args(args);
 
 	exit(err);
+}
+
+static	char	*
+shp_get_title(const S2G_INPUT_T *s2g, const SF_SHAPE_T *shp, const char *str, const PROPERTIES_T *props)
+{
+	const PROP_T	*pp;
+	char	*shp_title = NULL;
+
+	pp = s2g->s_sf ? PROPS_find_props_with_int_key(props, shp->s_rnum) : PROPS_find_props_with_str_key(props, str);
+	if(pp != NULL){
+		shp_title = PROPS_get_prop_value(props, pp, str);
+		if(shp_title == NULL)
+			LOG_ERROR("PROP_get_prop_value failed");
+	}else if(s2g->s_sf){
+		shp_title = (char *)malloc(20 * sizeof(char));
+		if(shp_title == NULL)
+			LOG_ERROR("can't allocate shp_title");
+		else
+			sprintf(shp_title, GJ_DEFAULT_TITLE_FMT_D, shp->s_rnum);
+	}else{
+		shp_title = strdup(str);
+		if(shp_title == NULL)
+			LOG_ERROR("strdup failed for str \"%s\"", str);
+	}
+
+	return shp_title;
 }
