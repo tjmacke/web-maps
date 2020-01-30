@@ -958,6 +958,7 @@ SHP_write_geojson_prolog(FILE *fp, const char *fmt, const char *scfname)
 			err = 1;
 			goto CLEAN_UP;
 		}
+		fprintf(fp, "{\n");
 		fprintf(fp, "\"scaleConfig\": ");
 		for(lcnt = 0; (l_line = getline(&line, &s_line, scfp)) > 0; ){
 			lcnt++;
@@ -968,12 +969,11 @@ SHP_write_geojson_prolog(FILE *fp, const char *fmt, const char *scfname)
 			fprintf(fp, "%s%s", lcnt > 1 ? "\n" : "", line);
 		}
 		fprintf(fp, ",\n");
+		fprintf(fp, "\"geojson\": ");
 		if(line != NULL)
 			free(line);
 		fclose(scfp);
-	}
-
-	if(!strcmp(fmt, "wrap")){
+	}else if(!strcmp(fmt, "wrap")){
 		fprintf(fp, "{\n\"geojson\": ");
 	}
 	if(strcmp(fmt, "list")){

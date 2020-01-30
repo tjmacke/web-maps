@@ -517,6 +517,7 @@ PROPS_get_prop_value(const PROPERTIES_T *props, const PROP_T *pp, const char *ke
 				goto CLEAN_UP;
 			}
 		}
+		s_fp = *e_fp ? e_fp + 1 : e_fp;
 	}
 
 CLEAN_UP : ;

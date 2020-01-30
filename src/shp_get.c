@@ -25,6 +25,9 @@ static	int	n_flags = sizeof(flags)/sizeof(flags[0]);
 static	char	*
 shp_get_title(const S2G_INPUT_T *, const SF_SHAPE_T *, const char *, const PROPERTIES_T *);
 
+static	void
+shp_write_lines(FILE *, const char *, const SF_SHAPE_T *);
+
 int
 main(int argc, char *argv[])
 {
@@ -183,6 +186,7 @@ main(int argc, char *argv[])
 			printf("\t%.15e\t%.15e\t%.15e\t%.15e", shp->s_bbox.s_xmin, shp->s_bbox.s_ymin, shp->s_bbox.s_xmax, shp->s_bbox.s_ymax);
 			printf("\n");
 		}else{
+			shp_write_lines(stdout, shp_title, shp);
 		}
 
 		if(shp_title != NULL){
@@ -226,7 +230,7 @@ shp_get_title(const S2G_INPUT_T *s2g, const SF_SHAPE_T *shp, const char *str, co
 
 	pp = s2g->s_sf ? PROPS_find_props_with_int_key(props, shp->s_rnum) : PROPS_find_props_with_str_key(props, str);
 	if(pp != NULL){
-		shp_title = PROPS_get_prop_value(props, pp, str);
+		shp_title = PROPS_get_prop_value(props, pp, "title");
 		if(shp_title == NULL)
 			LOG_ERROR("PROP_get_prop_value failed");
 	}else if(s2g->s_sf){
@@ -242,4 +246,35 @@ shp_get_title(const S2G_INPUT_T *s2g, const SF_SHAPE_T *shp, const char *str, co
 	}
 
 	return shp_title;
+}
+
+static	void
+shp_write_lines(FILE *fp, const char *shp_title, const SF_SHAPE_T *shp)
+{
+	int	p, pf, pl, i;
+	double	x1, y1, x2, y2;
+	double	dx, dy, m, b;
+
+	for(p = 0; p < shp->sn_parts; p++){
+		pf = shp->s_parts[p];
+		pl = (p == shp->sn_parts - 1) ? shp->sn_points : shp->s_parts[p+1];
+		for(i = pf; i < pl - 1; i++){
+			x1 = shp->s_points[i].s_x;
+			x2 = shp->s_points[i+1].s_x;
+			y1 = shp->s_points[i].s_y;
+			y2 = shp->s_points[i+1].s_y;
+			dx = x2 - x1;
+			dy = y2 - y1;
+			if(dx == 0){
+				m = 0;
+				b = x1;
+			}else{
+				m = dy/dx;
+				b = y1 - m*x1;
+			}
+			fprintf(fp, "%s\t%d\t%d", shp_title, p+1, dx == 0);
+			fprintf(fp, "\t%.15e\t%.15e\t%.15e\t%.15e\t%.15e\t%.15e", m, b, x1, y1, x2, y2);
+			fprintf(fp, "\n");
+		}
+	}
 }
