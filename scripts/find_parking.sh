@@ -379,6 +379,7 @@ if [ $n_OFILE -ne 0 ] ; then
 	}
 	END {
 		printf("main.scale_type = factor\n")
+		printf("main.divTitle = Pin Colors\n")
 		printf("main.values = 0.90,0.90,0.90 | 0.94,0.94,0.5 | 0.94,0.75,0.5 | 0.94,0.5,0.5%s%s\n",
 			h_last ? " | 0.65,0.65,0.65" : "",
 			h_rest ? " | 0.7,0.9,0.7" : "")
