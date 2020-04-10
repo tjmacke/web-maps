@@ -183,10 +183,25 @@ END {
 	if(mfile){
 		printf("%s.min_value = %g\n", interp["name"], bk_min) >> mfile
 		printf("%s.max_value = %g\n", interp["name"], bk_max) >> mfile
+
+		# BEGIN orig
 		printf("%s.stats = %d,%.1f", interp["name"], interp["counts", 1], 100.0*interp["counts", 1]/interp["tcounts"]) >> mfile
 		for(i = 2; i <= interp["nbreaks"] + 1; i++)
 			printf(" | %d,%.1f", interp["counts", i], 100.0*interp["counts", i]/interp["tcounts"]) >> mfile
 		printf("\n") >> mfile
+		# END orig
+
+		# BEGIN new, not yet used
+		printf("%s.counts = %d", interp["name"], interp["counts", 1]) >> mfile
+		for(i = 2; i <= interp["nbreaks"] + 1; i++)
+			printf(" | %d", interp["counts", i]) >> mfile
+		printf("\n") >> mfile
+		printf("%s.pcts = %.1f", interp["name"], 100.0*interp["counts", 1]/interp["tcounts"]) >> mfile
+		for(i = 2; i <= interp["nbreaks"] + 1; i++)
+			printf(" | %.1f", 100.0*interp["counts", i]/interp["tcounts"]) >> mfile
+		printf("\n") >> mfile
+		# END new, not yet used
+
 		close(mfile)
 	}
 	exit 0

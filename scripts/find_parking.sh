@@ -386,7 +386,7 @@ if [ $n_OFILE -ne 0 ] ; then
 			h_rest ? " | 0.7,0.9,0.7" : "")
 		printf("main.keys = PPL | PLU | PCVL | PTRKL%s%s\n", h_last ? "| last" : "", h_rest ? " | rest" : "")
 		printf("main.def_value = %s\n", "0.63,0.63,0.94")
-		printf("main.def_key_text = dest\n")
+		printf("main.def_key = dest\n")
 	}' < /dev/null > $TMP_FP_CFILE
 	$BINDIR/find_addrs_in_rect $DIST -a $WM_DATA/sps_sorted.tsv $TMP_OFILE |
 	awk -F'\t' '{
