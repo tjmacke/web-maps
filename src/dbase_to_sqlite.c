@@ -225,7 +225,7 @@ add_known_tables(const char *kt_home, const char *kt_list)
 			goto CLEAN_UP;
 		}
 		if(mk_known_table(fp, tname)){
-			LOG_ERROR("mk_known_table faile for %s", tname);
+			LOG_ERROR("mk_known_table failed for %s", tname);
 			err = 1;
 			goto CLEAN_UP;
 		}
@@ -323,6 +323,8 @@ mk_known_table(FILE *fp, const char *tname)
 			nf++;
 			s_fp = *e_fp ? e_fp + 1 : e_fp;
 		}
+		if(s_fp > line && s_fp[-1] == '\t')
+			nf++;
 		if(nf != n_fields){
 			LOG_ERROR("table %s: line %d: wrong number of fields: %d, need %d", tname, lcnt, nf, n_fields);
 			err = 1;
@@ -345,6 +347,8 @@ mk_known_table(FILE *fp, const char *tname)
 			nf++;
 			s_fp = *e_fp ? e_fp + 1 : e_fp;
 		}
+		if(nf != n_fields)	// empty last field
+			printf("\t''\n");
 		printf(") ;\n");
 	}
 

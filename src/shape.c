@@ -68,12 +68,11 @@ SHP_make_sf_name(const char *pfx, const char *ext)
 {
 	char	*sfname = NULL;
 	size_t	s_sfname = 0;
-	char	*sfp;
-	const char	*e_pfx, *slash, *dot;
-	int	copy_pfx;
-	int	repl_ext;
+	const char	*sfp, *e_pfx, *slash, *dot;
 	int	add_dot;
 	int	add_ext;
+	int	chk_ext;
+	int	repl_ext;
 	int	err = 0;
 
 	if(pfx == NULL || *pfx == '\0'){
@@ -88,70 +87,79 @@ SHP_make_sf_name(const char *pfx, const char *ext)
 		goto CLEAN_UP;
 	}
 
-	for(dot = slash = NULL, e_pfx = pfx; *e_pfx; e_pfx++){
-		if(*e_pfx == '/')
-			slash = e_pfx;
-		else if(*e_pfx == '.')
-			dot = e_pfx;
+	for(dot = slash = NULL, sfp = pfx; *sfp; sfp++){
+		if(*sfp == '/')
+			slash = sfp;
+		else if(*sfp == '.')
+			dot = sfp;
 	}
 
-	copy_pfx = repl_ext = add_dot = add_ext = 0;
-	if(slash != NULL){
+	add_dot = add_ext = chk_ext = repl_ext = 0;
+	if(slash){
 		if(slash[1] == '\0'){
 			LOG_ERROR("pfx %s is a directory", pfx);
 			err = 1;
 			goto CLEAN_UP;
 		}
 		if(dot != NULL){	// dot, more checking needed
-			if(dot < slash)	// last dot before last slash, so pfx is a true pfx
-				add_dot = add_ext = 1;
-			else if(dot[1] == '\0')	// dot is last char, so needs ext
+			if(dot < slash){	// last dot before last slash, so pfx is a true pfx
+				add_dot = 1;
 				add_ext = 1;
-			else if(strcmp(&dot[1], ext)){	// pfx ends w/.ext, but ext != requested ext
-				repl_ext = 1;
+			}else if(dot[1] == '\0'){
 				add_ext = 1;
-			}else		// pfx is the desired file name
-				copy_pfx = 1;
-		}else	// no dot, so true pfx
-			add_dot = add_ext = 1;
-	}else if(dot != NULL){	// pfx contains . so may have or need an ext
-		if(dot[1] == '\0')
+				chk_ext = 0;
+			}else
+				chk_ext = 1;
+		}else{	// no dot, so true pfx
+			add_dot = 1;
 			add_ext = 1;
-		else if(strcmp(&dot[1], ext)){
+		}
+	}else if(dot != NULL){
+		if(dot[1] == '\0'){
+			add_ext = 1;
+			chk_ext = 0;
+		}else
+			chk_ext = 1;
+	}else{
+		add_dot = 1;
+		add_ext = 1;
+	}
+	if(chk_ext){
+		if(strcmp(&dot[1], "shp") && strcmp(&dot[1], "shx") && strcmp(&dot[1], "prj")){
+			add_dot = 1;
+			add_ext = 1;
+		}else if(strcmp(&dot[1], ext))
 			repl_ext = 1;
-			add_ext = 1;
-		}else		// pfx is the desired file name
-			copy_pfx = 1;
-	}else		// no dot, so true pfx
-		add_dot = add_ext = 1;
-
-	s_sfname = strlen(pfx);
-	if(!copy_pfx){
-		if(repl_ext)
-			s_sfname -= strlen(&dot[1]);
-		if(add_dot)
-			s_sfname++;
-		if(add_ext)
-			s_sfname += strlen(ext);
 	}
-	s_sfname++;	// don't forget the final \0
-
-	sfname = (char *)malloc(s_sfname * sizeof(char));
-	if(sfname == NULL){
-		LOG_ERROR("can't allocate sfname");
-		err = 1;
-		goto CLEAN_UP;
-	}
-
-	// more logic here
-	strcpy(sfname, pfx);
-	if(!copy_pfx){
-		sfp = repl_ext ? &sfname[(dot+1) - pfx] : &sfname[e_pfx - pfx];
-		if(add_dot)	// add_dot implies add_ext
-			*sfp++ = '.';
-		if(add_ext)
-			strcpy(sfp, ext);
-	}
+	if(repl_ext){
+		s_sfname = (dot - pfx + 1) + strlen(ext) + 1;
+		sfname = (char *)malloc(s_sfname * sizeof(char));
+		if(sfname == NULL){
+			LOG_ERROR("can't allocate sfname");
+			err = 1;
+			goto CLEAN_UP;
+		}
+		sprintf(sfname, "%.*s.%s", (int)(dot - pfx + 1), pfx, ext);
+	}else if(add_dot){
+		s_sfname = strlen(pfx) + 1 + strlen(ext) + 1;
+		sfname = (char *)malloc(s_sfname * sizeof(char));
+		if(sfname == NULL){
+			LOG_ERROR("can't allocate sfname");
+			err = 1;
+			goto CLEAN_UP;
+		}
+		sprintf(sfname, "%s.%s", pfx, ext);
+	}else if(add_ext){
+		s_sfname = strlen(pfx) + strlen(ext) + 1;
+		sfname = (char *)malloc(s_sfname * sizeof(char));
+		if(sfname == NULL){
+			LOG_ERROR("can't allocate sfname");
+			err = 1;
+			goto CLEAN_UP;
+		}
+		sprintf(sfname, "%s%s", pfx, ext);
+	}else
+		sfname = strdup(pfx);
 
 CLEAN_UP : ;
 
