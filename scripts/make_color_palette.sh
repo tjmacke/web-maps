@@ -3,7 +3,7 @@
 . ~/etc/funcs.sh
 export LC_ALL=C
 
-U_MSG="usage: $0 [ -help ] -fmt { cfg | html } [ -grad ] -hs N -he N [ -s S ] [ -v V ] n_colors"
+U_MSG="usage: $0 [ -help ] -fmt { cfg | html } -sname N [ -grad ] -h N[:N] [ -s N[:N] ] [ -v N[:N] ] n_colors"
 
 if [ -z "$DM_HOME" ] ; then
 	LOG ERROR "DM_HOME is not defined"
@@ -25,9 +25,9 @@ else
 fi
 
 FMT=
+SNAME=
 GRAD=
-H_START=
-H_END=
+H=
 S="0.7"
 V=1
 N_COLORS=
@@ -48,28 +48,28 @@ while [ $# -gt 0 ] ; do
 		FMT=$1
 		shift
 		;;
+	-sname)
+		shift
+		if [ $# -eq 0 ] ; then
+			LOG ERROR "-sname reqquires scale name argument"
+			echo "$U_MSG" 1>&2
+			exit 1
+		fi
+		SNAME="$1"
+		shift
+		;;
 	-grad)
 		GRAD="yes"
 		shift
 		;;
-	-hs)
+	-h)
 		shift
 		if [ $# -eq 0 ] ; then
-			LOG ERROR "-hs requires hue-angle argument"
+			LOG ERROR "-h requires hue argument"
 			echo "$U_MSG" 1>&2
 			exit 1
 		fi
-		H_START=$1
-		shift
-		;;
-	-he)
-		shift
-		if [ $# -eq 0 ] ; then
-			LOG ERROR "-h3 requires hue-angle argument"
-			echo "$U_MSG" 1>&2
-			exit 1
-		fi
-		H_END=$1
+		H=$1
 		shift
 		;;
 	-s)
@@ -115,23 +115,24 @@ if [ -z "$FMT" ] ; then
 	LOG ERROR "missing -fmt { cfg | html } argument"
 	echo "$U_MSG" 1>&2
 	exit 1
-elif [ "$FMT" != "cfg" ] && [ "$FMT" != "html" ] ; then
-	LOG ERROR "unknown format \"$FMT\" must cfg or html"
+elif [ "$FMT" == "cfg" ] ; then
+	if [ -z "$SNAME" ] ; then
+		LOG ERROR "-fmt cnt rquires -sname name"
+		echo "$U_MSG" 1>&2
+		exit
+	fi
+elif [ "$FMT" != "html" ] ; then
+	LOG ERROR "unknown format \"$FMT\" must be cfg or html"
 fi
 
-if [ -z "$H_START" ] ; then
-	LOG ERROR "missing -hs N argument"
-	echo "$U_MSG" 1>&2
-	exit 1
-fi 
-if [ -z "$H_END" ] ; then
-	LOG ERROR "missing -he N argument"
+if [ -z "$H" ] ; then
+	LOG ERROR "missing -h hue argument"
 	echo "$U_MSG" 1>&2
 	exit 1
 fi
 
 if [ -z "$N_COLORS" ] ; then
-	LOG ERROR "missing -n_colors argument"
+	LOG ERROR "missing n_colors argument"
 	echo "$U_MSG" 1>&2
 	exit 1
 elif [ $N_COLORS -lt 1 ] ; then
@@ -143,11 +144,13 @@ $AWK '
 @include '"$COLOR_UTILS"'
 BEGIN {
 	fmt = "'"$FMT"'"
-
+	sname = "'"$SNAME"'"
 	grad = "'"$GRAD"'" == "yes"
 
-	h_start = "'"$H_START"'" + 0
-	h_end = "'"$H_END"'" + 0
+	n_ary = split("'"$H"'", ary, ":")
+	h_start = h_end = ary[1] + 0
+	if(n_ary > 1)
+		h_end = ary[1] + 0
 	if(h_start < 0 || h_start > 360){
 		printf("ERROR: BEGIN: bad h_start: %5.3f, must be in [0,360]\n", h_start) > "/dev/stderr"
 		err = 1
@@ -159,20 +162,11 @@ BEGIN {
 		exit err
 	}
 
+	n_ary = split("'"$S"'", ary, ":")
+	s_start = s_end = ary[1] + 0
+	if(n_ary > 1)
+		s_end = ary[2] + 0
 	s = "'"$S"'"
-	if(index(s, ":")){
-		n_ary = split(s, ary, ":")
-		if(n_ary == 2){
-			s_start = ary[1] + 0
-			s_end = ary[2] + 0
-		}else{
-			printf("ERROR: BEGIN: bad s value: %s, has %d fields, must have %d\n", s, n_ary, 2) > "/dev/stderr"
-			err = 1
-			exit err
-		}
-
-	}else
-		s_start = s_end = s + 0
 	if(s_start < 0 || s_start > 1){
 		printf("ERROR: BEGIN: bad s_start: %5.3f, must be in [0,1]\n", s_start) > "/dev/stderr"
 		err = 1
@@ -184,19 +178,10 @@ BEGIN {
 		exit err
 	}
 
-	v = "'"$V"'"
-	if(index(v, ":")){
-		n_ary = split(v, ary, ":")
-		if(n_ary == 2){
-			v_start = ary[1] + 0
-			v_end = ary[2] + 0
-		}else{
-			printf("ERROR: BEGIN: bad v value: %s, has %d fields, must have %d\n", s, n_ary, 2) > "/dev/stderr"
-			err = 1
-			exit err
-		}
-	}else
-		v_start = v_end = v + 0
+	n_ary = split("'"$V"'", ary, ":")
+	v_start = v_end = ary[1] + 0
+	if(n_ary > 1)
+		v_end = ary[2] + 0
 	if(v_start < 0 || v_start > 1){
 		printf("ERROR: BEGIN: bad v_start: %5.3f, must be in [0,1]\n", v_start) > "/dev/stderr"
 		err = 1
@@ -269,15 +254,21 @@ END {
 		printf("</body>\n")
 		printf("</html>\n")
 	}else{
-		printf("main.values = ")
 		if(grad){
+			printf("%s.values = ", sname)
 			for(i = 1; i < n_colors; i++)
 				printf("%s%s:%s", i > 1 ? " | " : "", rgb_strs[i], rgb_strs[i+1])
+			printf("\n")
 		}else{
+			printf("%s.values = ", sname)
 			for(i = 1; i <= n_colors; i++)
 				printf("%s%s", i > 1 ? " | " : "", rgb_strs[i])
+			printf("\n")
+#			printf("%s.breaks = ", sname)
+#			for(i = 1; i < n_colors; i++)
+#				printf("%s%s", i > 1 ? " | " : "", i)
+#			printf("\n")
 		}
-		printf("\n")
 
 	}
 	exit err
