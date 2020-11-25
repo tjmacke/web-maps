@@ -383,7 +383,7 @@ if [ $n_OFILE -ne 0 ] ; then
 		printf("main.subtitle = Pin types\n")
 		printf("main.values = 0.90,0.90,0.90 | 0.94,0.94,0.5 | 0.94,0.75,0.5 | 0.94,0.5,0.5%s%s\n",
 			h_last ? " | 0.65,0.65,0.65" : "",
-			h_rest ? " | 0.7,0.9,0.7" : "")
+			h_rest ? " | 0.5,0.9,0.5" : "")
 		printf("main.keys = PPL | PLU | PCVL | PTRKL%s%s\n", h_last ? "| last" : "", h_rest ? " | rest" : "")
 		printf("main.def_value = %s\n", "0.63,0.63,0.94")
 		printf("main.def_key = dest\n")
