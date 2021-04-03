@@ -33,13 +33,13 @@ if [ "$AWK_VERSION" == "3" ] ; then
 	CFG_UTILS="$DM_LIB/cfg_utils.awk"
 	INTERP_UTILS="$DM_LIB/interp_utils.awk"
 	COLOR_UTILS="$DM_LIB/color_utils.awk"
-elif [ "$AWK_VERSION" == "4" ] ; then
+elif [ "$AWK_VERSION" == "4" ] || [ "$AWK_VERSION" == "5" ] ; then
 	AWK=awk
 	CFG_UTILS="\"$DM_LIB/cfg_utils.awk\""
 	INTERP_UTILS="\"$DM_LIB/interp_utils.awk\""
 	COLOR_UTILS="\"$DM_LIB/color_utils.awk\""
 else
-	LOG ERROR "unsupported awk version: \"$AWK_VERSION\": must be 3 or 4"
+	LOG ERROR "unsupported awk version: \"$AWK_VERSION\": must be 3, 4 or 5"
 	exit 1
 fi
 
