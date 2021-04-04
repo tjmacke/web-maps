@@ -112,10 +112,6 @@ elif [ "$ATYPE" != "src" ] && [ "$ATYPE" != "dst" ] ; then
 	exit 1
 fi
 
-if [ ! -z "$WHERE" ] ; then
-	WHERE="-w $WHERE"
-fi
-
 if [ ! -z "$UNIT" ] ; then
 	if [ "$UNIT" == "days" ] ; then
 		UNIT="-u $UNIT"
@@ -131,8 +127,14 @@ else
 	BK="weeks"
 fi
 
-$DM_SCRIPTS/get_visit_info.sh -at $ATYPE $WHERE $UNIT -meta $TMP_MFILE $DB				|
-$WM_SCRIPTS/interp_prop.sh -c $CFILE -bk $BK -nk marker-color -meta $TMP_MFILE	| $WM_SCRIPTS/format_color.sh -k marker-color	|
+# Some things are just too hard to escape
+if [ ! -z "$WHERE" ] ; then
+ 	$DM_SCRIPTS/get_visit_info.sh -at $ATYPE -w "$WHERE" $UNIT -meta $TMP_MFILE $DB	
+else
+	$DM_SCRIPTS/get_visit_info.sh -at $ATYPE $UNIT -meta $TMP_MFILE $DB
+fi											|
+$WM_SCRIPTS/interp_prop.sh -c $CFILE -bk $BK -nk marker-color -meta $TMP_MFILE		|
+$WM_SCRIPTS/format_color.sh -k marker-color						|
 $WM_SCRIPTS/interp_prop.sh -c $CFILE -bk visits -nk marker-size -meta $TMP_MFILE	> $TMP_MBD
 cat $CFILE $TMP_MFILE | $DM_SCRIPTS/cfg_to_json.sh > $TMP_JC_FILE
 
