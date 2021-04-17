@@ -389,7 +389,7 @@ mk_create_table_cmd(const DBF_META_T *dbm, const char *tname, const char *pk)
 		fldp = dbm->d_fields[i];
 		if(!strcmp(fldp->d_name, pk)){
 			if(fldp->d_type != 'N'){
-				LOG_ERROR("requested primary key field %s has wrong type %c", pk, fldp->d_type);
+				LOG_ERROR("requested primary key f0ield %s has wrong type %c", pk, fldp->d_type);
 				err = 1;
 				goto CLEAN_UP;
 			}else if(fldp->d_dec_count != 0){
@@ -412,17 +412,18 @@ mk_create_table_cmd(const DBF_META_T *dbm, const char *tname, const char *pk)
 		fldp = dbm->d_fields[i];
 		printf("\t%s", fldp->d_name);
 		if(fldp->d_type == 'C')
-			printf(" text");
+			printf(" text NOT NULL,\n");
 		else if(fldp->d_type == 'N')
-			printf(" %s", fldp->d_dec_count == 0 ? "integer" : "double");
+			printf(" %s NOT NULL,\n", fldp->d_dec_count == 0 ? "integer" : "double");
 		else if(fldp->d_type == 'F')
-			printf(" double");
+			printf(" double NOT NULL,\n");
+		else if(fldp->d_type == 'D')	// DATE as YYYYMMDD, where '' and '00000000' are used for NULL
+			printf(" text NULL,\n");
 		else{
 			LOG_ERROR("unknown field type %c", fldp->d_type);
 			err = 1;
 			goto CLEAN_UP;
 		}
-		printf(" NOT NULL,\n");
 	}
 	printf("\tPRIMARY KEY(%s ASC)\n", pk );
 	printf(") ;\n");
@@ -461,7 +462,15 @@ mk_insert_cmd(const DBF_META_T *dbm, const char *tname, const char * pk, const c
 			err = 1;
 			goto CLEAN_UP;
 		}
-		if(fldp->d_type != 'C')
+		if(fldp->d_type == 'D'){	// DATE
+			// fval == "" or "00000000" -> NULL
+			// otherwise "YYYY-MM-DDT00:00:00"
+			if(!*fval || !strcmp(fval, "00000000")){
+				printf("\t%s", "NULL");
+			}else{
+				printf("\t'%.4s-%.2s-%.2sT00:00:00'", fval, &fval[4], &fval[6]);
+			}
+		}else if(fldp->d_type != 'C')
 			printf("\t%s", fval);
 		else{
 			printf("\t'");
@@ -501,6 +510,8 @@ mk_insert_cmd(const DBF_META_T *dbm, const char *tname, const char * pk, const c
 		if(i < dbm->dn_fields - 1)
 			printf(",");
 		printf("\n");
+		free(fval);
+		fval = NULL;
 	}
 	printf(") ;\n");
 
