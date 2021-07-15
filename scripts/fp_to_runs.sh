@@ -57,7 +57,8 @@ awk 'BEGIN {
 			tEnd[n_sdtab] = ary[4]
 			mStart[n_sdtab] = ary[5]
 			mEnd[n_sdtab] = ary[6]
-			pay[n_sdtab] = ary[7]
+			nJobs[n_sdtab] = ary[7]
+			pay[n_sdtab] = ary[8]
 		}
 	}
 }
@@ -80,21 +81,35 @@ END {
 			sd_idx = sdtab[ainfo["date"] "_" ainfo["app"]]
 			printf("%s\t%s\t.\t.\tBEGIN\n", ainfo["date"], tStart[sd_idx])
 		}else if(ainfo["app"] != l_app){
-			printf("%s\t.\t%s\t.\tEND\n", l_date, tEnd[sd_idx])
-			sd_idx = sdtab[ainfo["date"] "_" ainfo["app"]]
-			printf("%s\t%s\t.\t.\tBEGIN\n", ainfo["date"], tStart[sd_idx])
+			# app starting w/+ indicates >1 app running
+			if(substr(ainfo["app"], 1, 1) != "+"){
+				printf("%s\t.\t%s\t.\tEND\n", l_date, tEnd[sd_idx])
+				sd_idx = sdtab[ainfo["date"] "_" ainfo["app"]]
+				printf("%s\t%s\t.\t.\tBEGIN\n", ainfo["date"], tStart[sd_idx])
+			}
 		}
 			
 		for(d = da_start; d <= ainfo["n_atab"]; d++){
 			printf("%s\t%s", ainfo["date"], ainfo["time"])
 			printf("\t.\t.\tJob")
 			printf("\t%s\t%s", ainfo["atab", 1], ainfo["atab", d])
+
 			# Payment was DD only, use -1 to indicate N/A
-			printf("\t-1\t%s\t.", ainfo["app"])
+			# The Payment field was used to indicate payment via DD red card.
+			# Then added caviar and grubhub, neither of which had payment cards, so -1 means no longer used.
+			# And then grubhub added a payment card, but too bad.  Never used the info anyway
+			printf("\t-1")
+
+			# Never expected to run > 1 app at the same time. Did. Once. Bad idea. Nveer again.
+			# Use +app to indicate 2d app.  Drop the + before printing
+			printf("\t%s\t.", substr(ainfo["app"], 1, 1) == "+" ? substr(ainfo["app"], 2) : ainfo["app"])
+
 			printf("\n")
 		}
 		l_date = ainfo["date"]
-		l_app = ainfo["app"]
+		# do not update l_app if app begins with + as the "dash" info should not change.
+		if(substr(ainfo["app"], 1, 1) != "+")
+			l_app = ainfo["app"]
 	}
 	if(n_lines > 0)
 		printf("%s\t.\t%s\t.\tEND\n", l_date, tEnd[sd_idx])
