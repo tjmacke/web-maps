@@ -30,7 +30,7 @@ CLEAN_UP : ;
 void
 FIO_write_be_int4(FILE *fp, int ival)
 {
-	uint32_t	uval;
+	u_int32_t	uval;
 
 	uval = ival;
 	fputc(((uval & 0xff000000) >> 24), fp);
@@ -64,7 +64,7 @@ CLEAN_UP : ;
 
 void FIO_write_le_int4(FILE *fp, int ival)
 {
-	uint32_t	uval;
+	u_int32_t	uval;
 	uval = ival;
 	fputc( (uval & 0x000000ff),        fp);
 	fputc(((uval & 0x0000ff00) >>  8), fp);

@@ -11,12 +11,22 @@ CSV_LIBS=-L/usr/local/lib -lcsv
 GPC_LIBS=../third-party/gpc.o
 SSL_LIBS=-L/usr/local/ssl/lib -lcrypto
 
+#tm PROGRAMS=	\
+#tm 	csv2tsv			\
+#tm 	dbase_to_sqlite		\
+#tm 	find_addrs_in_rect	\
+#tm 	get_shp_recs		\
+#tm 	gpc_driver		\
+#tm 	index_shp_file		\
+#tm 	make_shx_from_shp_file	\
+#tm 	shp_dump		\
+#tm 	shp_get			\
+#tm 	shp_to_geojson
+
 PROGRAMS=	\
-	csv2tsv			\
 	dbase_to_sqlite		\
 	find_addrs_in_rect	\
 	get_shp_recs		\
-	gpc_driver		\
 	index_shp_file		\
 	make_shx_from_shp_file	\
 	shp_dump		\
@@ -32,7 +42,7 @@ dbase_to_sqlite:	dbase_to_sqlite.o log.o args.o dbase.o
 	$(CC) $(CFLAGS) -o dbase_to_sqlite dbase_to_sqlite.o log.o args.o dbase.o
 
 find_addrs_in_rect:	find_addrs_in_rect.o log.o args.o adata.o
-	$(CC) $(CFLAGS) -o find_addrs_in_rect find_addrs_in_rect.o log.o args.o adata.o
+	$(CC) $(CFLAGS) -o find_addrs_in_rect find_addrs_in_rect.o log.o args.o adata.o -lm
 
 get_shp_recs:	get_shp_recs.o log.o args.o file_io.o shape.o
 	$(CC) $(CFLAGS) -o get_shp_recs get_shp_recs.o log.o args.o file_io.o shape.o
