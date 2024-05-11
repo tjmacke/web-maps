@@ -7,6 +7,18 @@ U_MSG="usage: $0 [ -help ] -l line-file [ point-file ]"
 LFILE=
 FILE=
 
+# line file format: tsv
+# Fnum	Fval
+# 1	polygon name
+# 2	polygon number
+# 3	is vertical, so slope, m is inf and y intercept, b is the x intercept
+# 4	slope, m. see #3	
+# 5	y intercept, b, see #3
+# 6	x1
+# 7	y1
+# 8	x2
+# 9	y2
+
 while [ $# -gt 0 ] ; do
 	case $1 in
 	-help)
