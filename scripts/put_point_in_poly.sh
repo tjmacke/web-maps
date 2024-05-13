@@ -19,6 +19,15 @@ FILE=
 # 8	x2
 # 9	y2
 
+# points file formt: tsv
+# Fnum	Fval
+# 1	User defined
+# 2	point ID
+# 3	User defined
+# 4	x
+# 5	y
+# 6	candidate polys: as a "|" separated list
+
 while [ $# -gt 0 ] ; do
 	case $1 in
 	-help)
