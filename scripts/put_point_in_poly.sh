@@ -122,7 +122,7 @@ awk -F'\t' 'BEGIN {
 				continue	# below
 			else if(x > xmax_tab[ix])
 				continue	# to the right
-			nc += crosses(x, y, iv_tab[ix], m_tab[ix], b_tab[ix], x1tab[ix], y1tab[ix], x1tab[ix], y2tab[ix])
+			nc += crosses(x, y, iv_tab[ix], m_tab[ix], b_tab[ix], x1_tab[ix], ymin_tab[ix])
 		}
 		if(nc % 2){
 			printf("%s\t%s\n", $2, nb)
@@ -136,13 +136,13 @@ function min(a, b) {
 function max(a, b) {
 	return a > b ? a : b
 }
-function crosses(x, y, iv, m, b, x1, y1, x2, y2,   ans) {
+function crosses(x, y, iv, m, b, x1, ymin,   ans) {
 
 	if(iv)
 		ans =  x < x1
-	else if(m != 0)
-		ans = x < (y - b)/m
-	else
+	else if(m != 0){
+		ans = y != ymin && x < (y - b)/m
+	}else
 		ans = 0
 	return ans
 }' $FILE
