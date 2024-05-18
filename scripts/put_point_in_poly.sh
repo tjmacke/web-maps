@@ -2,8 +2,9 @@
 #
 . ~/etc/funcs.sh
 
-U_MSG="usage: $0 [ -help ] -l line-file [ point-file ]"
+U_MSG="usage: $0 [ -help ] [ -is_chull ] -l line-file [ point-file ]"
 
+IS_CHULL=0
 LFILE=
 FILE=
 
@@ -33,6 +34,10 @@ while [ $# -gt 0 ] ; do
 	-help)
 		echo "$U_MSG"
 		exit 0
+		;;
+	-is_chull)
+		IS_CHULL=1
+		shift
 		;;
 	-l)
 		shift
@@ -69,9 +74,10 @@ if [ -z "$LFILE" ] ; then
 	exit 1
 fi
 
-awk -F'\t' 'BEGIN {
+awk -F'\t' -v is_chull="$IS_CHULL" 'BEGIN {
 	lfile = "'"$LFILE"'"
 	name = ""
+	n_poly = 0
 	cnt = 0;
 	for(n_lines = 0; (getline < lfile) > 0; ){
 		n_lines++
@@ -93,6 +99,7 @@ awk -F'\t' 'BEGIN {
 		xmax_tab[n_lines] = max(x1, x2)
 		ymax_tab[n_lines] = max(y1, y2)
 		if($1 != name){
+			n_poly++
 			if(name != "")
 				l_cnt[name] = cnt
 			cnt = 0
@@ -103,8 +110,20 @@ awk -F'\t' 'BEGIN {
 	}
 	l_cnt[name] = cnt
 	close(lfile)
+
+	if(is_chull){
+		if(n_poly > 1){
+			emsg = sprintf("ERROR: BEGIN: too many polygons: %d : is_chull requires only 1", n_poly)
+			err = 1
+			exit err
+		}
+		for(i = 1; i < n_lines; i++)
+			chull[x1_tab[i], y1_tab[i]] = 1
+	}
+
 #	for(nb in l_first)
 #		printf("%d\t%d\t%s\n", l_first[nb], l_cnt[nb], nb) > "/dev/stderr"
+
 }
 {
 	n_pcands = split($6, pcands, "|")
@@ -124,11 +143,26 @@ awk -F'\t' 'BEGIN {
 				continue	# to the right
 			nc += crosses(x, y, iv_tab[ix], m_tab[ix], b_tab[ix], x1_tab[ix], ymin_tab[ix])
 		}
+		# odd number of crosses means in the polygon
 		if(nc % 2){
 			printf("%s\t%s\n", $2, nb)
 			break
 		}
+		# if the only poly is a convex hull, then points on the
+		# N & E parts of the hull are in the hull even though they
+		# do not cross it
+		if(is_chull){
+			if(chull[x,y]){
+				printf("%s\t%s\n", $2, nb)
+				break
+			}
+		}
 	}
+}
+END {
+	if(err)
+		exit emsg
+	exit 0
 }
 function min(a, b) {
 	return a < b ? a : b
