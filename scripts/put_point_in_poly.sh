@@ -29,6 +29,12 @@ FILE=
 # 5	y
 # 6	candidate polys: as a "|" separated list
 
+# output, which may be enpty if no pts are in any of the polys
+# output file format: tsv
+# Fnum	Fval
+# 1	point ID
+# 2	Name of polygon containing this point
+
 while [ $# -gt 0 ] ; do
 	case $1 in
 	-help)
