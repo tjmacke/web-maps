@@ -81,7 +81,7 @@ if [ -z "$LFILE" ] ; then
 fi
 
 awk -F'\t' -v is_chull="$IS_CHULL" -v lfile="$LFILE" 'BEGIN {
-        emsg = WM_read_geom(lfile, is_chull, iv_tab, m_tab, b_tab, x1_tab, xmin_tab, ymin_tab, xmax_tab, ymax_tab, l_first, l_cnt, chull)
+        emsg = WM_read_polys(lfile, is_chull, iv_tab, m_tab, b_tab, x1_tab, xmin_tab, ymin_tab, xmax_tab, ymax_tab, l_first, l_cnt, chull)
 	if(emsg != "")
 		exit 1
 }
@@ -112,7 +112,7 @@ function WM_crosses(x, y, iv, m, b, x1, ymin,   ans) {
 		ans = 0
 	return ans
 }
-function WM_read_geom(lfile, is_chull, iv_tab, m_tab, b_tab, x1_tab, xmin_tab, ymin_tab, xmax_tab, ymax_tab, l_first, l_cnt, chull,  name, n_poly, cnt, n_lines, x1, y1, x2, y2) {
+function WM_read_polys(lfile, is_chull, iv_tab, m_tab, b_tab, x1_tab, xmin_tab, ymin_tab, xmax_tab, ymax_tab, l_first, l_cnt, chull,  name, n_poly, cnt, n_lines, x1, y1, x2, y2) {
 
 	name = ""
 	n_poly = 0
