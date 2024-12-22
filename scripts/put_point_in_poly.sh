@@ -15,7 +15,7 @@ IS_CHULL=0
 LFILE=
 FILE=
 
-# line file format: tsv
+# line file format: tsv, can contain >= 1 polygon
 # Fnum	Fval
 # 1	polygon name
 # 2	polygon number
